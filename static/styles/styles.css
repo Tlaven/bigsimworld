@@ -1,0 +1,91 @@
+/* Basic Reset */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+}
+div {
+    border: 1px solid #6b6b6b; /* Solid black border */
+}
+
+body {
+    font-family: Arial, sans-serif;
+}
+
+.container {
+    display: flex; /* Make the container a flex container */
+    width: 100%;
+    height:960px;
+}
+
+.general_framework {
+    display: flex; /* Make the general_framework a flex container */
+    width: 1640px; /* Ensure it takes up the full width of its parent */
+    height:820px;
+    margin: auto;
+}
+
+.individual_column {
+    width:25%; 
+    height:100%;
+    gap: 10px; /* Space between cards */ 
+}
+.view_container_wrap {
+    width:70%; 
+    height:100%;
+    gap: 10px; /* Space between cards */ 
+}
+.operation_control_frame{
+    width:5%; 
+    height:100%;
+    gap: 10px; /* Space between cards */ 
+}
+
+.individual_column_topnav,
+.view_topnav {
+    background-color: #88a5f5; /* Light gray background for topnavs */
+    padding: 0;
+    margin-bottom: 0;
+    display: flex; /* New line: use flex display to align button frames horizontally */
+    justify-content: left; /* New line: distribute button frames evenly across the width */
+}
+
+
+.individual_column_list {
+    width:99%; 
+    height:97%;
+    flex-direction: column;
+    gap: 10px; /* Space between cards */
+    overflow:auto;
+    margin: auto;
+}
+
+.view_container{
+    width: 99%;
+    height: 790px;
+    margin: auto;
+}
+
+.chart-canvas {
+    width: 100%;
+    height: 790px;
+
+}
+
+.list-item {
+    background-color: white;
+    padding: 15px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+}
+
+.topnav_button {
+    background-color: #6d62fa;
+    border-radius: 4px;
+    margin-bottom: 0;
+    margin-right: 0;
+    cursor: pointer;
+    
+}
+
