@@ -26,7 +26,6 @@ class Character:
         del self.model.characters[self.id]  # 显式删除对象引用，帮助释放内存
         gc.collect()  # 强制进行垃圾回收
 
-    # 生孩子
     def have_child(self, other):
         if self.gender == 'male':
             child = generate_character(xing = self.xing)
@@ -43,15 +42,13 @@ class Character:
         self.relationships['children'].append(child_id)
         other.relationships['children'].append(child_id)
 
-    # 结婚
     def marry(self, other):
         if 'spouse' not in self.relationships and 'spouse' not in other.relationships:
             self.relationships['spouse'] = other.id
             other.relationships['spouse'] = self.id
         else:
             print("Cannot marry, already married.")
-    
-    # 离婚
+
     def divorce(self, other):
         if self.relationships['spouse'] == other.id and other.relationships['spouse'] == self.id:
             del self.relationships['spouse']
