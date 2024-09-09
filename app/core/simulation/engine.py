@@ -1,7 +1,7 @@
-from base import crud
-from person.character import Character
-from simulation.events import PeopleEvents
-from simulation.later import ExecutionQueue
+from app.models import crud
+from app.core.person.character import Character
+from app.core.simulation.events import PeopleEvents
+from app.core.simulation.later import ExecutionQueue
 
 
 class SimulationEngine:

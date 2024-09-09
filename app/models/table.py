@@ -2,7 +2,7 @@ from sqlalchemy import create_engine, Column, Integer, String, Index, CheckConst
 from sqlalchemy.ext.declarative import declarative_base
 
 # 创建数据库引擎
-engine = create_engine('sqlite:///data/db.sqlite3')
+engine = create_engine('sqlite:///db.sqlite3')
 Base = declarative_base()
 
 from sqlalchemy import JSON

@@ -1,6 +1,6 @@
-from base import crud
-from generate.human import generate_character
-from person.events import IndividualEvents
+from app.models import crud
+from app.core.generation.human import generate_character
+from app.core.person.events import IndividualEvents
 import gc
 
 

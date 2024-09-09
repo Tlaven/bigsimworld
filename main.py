@@ -1,5 +1,5 @@
-from simulation.engine import SimulationEngine
-from generate.human import generate_character
+from app.core.simulation.engine import SimulationEngine
+from app.core.generation.human import generate_character
 
 
 def create_peoples(engine):

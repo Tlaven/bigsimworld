@@ -1,4 +1,4 @@
-from .name import RandomUtil
+from app.core.generation.name import RandomUtil
 
 def generate_character(**kwargs):
     # 使用 dict.setdefault 设置默认值

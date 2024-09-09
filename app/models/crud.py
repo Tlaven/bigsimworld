@@ -1,7 +1,7 @@
 import logging
 from sqlalchemy.orm import sessionmaker
-from base.table import (Table, engine)
 from functools import wraps
+from app.models.table import (Table, engine)
 
 # 配置日志
 logger = logging.getLogger(__name__)
