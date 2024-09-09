@@ -76,6 +76,7 @@ venv/
 ENV/
 env.bak/
 venv.bak/
+.python-version
 
 # Other tools and IDE settings
 *.sage.py
@@ -99,3 +100,79 @@ celerybeat-schedule
 Pipfile.lock
 poetry.lock
 pdm.lock
+
+# Dependency directories
+node_modules/
+pnpm-debug.log*
+
+# Production build output
+/dist
+
+# Debug logs from pnpm
+.pnpm-debug.log*
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Editor directories and files
+.idea
+.vscode
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# Operating System generated files
+.DS_Store
+Thumbs.db
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# dotenv environment variable files
+.env*
+
+# parcel-bundler cache (https://parceljs.org/)
+.cache
+.parcel-cache
+
+# next.js build output
+.next
+out
+
+# nuxt.js build output
+.nuxt
+dist
+
+# vuepress build output
+.vuepress/dist
+
+# Serverless directories
+.serverless/
+
+# FuseBox cache
+.fusebox/
+
+# DynamoDB Local files
+.dynamodb/
+
+# Temporary folders
+tmp/
+temp/
