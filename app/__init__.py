@@ -3,10 +3,9 @@ from flask_cors import CORS
 from flask_sse import sse
 
 from .api import api_blueprint  # 导入总的 API 蓝图
-from app.utils.cache import cache
+from .utils.cache import cache
+from app.core.simulation.runner import run_simulation_in_background
 
-# 内存缓存
-performance_data = {'loads': {}}
 
 def create_app():
     app = Flask(__name__)
@@ -28,6 +27,9 @@ def create_app():
 
     # 注册 API 蓝图
     app.register_blueprint(api_blueprint, url_prefix='/api')
+
+    # 启动后台任务
+    run_simulation_in_background()
 
     return app
 

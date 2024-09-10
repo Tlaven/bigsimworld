@@ -3,7 +3,6 @@ from app.core.person.character import Character
 from app.core.simulation.events import PeopleEvents
 from app.core.simulation.later import ExecutionQueue
 from app.utils.decorators import time_limit
-from app.utils.cache import cache
 
 
 class SimulationEngine:
@@ -48,7 +47,7 @@ class SimulationEngine:
         print(f"Created character {character_dict['name']}.")
         return character_dict['id']
 
-    @time_limit(1)
+    @time_limit(1, record_name = "simulation_step/s")
     def step(self):
         print(f"Step {self.simulation_time}:")
         self.simulation_time += 1
