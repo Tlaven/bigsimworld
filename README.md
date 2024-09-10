@@ -29,25 +29,6 @@ SimuWorld
 │  ├─ services
 │  ├─ utils
 │  └─ __init__.py
-├─ main.py
 ├─ README.md
 ├─ run.py
 └─ web
-   ├─ babel.config.js
-   ├─ jsconfig.json
-   ├─ package.json
-   ├─ pnpm-lock.yaml
-   ├─ public
-   │  ├─ favicon.ico
-   │  └─ index.html
-   ├─ README.md
-   ├─ src
-   │  ├─ App.vue
-   │  ├─ assets
-   │  │  └─ logo.png
-   │  ├─ components
-   │  │  └─ HelloWorld.vue
-   │  └─ main.js
-   └─ vue.config.js
-
-```
