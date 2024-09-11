@@ -28,9 +28,7 @@ def create_app():
     # 注册 API 蓝图
     app.register_blueprint(api_blueprint, url_prefix='/api')
 
-    # 启动后台任务
-    run_simulation_in_background()
-
     return app
 
 app = create_app()
+run_simulation_in_background()

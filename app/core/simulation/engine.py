@@ -3,7 +3,9 @@ from app.core.person.character import Character
 from app.core.simulation.events import PeopleEvents
 from app.core.simulation.later import ExecutionQueue
 from app.utils.decorators import time_limit
+from app.utils.cache import cache
 
+import psutil
 
 class SimulationEngine:
     def __init__(self):
@@ -44,12 +46,15 @@ class SimulationEngine:
         character_dict['id'] = crud.insert_character(**character_dict)
         # 加载人添加到加入执行队列
         self.execution_queue.enqueue(lambda: self.characters.update({character_dict['id']: Character(self, **character_dict)}))
-        print(f"Created character {character_dict['name']}.")
+        #print(f"Created character {character_dict['name']}.")
         return character_dict['id']
 
     @time_limit(1, record_name = "simulation_step/s")
     def step(self):
-        print(f"Step {self.simulation_time}:")
+        process = psutil.Process()  # 获取当前进程
+        memory_info = process.memory_info()
+        print(f"内存信息：{memory_info}")
+        print(f"Step {self.simulation_time}:{cache.get('simulation_step/s')[-1]} people:{len(self.characters)}")
         self.simulation_time += 1
         self.execution_queue = ExecutionQueue()
         for character in self.characters.values():

@@ -21,4 +21,4 @@ class PeopleEvents:
                 female.to_do.remove('marry')
                 self.characters_to_do['male_marry'].remove(male)
                 self.characters_to_do['female_marry'].remove(female)
-                print(f"Character {male.name} and {female.name} have married.")
+                #print(f"Character {male.name} and {female.name} have married.")

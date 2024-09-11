@@ -63,6 +63,7 @@ class Character:
             print("Cannot divorce, not married.")
 
     def step(self):
+        self.age += 1
         IndividualEvents(self.model, self)
 
 
