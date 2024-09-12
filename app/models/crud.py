@@ -3,6 +3,7 @@ from sqlalchemy.orm import sessionmaker
 from functools import wraps
 from app.models.table import (Table, engine)
 
+
 # 配置日志
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -53,14 +54,13 @@ def insert_character(session, **kwargs) -> int:
 # 插入多个角色
 @session_manager
 def insert_multiple_characters(session, characters_data: list[dict]) -> list[int]:
-    characters = [
-        Table(**data) for data in characters_data
-    ]
+    characters = [Table(**data) for data in characters_data]
+
     session.add_all(characters)
-    session.flush()  # 刷新数据库连接，确保数据被写入
-    new_character_ids = [character.id for character in characters]
+    # session.flush()  # 刷新数据库连接，确保数据被写入
+    # new_character_ids = [character.id for character in characters]
     logger.info(f"{len(characters)} characters inserted successfully.")
-    return new_character_ids
+    # return new_character_ids
     
 # 更新单个角色
 @session_manager
@@ -98,13 +98,14 @@ def get_characters(session, filters=None, ids=None):
         # 根据传入的 ids 和 filters 逐步构建查询
         if ids:
             query = query.filter(Table.id.in_(ids))
+            logger.info(f"Querying characters with ids: {ids}")
         if filters:
             query = query.filter_by(**filters)
+            logger.info(f"Querying characters with filters: {filters}")
         
         characters = query.all()
         return characters  # 将返回放到 try 块内，防止异常时执行
     except Exception as e:
-        session.rollback()
         logger.exception(f"Error occurred during get_characters operation with filters={filters} and ids={ids}")
         raise  # 重新抛出异常
 
@@ -117,7 +118,6 @@ def get_characters_by_status_and_end_time(session, status, end_time):
             Table.end_time == end_time
         ).all()
     except Exception as e:
-            session.rollback()
             logger.exception("Error occurred during the operation")
             raise  # 重新抛出异常以便进一步处理
     return characters

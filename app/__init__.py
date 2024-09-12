@@ -4,7 +4,7 @@ from flask_sse import sse
 
 from .api import api_blueprint  # 导入总的 API 蓝图
 from .utils.cache import cache
-from app.core.simulation.runner import run_simulation_in_background
+from app.core.simulation.runner import SimulationRunner
 
 
 def create_app():
@@ -14,9 +14,6 @@ def create_app():
     app.config["REDIS_URL"] = "redis://localhost:6379/0"
 
     # 配置缓存
-    app.config['CACHE_TYPE'] = 'redis'
-    app.config['CACHE_REDIS_HOST'] = 'localhost'
-    app.config['CACHE_REDIS_PORT'] = 6379
     cache.init_app(app)
 
     # 注册 SSE Blueprint
@@ -31,4 +28,4 @@ def create_app():
     return app
 
 app = create_app()
-run_simulation_in_background()
+background_runner = SimulationRunner()

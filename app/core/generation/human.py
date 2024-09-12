@@ -1,4 +1,4 @@
-from app.core.generation.name import RandomUtil
+from app.core.generation.utils import RandomUtil
 
 def generate_character(**kwargs):
     # 使用 dict.setdefault 设置默认值
@@ -6,6 +6,7 @@ def generate_character(**kwargs):
     kwargs.setdefault('age', 0)
     kwargs.setdefault('property', 0)
     kwargs.setdefault('relationships', {})
+    kwargs.setdefault('status', 'active')
 
     # 如果 name 为 None，则生成名称
     if kwargs['name'] is None:
@@ -15,4 +16,11 @@ def generate_character(**kwargs):
     
     return kwargs
 
-        
+def generate_characters(num, **kwargs):
+    names = RandomUtil.genrate_names(num)
+    num = len(names)
+    if kwargs.get('age') is None:
+        ages = RandomUtil.generate_ages(num)
+    else:
+        ages = [kwargs.get('age')] * num
+    return [{'name': name, 'age': age, 'gender': gender,'xing': xing,'property': 0, 'relationships': {}} for (name, gender, xing), age in zip(names, ages)]

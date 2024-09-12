@@ -26,7 +26,7 @@ class Character:
         del self.model.characters[self.id]  # 显式删除对象引用，帮助释放内存
         gc.collect()  # 强制进行垃圾回收
 
-    def have_child(self, other):
+    def have_child(self, other) -> 'Character':
         if self.gender == 'male':
             child = generate_character(xing = self.xing)
             child['relationships'] = {'father': self.id, 'mother': other.id}
@@ -37,10 +37,11 @@ class Character:
             self.relationships['children'] = []
         if not 'children' in other.relationships:
             other.relationships['children'] = []
-        child_id = self.model.create_character(child)
+        character = self.model.create_character(child)
         
-        self.relationships['children'].append(child_id)
-        other.relationships['children'].append(child_id)
+        self.relationships['children'].append(character.id)
+        other.relationships['children'].append(character.id)
+        return character
 
     def marry(self, other):
         if 'spouse' not in self.relationships and 'spouse' not in other.relationships:
