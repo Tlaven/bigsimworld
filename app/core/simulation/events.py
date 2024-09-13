@@ -19,11 +19,8 @@ class PeopleEvents:
         self.acquaintance_plaza.clear()
         for (p1, p2) in paire_plaza:
             if p1 not in p2.relatives and p2 not in p1.relatives and p1.id != p2.id:
-                p1.acquaintance.append(p2)
-                p2.acquaintance.append(p1)
-        print(paire_plaza[0][0].relationships)
-
-
+                p1.relationships['acquaintance'].append(p2)
+                p2.relationships['acquaintance'].append(p1)
 
 
 

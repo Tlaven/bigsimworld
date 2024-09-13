@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 from app.models import crud
 from app.models.table import Table
 from app.core.generation.human import generate_character
@@ -17,15 +19,12 @@ class Character:
 
         relationship_keys = {'acquaintance','familiarity','friend','spouse', 'ex-spouses', 'father','mother', 'children'}
         self.relatives = set()
-        temp_relationship = {}
 
+        self.relationships = defaultdict(list)
         for key in relationship_keys:
             value = self.relationships.get(key, [])
-            setattr(self, key, value)
-            temp_relationship[key] = value
             self.relatives.update(value)
 
-        self.relationships = temp_relationship
 
     # 将人物关系的索引 id 转换为对象
     def init_relationships(self):
