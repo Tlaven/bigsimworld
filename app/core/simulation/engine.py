@@ -33,6 +33,9 @@ class SimulationEngine:
               character_tuple))) for character_tuple in query
             })
         print(f"Created {len(self.characters)} characters.")
+        
+        for character in self.characters.values():
+            character.init_relationships()
 
     def create_character(self, character_dict) -> Character:
         # character_dict['id'] = crud.insert_character(**character_dict)

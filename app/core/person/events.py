@@ -17,54 +17,66 @@ class IndividualEvents:
 
 
     def possible_events(self):
-        # acquaintance 根据 character 属性决定 count
         if (acquaintance_ratio := 1 / (len(self.acquaintance) * 10 + 500) * 500) < random.random() * 0.5:
-            temp_c = self.acquaintance[-1]  
-            self.acquaintance = self.acquaintance[:-1]
-            self.characters[temp_c].acquaintance.remove(self.id)
+            temp_c = self.acquaintance.pop(-1)
+            temp_c.acquaintance.remove(self)
         else:
             if (count := random_int(0.1 * acquaintance_ratio)):
                 self.acquaintance_event(count)
 
-        if (familiarity_ratio := 1 / (len(self.familiarity) * 10 + 100) * 100) < random.random() * 0.5:
-            temp_set = move_temp_set(self.familiarity, self.acquaintance, [0.1 for id in self.familiarity], 1)
-            for id in temp_set:
-                self.characters[id].acquaintance.append(self.id)
-                self.characters[id].familiarity.remove(self.id)
-        else:
-            if (count := random_int(0.1 * len(self.acquaintance) * familiarity_ratio)):
-                self.familiarity_event(count)
-
-        if random_int(0.1 * len(self.familiarity) / (len(self.friend) * 100 + 500) * 500):
-            self.friend_event()
-
-        if not self.spouse and random_int(0.1) and 18 < self.age < 60 and (temp_p := self.familiarity + self.friend):
-            self.spouse_event(temp_p)
 
     def acquaintance_event(self, count):
         self.event_plaza['acquaintance'].extend([self.character] * count)
+        
+    # def possible_events(self):
+    #     # acquaintance 根据 character 属性决定 count
+    #     if (acquaintance_ratio := 1 / (len(self.acquaintance) * 10 + 500) * 500) < random.random() * 0.5:
+    #         temp_c = self.acquaintance[-1]  
+    #         self.acquaintance = self.acquaintance[:-1]
+    #         self.characters[temp_c].acquaintance.remove(self.id)
+    #     else:
+    #         if (count := random_int(0.1 * acquaintance_ratio)):
+    #             self.acquaintance_event(count)
 
-    def familiarity_event(self, count):
-        temp_set = move_temp_set(self.acquaintance, self.familiarity, [0.1 for id in self.acquaintance], count)
-        for id in temp_set:
-            self.characters[id].acquaintance.remove(self.id)
-            self.characters[id].familiarity.append(self.id)
+    #     if (familiarity_ratio := 1 / (len(self.familiarity) * 10 + 100) * 100) < random.random() * 0.5:
+    #         temp_set = move_temp_set(self.familiarity, self.acquaintance, [0.1 for id in self.familiarity], 1)
+    #         for id in temp_set:
+    #             self.characters[id].acquaintance.append(self.id)
+    #             self.characters[id].familiarity.remove(self.id)
+    #     else:
+    #         if (count := random_int(0.1 * len(self.acquaintance) * familiarity_ratio)):
+    #             self.familiarity_event(count)
 
-    def friend_event(self):
-        temp_set = move_temp_set(self.familiarity, self.friend, [0.1 for id in self.familiarity], 1)
-        for id in temp_set:
-            self.characters[id].familiarity.remove(self.id)
-            self.characters[id].friend.append(self.id)
+    #     if random_int(0.1 * len(self.familiarity) / (len(self.friend) * 100 + 500) * 500):
+    #         self.friend_event()
 
-    def spouse_event(self, temp_p):
-        self.spouse.append(random.choices(temp_p, [0.1 for id in temp_p], k=1)[0])
-        self.characters[self.spouse[0]].spouse.append(self.id)
-        if self.spouse[0] in self.friend:
-            self.friend.remove(self.spouse[0])
-            self.characters[self.spouse[0]].friend.remove(self.id)
-        else:
-            self.familiarity.remove(self.spouse[0])
-            self.characters[self.spouse[0]].familiarity.remove(self.id)
+    #     if not self.spouse and random_int(0.1) and 18 < self.age < 60 and (temp_p := self.familiarity + self.friend):
+    #         self.spouse_event(temp_p)
+
+    # def acquaintance_event(self, count):
+    #     self.event_plaza['acquaintance'].extend([self.character] * count)
+
+    # def familiarity_event(self, count):
+    #     temp_set = move_temp_set(self.acquaintance, self.familiarity, [0.1 for id in self.acquaintance], count)
+    #     for id in temp_set:
+    #         self.characters[id].acquaintance.remove(self.id)
+    #         self.characters[id].familiarity.append(self.id)
+
+    # def friend_event(self):
+    #     temp_set = move_temp_set(self.familiarity, self.friend, [0.1 for id in self.familiarity], 1)
+    #     for id in temp_set:
+    #         self.characters[id].familiarity.remove(self.id)
+    #         self.characters[id].friend.append(self.id)
+
+    # def spouse_event(self, temp_p):
+    #     self.spouse.append(random.choices(temp_p, [0.1 for id in temp_p], k=1)[0])
+    #     self.characters[self.spouse[0]].spouse.append(self.id)
+    #     if self.spouse[0] in self.friend:
+    #         self.friend.remove(self.spouse[0])
+    #         self.characters[self.spouse[0]].friend.remove(self.id)
+    #     else:
+    #         self.familiarity.remove(self.spouse[0])
+    #         self.characters[self.spouse[0]].familiarity.remove(self.id)
         
 
 
@@ -72,11 +84,11 @@ class IndividualEvents:
 
 
 # 根据权重随机将 list 里的 count 个元素移动到另一个 list 里
-def move_temp_set(from_list, to_list, weights, count):
+def move_temp_set(from_list: list[object], to_list: list[object], weights, count):
     temp_set = set(random.choices(from_list, weights, k=count))
-    for id in temp_set:
-        from_list.remove(id)
-        to_list.append(id)
+    for obj in temp_set:
+        from_list.remove(obj)
+        to_list.append(obj)
     return temp_set
 
 
