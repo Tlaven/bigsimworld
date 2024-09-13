@@ -11,9 +11,9 @@ class SimulationRunner:
         self.db_queues = init_db_queues()  # 初始化队列
 
     def start_simulation(self):
-        engine = SimulationEngine(self.db_queues)
+        self.engine = SimulationEngine(self.db_queues)
         while self.simulation_thread.is_alive():
-            engine.step()
+            self.engine.step()
                 # 模拟的状态更新推送给客户端（可选）
                 # sse.publish({"data": time.time()}, type='simulation_update')
 
@@ -30,4 +30,4 @@ class SimulationRunner:
 
     def stop(self):
         self.processing_db.kill()
-
+        self.engine.update_status_in_db()

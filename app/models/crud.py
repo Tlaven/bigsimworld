@@ -51,9 +51,9 @@ def session_manager(func):
 #     logger.info(f"Character {new_character_id} inserted successfully.")
 #     return new_character_id
 
-# 插入多个角色
+# 根据 object 插入多个角色
 @session_manager
-def insert_multiple_characters(session, characters: list[int: object]):
+def insert_multiple_characters(session, characters: dict[int: object]):
     # 构建批量更新的字典列表
     updates = [
         {key: value for key,
@@ -62,6 +62,13 @@ def insert_multiple_characters(session, characters: list[int: object]):
     ]
     # 使用 bulk_insert_mappings 进行批量插入
     session.bulk_insert_mappings(Table, updates)
+    logger.info(f"{len(characters)} characters inserted successfully.")
+
+# 根据 dict 插入多个角色
+@session_manager
+def insert_multiple_characters_by_dict(session, characters: list[dict]):
+    # 使用 bulk_insert_mappings 进行批量插入
+    session.bulk_insert_mappings(Table, characters)
     logger.info(f"{len(characters)} characters inserted successfully.")
 
 # # 更新单个角色

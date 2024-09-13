@@ -15,16 +15,18 @@ class Character:
             setattr(self, key, kwargs.get(key, None))
 
         relationship_keys = {'acquaintance','familiarity','friend','spouse', 'ex-spouses', 'father','mother', 'children'}
+        self.relatives = set()
         temp_relationship = {}
 
         for key in relationship_keys:
-            value = self.relationships.get(key, set())
+            value = self.relationships.get(key, [])
             setattr(self, key, value)
             temp_relationship[key] = value
+            self.relatives.update(value)
 
         self.relationships = temp_relationship
 
-
+ 
     def step(self):
         IndividualEvents(self.model, self)
 
