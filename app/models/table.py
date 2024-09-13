@@ -20,7 +20,6 @@ class Table(Base):
     start_time = Column(Integer, nullable=True)
     end_time = Column(Integer, nullable=True) 
     status = Column(String(length=10), default='active')
-    to_do = Column(JSON, nullable=True)
     
     __table_args__ = (
         Index('idx_status_end_time', 'status', 'end_time'),

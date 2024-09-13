@@ -48,8 +48,20 @@ class ProcessingDB(Process):
         if delete_data not in ([], None):
             crud.delete_multiple_characters(delete_data)
 
+    @time_limit(30, "db_processing/30s")
+    def step30(self):
+        self.db_insert_worker()
+        self.db_update_worker()
+        self.db_delete_worker()
+
     @time_limit(10, "db_processing/10s")
-    def step(self):
+    def step10(self):
+        self.db_insert_worker()
+        self.db_update_worker()
+        self.db_delete_worker()
+
+    @time_limit(1, "db_processing/1s")
+    def step1(self):
         self.db_insert_worker()
         self.db_update_worker()
         self.db_delete_worker()
@@ -57,7 +69,13 @@ class ProcessingDB(Process):
     def run(self):
         try:
             while True:
-                self.step()
+                db_queue_size = self.db_insert_queue.qsize() + self.db_update_queue.qsize() + self.db_delete_queue.qsize()
+                if  db_queue_size >= 1000:
+                    self.step1()
+                elif db_queue_size >= 100:
+                    self.step10()
+                else:
+                    self.step30()
         except KeyboardInterrupt:
             print("KeyboardInterrupt")
         finally:

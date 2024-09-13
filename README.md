@@ -1,4 +1,13 @@
 
+
+character -> individual_event -> event_plaza -> people_event -> simulation_engine
+
+event_plaza: dict[str, list[character]]
+event_plaza = {
+    "acquaintance": [obj1, obj2, obj3],
+
+}
+
 ```
 SimuWorld
 ├─ app
