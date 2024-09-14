@@ -1,4 +1,4 @@
-from multiprocessing import Process, Queue
+from multiprocessing import Process, Manager
 
 from . import crud
 
@@ -6,9 +6,10 @@ from app.utils.decorators import time_limit
 
 
 def init_db_queues():
-    db_insert_queue = Queue()
-    db_update_queue = Queue()
-    db_delete_queue = Queue()
+    manager = Manager()
+    db_insert_queue = manager.Queue()
+    db_update_queue = manager.Queue()
+    db_delete_queue = manager.Queue()
 
     return {'insert': db_insert_queue,
             'update': db_update_queue,
@@ -32,7 +33,7 @@ class ProcessingDB(Process):
         while not self.db_insert_queue.empty():
             insert_data.append(self.db_insert_queue.get())
         if insert_data not in ([], None):
-            crud.insert_multiple_characters(insert_data)
+            crud.insert_multiple_characters_by_dict(insert_data)
 
     def db_update_worker(self):
         update_data = []

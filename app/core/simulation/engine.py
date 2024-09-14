@@ -3,6 +3,7 @@ from app.core.person.character import Character
 from app.core.simulation.events import PeopleEvents
 from app.utils.decorators import time_limit
 from app.utils.cache import py_cache
+from app.utils.later import LaterDeque
 
 
 class SimulationEngine:
@@ -12,6 +13,7 @@ class SimulationEngine:
         self.event_plaza = {
             "acquaintance": [],
         }
+        self.later_queue = LaterDeque()
         
         self.create_characters_from_db()
 
@@ -39,13 +41,13 @@ class SimulationEngine:
 
     def create_character(self, character_dict) -> Character:
         # character_dict['id'] = crud.insert_character(**character_dict)
-        temp_dict = character_dict.copy()
-        self.insert_queue.put(temp_dict)
-        
-        character_dict['id'] = self.max_id + 1
+
+        id = self.max_id + 1
+        character_dict['id'] = id
         self.max_id += 1
         character = Character(self, **character_dict)
-        self.characters[character_dict['id']] =  character
+        self.later_queue.add_later(self.characters.update,{id: character})
+        self.insert_queue.put(character.__dict__)
         return character
     
     def create_characters(self, characters_list):
@@ -60,10 +62,11 @@ class SimulationEngine:
         for character in self.characters.values():
             character.step()
         PeopleEvents(self.event_plaza)
+        self.later_queue.run_later()
         
     # 更新数据库中的状态
     def update_status_in_db(self):
-        crud.update_multiple_characters(self.characters)
+        #crud.update_multiple_characters(self.characters)
         print("Updated character status in database.")
 
 

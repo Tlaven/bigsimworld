@@ -3,120 +3,72 @@ import random
 
 
 class IndividualEvents:
+    """
+    这个类负责处理个体的各种事件，通过 possible_events() 方法判定是否可以发生事件，并进行调用。
+    当事件需要牵扯到相关的人时，只判断是否发生事件，将具体事务交给 Character 类方法处理。
+    """
     def __init__(self, model, character):
         self.characters = model.characters
         self.event_plaza = model.event_plaza
         self.character = character
-        self.id = character.id
-        self.age = character.age
-        self.acquaintance = character.relationships['acquaintance']
-        self.familiarity = character.relationships['familiarity']
-        self.friend = character.relationships['friend']
-        self.spouse = character.relationships['spouse']
-        self.possible_events()
+        self.relationships = character.relationships
 
 
     def possible_events(self):
-        if self.age >= 6:
+        if self.character.age >= 6:
             self.acquaintance_event()
             self.familiarity_event()
             self.friend_event()
 
-        if 18 <= self.age < 60 and not self.spouse:
+        if 18 <= self.character.age < 60 and not self.relationships['spouse']:
             self.spouse_event()
+
+        if self.relationships['spouse'] and self.character.age <= 50:
+            self.childbirth_event()
 
 
     def acquaintance_event(self):
-        if (acquaintance_ratio := 1 / (len(self.acquaintance) * 10 + 500) * 500) < random.random() * 0.1:
+        if (acquaintance_ratio := 1 / (len(self.relationships['acquaintance']) * 10 + 200) * 200) < 0.5:
             # 数量太多删除最早的一个
-            temp_c = self.acquaintance.pop(0)
-            temp_c.relationships['acquaintance'].remove(self.id)
+            temp_c = self.relationships['acquaintance'].pop(0)
+            temp_c.relationships['acquaintance'].remove(self.character)
         else:
-            if (count := random_int(0.1 * acquaintance_ratio)):
+            if (count := round_up_probability(0.1 * acquaintance_ratio)):
                 self.event_plaza['acquaintance'].extend([self.character] * count)
         
     def familiarity_event(self):
-        if (familiarity_ratio := 1 / (len(self.familiarity) * 10 + 100) * 100) < random.random() * 0.5:
-            self.move_temp_set(self.familiarity, self.acquaintance, 1, 'familiarity', 'acquaintance')
+        if (familiarity_ratio := 1 / (len(self.relationships['familiarity']) * 10 + 100) * 100) < 0.5:
+            # 数量太多随机降级一个关系
+            self.move_temp_set(self.relationships['familiarity'], self.relationships['acquaintance'], 1, 'familiarity', 'acquaintance')
         else:
-            if (count := random_int(0.1 * len(self.acquaintance) * familiarity_ratio)):
-                self.move_temp_set(self.acquaintance, self.familiarity, count, 'acquaintance', 'familiarity')
+            if (count := round_up_probability(0.1 * len(self.relationships['acquaintance']) * familiarity_ratio)):
+                self.move_temp_set(self.relationships['acquaintance'], self.relationships['familiarity'], count, 'acquaintance', 'familiarity')
 
     def friend_event(self):
-        if (friend_ratio := 1 / (len(self.friend) * 100 + 500) * 500) < random.random() * 0.5:
-            self.move_temp_set(self.friend, self.acquaintance, 1, 'friend', 'acquaintance')
+        if (friend_ratio := 1 / (len(self.relationships['friend']) * 100 + 500) * 500) < 0.5:
+            self.move_temp_set(self.relationships['friend'], self.relationships['acquaintance'], 1, 'friend', 'acquaintance')
         else:
-            if (count := random_int(0.1 * len(self.familiarity) * friend_ratio)):
-                self.move_temp_set(self.familiarity, self.friend, count, 'familiarity', 'friend')
+            if (count := round_up_probability(0.1 * len(self.relationships['familiarity']) * friend_ratio)):
+                self.move_temp_set(self.relationships['familiarity'], self.relationships['friend'], count, 'familiarity', 'friend')
 
     def spouse_event(self):
-        if random_int(0.1) and (temp_p := self.friend + self.familiarity):
-            temp_c = random.choices(temp_p, [0.1 for id in temp_p], k=1)[0]
-            if not temp_c.relationships['spouse']:
-                if len(self.friend) <= temp_p.index(temp_c):
-                    self.familiarity.remove(temp_c)
-                    self.move_temp_set([temp_c], self.spouse, 1,'familiarity','spouse')
-                else:
-                    self.friend.remove(temp_c)
-                    self.move_temp_set([temp_c], self.spouse, 1,'friend','spouse')
+        if round_up_probability(0.1) and (temp_p := self.relationships['friend'] + self.relationships['familiarity']):
+            if (temp_p := [p for p in temp_p if 18 <= p.age < 60 and not p.relationships['spouse']]):
+                temp_c = random.choices(temp_p, [0.1 for id in temp_p], k=1)[0]
+                # 重要事件，即需要联系有关人员的事件
+                self.character.marry_event.happen(temp_c)
+                temp_c.marry_event.happen(self.character)
 
-    # def possible_events(self):
-    #     # acquaintance 根据 character 属性决定 count
-    #     if (acquaintance_ratio := 1 / (len(self.acquaintance) * 10 + 500) * 500) < random.random() * 0.5:
-    #         temp_c = self.acquaintance[-1]  
-    #         self.acquaintance = self.acquaintance[:-1]
-    #         self.characters[temp_c].acquaintance.remove(self.id)
-    #     else:
-    #         if (count := random_int(0.1 * acquaintance_ratio)):
-    #             self.acquaintance_event(count)
-
-    #     if (familiarity_ratio := 1 / (len(self.familiarity) * 10 + 100) * 100) < random.random() * 0.5:
-    #         temp_set = move_temp_set(self.familiarity, self.acquaintance, [0.1 for id in self.familiarity], 1)
-    #         for id in temp_set:
-    #             self.characters[id].acquaintance.append(self.id)
-    #             self.characters[id].familiarity.remove(self.id)
-    #     else:
-    #         if (count := random_int(0.1 * len(self.acquaintance) * familiarity_ratio)):
-    #             self.familiarity_event(count)
-
-    #     if random_int(0.1 * len(self.familiarity) / (len(self.friend) * 100 + 500) * 500):
-    #         self.friend_event()
-
-    #     if not self.spouse and random_int(0.1) and 18 < self.age < 60 and (temp_p := self.familiarity + self.friend):
-    #         self.spouse_event(temp_p)
-
-    # def acquaintance_event(self, count):
-    #     self.event_plaza['acquaintance'].extend([self.character] * count)
-
-    # def familiarity_event(self, count):
-    #     temp_set = move_temp_set(self.acquaintance, self.familiarity, [0.1 for id in self.acquaintance], count)
-    #     for id in temp_set:
-    #         self.characters[id].acquaintance.remove(self.id)
-    #         self.characters[id].familiarity.append(self.id)
-
-    # def friend_event(self):
-    #     temp_set = move_temp_set(self.familiarity, self.friend, [0.1 for id in self.familiarity], 1)
-    #     for id in temp_set:
-    #         self.characters[id].familiarity.remove(self.id)
-    #         self.characters[id].friend.append(self.id)
-
-    # def spouse_event(self, temp_p):
-    #     self.spouse.append(random.choices(temp_p, [0.1 for id in temp_p], k=1)[0])
-    #     self.characters[self.spouse[0]].spouse.append(self.id)
-    #     if self.spouse[0] in self.friend:
-    #         self.friend.remove(self.spouse[0])
-    #         self.characters[self.spouse[0]].friend.remove(self.id)
-    #     else:
-    #         self.familiarity.remove(self.spouse[0])
-    #         self.characters[self.spouse[0]].familiarity.remove(self.id)
-        
-
+    def childbirth_event(self):
+        if (count := round_up_probability(0.1 * 0.1 / 2)):
+            for _ in range(count):
+                self.character.childbirth_event.happen(self.relationships['spouse'][0])
 
 
 
 
     # 根据 from_list 里的元素的权重属性，随机将 list 里的 count 个元素移动到另一个 list 里
-    def move_temp_set(self, from_list: list[object], to_list: list[object], count, from_relation_type, to_relation_type):
+    def move_temp_set(self, from_list: list[object], to_list: list[object], count, from_relation_type, to_relation_type) -> set[object]:
         temp_set = set(random.choices(from_list, [0.1 for obj in from_list], k=count))
         for obj in temp_set:
             obj.relationships[from_relation_type].remove(self.character)
@@ -127,8 +79,6 @@ class IndividualEvents:
 
 
 # 输入一个 float 值，进行随机取整
-def random_int(value) -> int:
-    remainder = value%1
-    if remainder > random.random():
-        value += 1
-    return int(value)
+def round_up_probability(value: float) -> int:
+    remainder = value % 1
+    return int(value + 1) if remainder > random.random() else int(value)

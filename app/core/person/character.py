@@ -4,7 +4,8 @@ from app.models import crud
 from app.models.table import Table
 from app.core.generation.human import generate_character
 from app.core.person.events import IndividualEvents
-
+from app.core.person.marry import MarryEvent
+from app.core.person.childbirth import ChildbirthEvent
 
 
 class Character:
@@ -17,14 +18,19 @@ class Character:
         for key in allowed_keys:
             setattr(self, key, kwargs.get(key, None))
 
-        relationship_keys = {'acquaintance','familiarity','friend','spouse', 'ex-spouses', 'father','mother', 'children'}
+        #relationship_keys = {'acquaintance','familiarity','friend','spouse', 'ex-spouses', 'father','mother', 'child'}
         self.relatives = set()
 
-        self.relationships = defaultdict(list)
-        for key in relationship_keys:
-            value = self.relationships.get(key, [])
+        temp_ralationships = defaultdict(list)
+        for key, value in self.relationships.items():
+            temp_ralationships[key] = value
             self.relatives.update(value)
+        self.relationships = temp_ralationships
 
+        # init 一些需要的类
+        self.events = IndividualEvents(self.model, self)
+        self.marry_event = MarryEvent(self)
+        self.childbirth_event = ChildbirthEvent(self.model, self)
 
     # 将人物关系的索引 id 转换为对象
     def init_relationships(self):
@@ -32,8 +38,11 @@ class Character:
             self.relationships[key] = [self.model.characters[id] for id in value]
  
 
+
+
+
     def step(self):
-        IndividualEvents(self.model, self)
+        self.events.possible_events()
 
     @property
     def __dict__(self):
