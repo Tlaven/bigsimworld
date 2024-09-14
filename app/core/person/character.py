@@ -6,6 +6,7 @@ from app.core.generation.human import generate_character
 from app.core.person.events import IndividualEvents
 from app.core.person.marry import MarryEvent
 from app.core.person.childbirth import ChildbirthEvent
+from app.core.person.death import DeathEvent
 
 
 class Character:
@@ -31,6 +32,7 @@ class Character:
         self.events = IndividualEvents(self.model, self)
         self.marry_event = MarryEvent(self)
         self.childbirth_event = ChildbirthEvent(self.model, self)
+        self.death_event = DeathEvent(self.model, self)
 
     # 将人物关系的索引 id 转换为对象
     def init_relationships(self):
@@ -47,5 +49,5 @@ class Character:
     @property
     def __dict__(self):
         output_dict = {key: getattr(self, key) for key in Table.__table__.columns.keys()}
-        output_dict['relationships'] = {key: [character.id for character in value] for key, value in self.relationships.items()}
+        output_dict['relationships'] = {key: [character.id for character in value if character is object] for key, value in self.relationships.items()}
         return output_dict

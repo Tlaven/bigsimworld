@@ -40,7 +40,7 @@ class ProcessingDB(Process):
         while not self.db_update_queue.empty():
             update_data.append(self.db_update_queue.get())
         if update_data not in ([], None):
-            crud.update_multiple_characters(update_data)
+            crud.update_multiple_characters_by_dict(update_data)
 
     def db_delete_worker(self):
         delete_data = []
@@ -80,6 +80,7 @@ class ProcessingDB(Process):
         except KeyboardInterrupt:
             print("KeyboardInterrupt")
         finally:
+            self.step1()
             while not self.db_insert_queue.empty():
                 self.db_insert_queue.get()
             while not self.db_update_queue.empty():

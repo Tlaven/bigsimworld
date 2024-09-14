@@ -94,6 +94,13 @@ def update_multiple_characters(session, characters: dict[int: object]):
     session.bulk_update_mappings(Table, updates)
     logger.info(f"{len(updates)} characters updated successfully.")
 
+# 根据 dict 更新多个角色
+@session_manager
+def update_multiple_characters_by_dict(session, characters: list[dict]):
+    # 使用 bulk_update_mappings 进行批量更新
+    session.bulk_update_mappings(Table, characters)
+    logger.info(f"{len(characters)} characters updated successfully.")
+
 # # 删除符合条件的角色
 # @session_manager
 # def delete_characters_by_conditions(session, **kwargs):

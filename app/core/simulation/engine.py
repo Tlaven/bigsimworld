@@ -49,7 +49,11 @@ class SimulationEngine:
         self.later_queue.add_later(self.characters.update,{id: character})
         self.insert_queue.put(character.__dict__)
         return character
-    
+
+    def remove_character(self, character_id, character):
+        self.later_queue.add_later(self.characters.pop, character_id)
+        self.update_queue.put(character.__dict__)
+
     def create_characters(self, characters_list):
         character_ids = crud.insert_multiple_characters(characters_list)
         # self.characters.update({character_id: Character(self, **character_dict, id = character_id) for character_id, character_dict in zip(character_ids, characters_list)})
@@ -66,7 +70,7 @@ class SimulationEngine:
         
     # 更新数据库中的状态
     def update_status_in_db(self):
-        #crud.update_multiple_characters(self.characters)
+        crud.update_multiple_characters(self.characters)
         print("Updated character status in database.")
 
 

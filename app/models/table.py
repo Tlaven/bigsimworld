@@ -23,7 +23,6 @@ class Table(Base):
     
     __table_args__ = (
         Index('idx_status_end_time', 'status', 'end_time'),
-        CheckConstraint('status = \'active\'', name='status_check')
     )
 
 

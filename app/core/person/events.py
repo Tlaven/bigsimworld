@@ -26,6 +26,9 @@ class IndividualEvents:
         if self.relationships['spouse'] and self.character.age <= 50:
             self.childbirth_event()
 
+        if self.character.age >= 60:
+            self.death_event()
+
 
     def acquaintance_event(self):
         if (acquaintance_ratio := 1 / (len(self.relationships['acquaintance']) * 10 + 200) * 200) < 0.5:
@@ -63,6 +66,10 @@ class IndividualEvents:
         if (count := round_up_probability(0.1 * 0.1 / 2)):
             for _ in range(count):
                 self.character.childbirth_event.happen(self.relationships['spouse'][0])
+
+    def death_event(self):
+        if round_up_probability(0.05):
+            self.character.death_event.happen()
 
 
 

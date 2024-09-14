@@ -13,13 +13,13 @@ class ChildbirthEvent:
         self.self_event(other)
 
         for friend in self.character.relationships['friend']:
-            friend.childbirth_event.notify_friend(self.character)
+            friend.childbirth_event.notify_friend(friend)
 
         for parent in self.character.relationships['father'] + self.character.relationships['mother']:
-            parent.childbirth_event.notify_parent(self.character)
+            parent.childbirth_event.notify_parent(parent)
 
         for sibling in self.character.relationships['sibling']:
-            sibling.childbirth_event.notify_sibling(self.character)
+            sibling.childbirth_event.notify_sibling(sibling)
 
     
     def self_event(self, other):

@@ -10,10 +10,10 @@ class MarryEvent:
         self.self_event(other)
         # 通知有关人员
         for friend in self.relationships['friend']:
-            friend.marry_event.notify_friend(self.character)
+            friend.marry_event.notify_friend(friend)
 
         for parent in self.character.relationships['father'] + self.character.relationships['mother']:
-            parent.marry_event.notify_parent(self.character)
+            parent.marry_event.notify_parent(parent)
 
     def self_event(self, other):
         self.character.relationships['spouse'].append(other)
