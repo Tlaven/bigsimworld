@@ -2,10 +2,14 @@ from threading import Thread, Event
 
 from app.core.simulation.engine import SimulationEngine
 from app.models.processing import ProcessingDB, init_db_queues
+from app.services.publish import thread_publish
+from app.utils.cache import py_cache
 
 class SimulationRunner:
-    def __init__(self):
+    def __init__(self, app):
         self.stop_event = Event()  # 用于停止模拟线程的事件
+        self.app = app
+        thread_publish(self.app, py_cache)
 
     def start_simulation(self):
         self.engine = SimulationEngine(self.db_queues)
