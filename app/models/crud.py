@@ -1,23 +1,10 @@
-import logging
 from sqlalchemy.orm import sessionmaker
 from functools import wraps
+
+from app.utils.logger import setup_logger
 from app.models.table import (Table, engine)
 
-
-# 配置日志
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.INFO)
-
-# 创建一个 handler，用于写入日志文件
-file_handler = logging.FileHandler('app.log')
-file_handler.setLevel(logging.INFO)
-
-# 创建一个 formatter，设置日志的格式
-formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
-file_handler.setFormatter(formatter)
-
-# 添加 handler 到 logger
-logger.addHandler(file_handler)
+logger = setup_logger()
 
 # 手动管理 Session 的创建
 def get_session():

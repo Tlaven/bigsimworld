@@ -31,7 +31,7 @@ class SimulationEngine:
             # 查询结果并创建 Character 对象
             self.characters.update({
                 character_tuple[0]: Character(self, **dict(zip(
-            ('id', 'name', 'age', 'gender', 'xing', 'property', 'relationships', 'start_time', 'end_time','status'),
+            ('id', 'name', 'age', 'gender', 'xing', 'property', 'relationships', 'start_time', 'end_time','status', 'pedometer'),
               character_tuple))) for character_tuple in query
             })
         print(f"Created {len(self.characters)} characters.")
@@ -52,14 +52,14 @@ class SimulationEngine:
 
     def remove_character(self, character_id, character):
         self.later_queue.add_later(self.characters.pop, character_id)
-        self.update_queue.put(character.__dict__)
+        self.later_queue.add_later(self.update_queue.put, character.__dict__)
 
     def create_characters(self, characters_list):
         character_ids = crud.insert_multiple_characters(characters_list)
         # self.characters.update({character_id: Character(self, **character_dict, id = character_id) for character_id, character_dict in zip(character_ids, characters_list)})
         return character_ids
 
-    @time_limit(1, record_name = "simulation_step/s")
+    @time_limit(0.2, record_name = "simulation_step/s") # 这里设置的时间限制尽量大于 1 秒，防止线程无法正常结束
     def step(self):
         print(f"Step {self.simulation_time}:{py_cache.get('simulation_step/s')[-1]} people:{len(self.characters)}")
         self.simulation_time += 1

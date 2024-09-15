@@ -7,6 +7,7 @@ def generate_character(**kwargs):
     kwargs.setdefault('property', 0)
     kwargs.setdefault('relationships', {})
     kwargs.setdefault('status', 'active')
+    kwargs.setdefault('pedometer', {'step': 0, 'step_threshold': 10})
 
     # 如果 name 为 None，则生成名称
     if kwargs['name'] is None:
@@ -23,4 +24,11 @@ def generate_characters(num, **kwargs):
         ages = RandomUtil.generate_ages(num)
     else:
         ages = [kwargs.get('age')] * num
-    return [{'name': name, 'age': age, 'gender': gender,'xing': xing,'property': 0, 'relationships': {}} for (name, gender, xing), age in zip(names, ages)]
+
+    if kwargs.get('pedometer') is None:
+        pedometers = RandomUtil.generate_pedometers(num)
+    else:
+        pedometers = [{'step': kwargs.get('pedometer'), 'step_threshold': 10}] * num
+
+    return [{'name': name, 'age': age, 'gender': gender,'xing': xing,'property': 0, 'relationships': {}, 'pedometer': pedometer}
+             for (name, gender, xing), age, pedometer in zip(names, ages, pedometers)]

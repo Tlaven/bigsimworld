@@ -48,7 +48,11 @@ class RandomUtil:
     
     @classmethod
     def generate_ages(cls, count):
-        return [random.randint(0,80) for _ in range(count)]
+        return [random.randint(0, 80) for _ in range(count)]
+    
+    @classmethod
+    def generate_pedometers(cls, count):
+        return [{'step': random.randint(0, 365), 'step_threshold': 10} for _ in range(count)]
 
 if __name__ == "__main__":
     name,gender = RandomUtil.generate_name()
