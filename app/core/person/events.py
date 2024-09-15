@@ -1,5 +1,4 @@
 import random
-import traceback
 
 
 class IndividualEvents:
@@ -90,7 +89,6 @@ class IndividualEvents:
                 from_list.remove(temp_c)
                 to_list.append(temp_c)
             except Exception as e:
-                traceback.print_exc()  # 打印完整的错误堆栈跟踪
                 print(e)
                 print(f"other_character:{temp_c.id} {from_relation_type}:{[c.id for c in temp_c.relationships[from_relation_type]]}")
                 print(f"other_character:{temp_c.id}: {to_relation_type}:{[c.id for c in temp_c.relationships[to_relation_type]]}")

@@ -43,8 +43,13 @@ class Character:
     # 将人物关系的索引 id 转换为对象
     def init_relationships(self):
         for key, value in self.relationships.items():
-              self.relationships[key] = [self.model.characters[id] for id in value]
- 
+            try:
+                self.relationships[key] = [self.model.characters[id] for id in value]
+            except KeyError as e:
+                print(f"KeyError: {e}")
+                print("Invalid character id in relationships, please check the data\nAttempting to repair...")
+                self.relationships[key] = [self.model.characters[id] for id in value if id in self.model.characters]
+                
     # 基本属性变化
     def change_attribute(self):
         self.pedometer['step'] += 1
