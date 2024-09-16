@@ -11,12 +11,10 @@ class PeopleEvents:
     def possible_events(self):
         if len(self.acquaintance_plaza) > 1:
             self.acquaintance_event()
-
         
 
     def acquaintance_event(self):
-        paire_plaza = random_pairing(self.acquaintance_plaza)
-        self.acquaintance_plaza.clear()
+        paire_plaza, self.event_plaza['acquaintance'] = random_pairing(self.acquaintance_plaza)
         for (p1, p2) in paire_plaza:
             if p1 not in p2.relatives and p2 not in p1.relatives and p1.id != p2.id:
                 p1.relationships['acquaintance'].append(p2)
@@ -24,11 +22,11 @@ class PeopleEvents:
 
 
 
-# 随机配对
+# 随机配对一部分取出
 def random_pairing(lst) -> list[tuple[any, any]]:
-    if len(lst) % 2 != 0:
-        lst = lst[:-1]
+    # 分割索引两半，并保证一个列表长度为偶数
+    split_index = len(lst) // 2
 
-    shuffled = lst[:]
-    random.shuffle(shuffled)
-    return list(zip(shuffled[::2], shuffled[1::2]))
+    random.shuffle(lst)
+    pair_list, left_list = lst[:split_index], lst[split_index:]
+    return list(zip(pair_list[::2], pair_list[1::2])), left_list

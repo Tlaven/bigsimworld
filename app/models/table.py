@@ -16,10 +16,11 @@ class Table(Base):
     gender = Column(String(length=6), nullable=True)
     xing = Column(String(length=2), nullable=True)
     property = Column(Integer, nullable=True)
-    relationships = Column(JSON, nullable=True)  # 使用 JSON 类型
+    relationships = Column(JSON, nullable=True, default={})  # 使用 JSON 类型
     start_time = Column(Integer, nullable=True)
     end_time = Column(Integer, nullable=True) 
     status = Column(String(length=10), default='active')
+    pedometer = Column(JSON, nullable=True, default={})
     
     __table_args__ = (
         Index('idx_status_end_time', 'status', 'end_time'),

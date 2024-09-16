@@ -1,7 +1,6 @@
 import random
 
 
-
 class IndividualEvents:
     """
     这个类负责处理个体的各种事件，通过 possible_events() 方法判定是否可以发生事件，并进行调用。
@@ -12,6 +11,7 @@ class IndividualEvents:
         self.event_plaza = model.event_plaza
         self.character = character
         self.relationships = character.relationships
+        self.step_threshold = character.pedometer['step_threshold']
 
 
     def possible_events(self):
@@ -31,31 +31,36 @@ class IndividualEvents:
 
 
     def acquaintance_event(self):
-        if (acquaintance_ratio := 1 / (len(self.relationships['acquaintance']) * 10 + 200) * 200) < 0.5:
-            # 数量太多删除最早的一个
-            temp_c = self.relationships['acquaintance'].pop(0)
-            temp_c.relationships['acquaintance'].remove(self.character)
-        else:
-            if (count := round_up_probability(0.1 * acquaintance_ratio)):
-                self.event_plaza['acquaintance'].extend([self.character] * count)
+        temp_num = len(self.relationships['acquaintance'])
+        if (count := round_up_probability(0.1 * self.step_threshold / (temp_num * 10 + 200) * 200)):
+            self.event_plaza['acquaintance'].extend([self.character] * count)
+        if temp_num > 20:
+            # 数量太多删除一些最早的
+            split_index = random.randint(0, temp_num - 20)
+            self.relationships['acquaintance'], temp_list = self.relationships['acquaintance'][split_index:], self.relationships['acquaintance'][:split_index]
+            for temp_c in temp_list:
+                temp_c.relationships['acquaintance'].remove(self.character)
         
     def familiarity_event(self):
-        if (familiarity_ratio := 1 / (len(self.relationships['familiarity']) * 10 + 100) * 100) < 0.5:
-            # 数量太多随机降级一个关系
-            self.move_temp_set(self.relationships['familiarity'], self.relationships['acquaintance'], 1, 'familiarity', 'acquaintance')
-        else:
-            if (count := round_up_probability(0.1 * len(self.relationships['acquaintance']) * familiarity_ratio)):
-                self.move_temp_set(self.relationships['acquaintance'], self.relationships['familiarity'], count, 'acquaintance', 'familiarity')
+        temp_num1, temp_num2 = len(self.relationships['familiarity']), len(self.relationships['acquaintance'])
+        if (count := round_up_probability(0.1 * self.step_threshold * temp_num2 / (temp_num1 * 10 + 100) * 100 / 20)):
+            count = min(count, temp_num2)
+            self.move_temp_set(self.relationships['acquaintance'], self.relationships['familiarity'], count, 'acquaintance', 'familiarity')
+        if (temp_num := temp_num1 + count) > 10:
+            # 数量太多随机降级几个关系
+            self.move_temp_set(self.relationships['familiarity'], self.relationships['acquaintance'], random.randint(0, temp_num - 10), 'familiarity', 'acquaintance')
 
     def friend_event(self):
-        if (friend_ratio := 1 / (len(self.relationships['friend']) * 100 + 500) * 500) < 0.5:
-            self.move_temp_set(self.relationships['friend'], self.relationships['acquaintance'], 1, 'friend', 'acquaintance')
-        else:
-            if (count := round_up_probability(0.1 * len(self.relationships['familiarity']) * friend_ratio)):
-                self.move_temp_set(self.relationships['familiarity'], self.relationships['friend'], count, 'familiarity', 'friend')
+        temp_num1, temp_num2 = len(self.relationships['friend']), len(self.relationships['familiarity'])
+        if (count := round_up_probability(0.1 * self.step_threshold * temp_num2 / (temp_num1 * 100 + 500) * 500 / 10)):
+            count = min(count, temp_num2)
+            self.move_temp_set(self.relationships['familiarity'], self.relationships['friend'], count, 'familiarity', 'friend')
+        if (temp_num := temp_num1 + count) > 5:
+            # 数量太多随机降级几个关系
+            self.move_temp_set(self.relationships['friend'], self.relationships['acquaintance'], random.randint(0, temp_num - 5), 'friend', 'acquaintance')
 
     def spouse_event(self):
-        if round_up_probability(0.1) and (temp_p := self.relationships['friend'] + self.relationships['familiarity']):
+        if round_up_probability(0.1 * self.step_threshold / 360) and (temp_p := self.relationships['friend'] + self.relationships['familiarity']):
             if (temp_p := [p for p in temp_p if 18 <= p.age < 60 and not p.relationships['spouse']]):
                 temp_c = random.choices(temp_p, [0.1 for id in temp_p], k=1)[0]
                 # 重要事件，即需要联系有关人员的事件
@@ -63,12 +68,12 @@ class IndividualEvents:
                 temp_c.marry_event.happen(self.character)
 
     def childbirth_event(self):
-        if (count := round_up_probability(0.1 * 0.1 / 2)):
+        if (count := round_up_probability(0.1 * 0.1 / 2 * self.step_threshold / 18)):
             for _ in range(count):
                 self.character.childbirth_event.happen(self.relationships['spouse'][0])
 
     def death_event(self):
-        if round_up_probability(0.05):
+        if round_up_probability(0.05 * self.step_threshold / 360):
             self.character.death_event.happen()
 
 
@@ -76,12 +81,19 @@ class IndividualEvents:
 
     # 根据 from_list 里的元素的权重属性，随机将 list 里的 count 个元素移动到另一个 list 里
     def move_temp_set(self, from_list: list[object], to_list: list[object], count, from_relation_type, to_relation_type) -> set[object]:
-        temp_set = set(random.choices(from_list, [0.1 for obj in from_list], k=count))
-        for obj in temp_set:
-            obj.relationships[from_relation_type].remove(self.character)
-            obj.relationships[to_relation_type].append(self.character)
-            from_list.remove(obj)
-            to_list.append(obj)
+        temp_set = set(random.choices(from_list, [0.1 for temp_c in from_list], k=count))
+        for temp_c in temp_set:
+            try:
+                temp_c.relationships[from_relation_type].remove(self.character)
+                temp_c.relationships[to_relation_type].append(self.character)
+                from_list.remove(temp_c)
+                to_list.append(temp_c)
+            except Exception as e:
+                print(e)
+                print(f"other_character:{temp_c.id} {from_relation_type}:{[c.id for c in temp_c.relationships[from_relation_type]]}")
+                print(f"other_character:{temp_c.id}: {to_relation_type}:{[c.id for c in temp_c.relationships[to_relation_type]]}")
+                print(f"self_character:{self.character.id}: {from_relation_type}:{[c.id for c in from_list]}")
+                print(f"self_character:{self.character.id}: {to_relation_type}:{[c.id for c in to_list]}")
         return temp_set
 
 

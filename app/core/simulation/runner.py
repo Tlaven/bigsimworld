@@ -15,6 +15,7 @@ class SimulationRunner:
         self.engine = SimulationEngine(self.db_queues)
         while not self.stop_event.is_set():  # 检查是否需要停止
             self.engine.step()
+        self.engine.update_status_in_db()  # 确保在停止时更新状态
 
     def start(self):
         self.db_queues = init_db_queues()  # 初始化队列
@@ -32,4 +33,3 @@ class SimulationRunner:
         self.stop_event.set()  # 设置停止事件，通知模拟线程停止
         self.simulation_thread.join()  # 等待模拟线程结束
         self.processing_db.kill()  # 停止数据库处理进程
-        self.engine.update_status_in_db()  # 确保在停止时更新状态

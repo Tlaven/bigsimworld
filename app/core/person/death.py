@@ -24,10 +24,11 @@ class DeathEvent:
 
     def self_event(self):
         self.character.status = 'dead'
-        for relationship, characters in self.relationships.items():
-            for character in characters:
-                character.relationships[relationship].remove(self.character)
+        for relationship, others in self.relationships.items():
+            for other in others:
+                other.relationships[relationship].remove(self.character)
         self.model.remove_character(self.character.id, self.character)
+        self.model.event_plaza['acquaintance'] = [character for character in self.model.event_plaza['acquaintance'] if character.id != self.character.id]
 
     def notify_friend(self, friend):
         pass
