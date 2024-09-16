@@ -2,23 +2,32 @@ from threading import Thread, Event
 
 from app.core.simulation.engine import SimulationEngine
 from app.models.processing import ProcessingDB, init_db_queues
-from app.services.publish import thread_publish
+from app.services.publish import sse_publish
+from app.utils.decorators import time_limit
 from app.utils.cache import py_cache
+
 
 class SimulationRunner:
     def __init__(self, app):
-        self.stop_event = Event()  # 用于停止模拟线程的事件
         self.app = app
-        thread_publish(self.app, py_cache)
+        self.stop_event = Event()  # 用于停止模拟线程的事件
+        self.db_queues = init_db_queues()  # 初始化队列
+        self.engine = SimulationEngine(self.db_queues)  # 初始化模拟引擎
+        self.engine.step_count = 0
+
+
+    @time_limit(1, record_name = "simulation_step/s") # 这里设置的时间限制尽量大于 1 秒，防止线程无法正常结束
+    def step(self):
+        self.engine.step_count += 1
+        self.engine.step()
+        t = py_cache.get("simulation_step/s")[-1]
+        sse_publish(self.app, self.engine.__dict__)
 
     def start_simulation(self):
-        self.engine = SimulationEngine(self.db_queues)
         while not self.stop_event.is_set():  # 检查是否需要停止
-            self.engine.step()
-        self.engine.update_status_in_db()  # 确保在停止时更新状态
+            self.step()
 
     def start(self):
-        self.db_queues = init_db_queues()  # 初始化队列
         # 启动数据库处理进程
         self.processing_db = ProcessingDB(self.db_queues)
         self.processing_db.daemon = True
@@ -33,3 +42,4 @@ class SimulationRunner:
         self.stop_event.set()  # 设置停止事件，通知模拟线程停止
         self.simulation_thread.join()  # 等待模拟线程结束
         self.processing_db.kill()  # 停止数据库处理进程
+        self.engine.update_status_in_db()  # 确保在停止时更新状态

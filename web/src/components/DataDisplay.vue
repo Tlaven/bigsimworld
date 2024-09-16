@@ -1,11 +1,13 @@
 <template>
   <div class="data-container">
-    <h1>Real-time Data</h1>
-    <div class="data-item" v-for="(value, key) in receivedData" :key="key">
-      <span class="data-key">{{ key }}:</span>
-      <span class="data-value">{{ value }}</span>
+    <h1>实时数据</h1>
+    <div class="data-list">
+      <div class="data-item" v-for="(value, key) in receivedData" :key="key">
+        <span class="data-key">{{ key }}:</span>
+        <span class="data-value">{{ value }}</span>
+      </div>
     </div>
-    <p v-if="connectionError" class="error-text">Connection lost</p>
+    <p v-if="connectionError" class="error-text">连接中断，正在重试...</p>
   </div>
 </template>
 
@@ -13,7 +15,7 @@
 export default {
   data() {
     return {
-      receivedData: {},  // 存放从后端接收到的字典数据
+      receivedData: {},  // 存储从后端接收的数据
       connectionError: false,
     };
   },
@@ -22,16 +24,19 @@ export default {
   },
   methods: {
     setupSSE() {
-      const eventSource = new EventSource('http://localhost:5000/stream'); // 指向 Flask 后端
+      const eventSource = new EventSource('http://localhost:5000/stream');
 
       eventSource.addEventListener('data', (event) => {
         const data = JSON.parse(event.data);
-        this.receivedData = data;
+        this.receivedData = { ...this.receivedData, ...data }; // 合并数据
         this.connectionError = false;
       });
 
       eventSource.addEventListener('error', () => {
         this.connectionError = true;
+        setTimeout(() => {
+          this.setupSSE(); // 5秒后重试
+        }, 5000);
       });
     },
   },
@@ -48,6 +53,13 @@ export default {
   border: 1px solid #ddd;
   border-radius: 8px;
   background-color: #f9f9f9;
+}
+.data-list {
+  max-height: 300px; /* 设置最大高度 */
+  overflow-y: auto; /* 添加垂直滚动条 */
+  padding: 10px;
+  border: 1px solid #eee;
+  border-radius: 8px;
 }
 .data-item {
   display: flex;

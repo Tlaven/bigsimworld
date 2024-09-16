@@ -59,7 +59,6 @@ class SimulationEngine:
         # self.characters.update({character_id: Character(self, **character_dict, id = character_id) for character_id, character_dict in zip(character_ids, characters_list)})
         return character_ids
 
-    @time_limit(0.2, record_name = "simulation_step/s") # 这里设置的时间限制尽量大于 1 秒，防止线程无法正常结束
     def step(self):
         print(f"Step {self.simulation_time}:{py_cache.get('simulation_step/s')[-1]} people:{len(self.characters)}")
         self.simulation_time += 1
@@ -73,5 +72,15 @@ class SimulationEngine:
         crud.update_multiple_characters(self.characters)
         print("Updated character status in database.")
 
+    @property
+    def __dict__(self):
+        count = 10
+        result = {}
+        for id, character in self.characters.items():
+            if count == 0:
+                result[id] = character.__dict__
+                return result
+            count -= 1
 
 
+import random

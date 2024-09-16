@@ -1,9 +1,10 @@
 
 
-from app import app, background_runner
+from app import app, SimulationRunner
 
 
 if __name__ == '__main__':
-    background_runner.start()
+    background = SimulationRunner(app)
+    background.start()
     app.run()
-    background_runner.stop()
+    background.stop()
