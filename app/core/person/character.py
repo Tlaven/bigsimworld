@@ -18,7 +18,7 @@ class Character:
         # 初始化属性
         for key in allowed_keys:
             setattr(self, key, kwargs.get(key, None))
-            
+        
         
         temp_pedometer = defaultdict(int)
         for key, value in self.pedometer.items():

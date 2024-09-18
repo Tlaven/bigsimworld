@@ -1,4 +1,4 @@
-from app.core.probability import func
+from app.core.statistics import func
 import random
 
 class PeopleEvents:

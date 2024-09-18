@@ -1,4 +1,5 @@
 from threading import Thread, Event
+import asyncio
 
 from app.core.simulation.engine import SimulationEngine
 from app.models.processing import ProcessingDB, init_db_queues
@@ -7,13 +8,13 @@ class SimulationRunner:
     def __init__(self):
         self.stop_event = Event()  # 用于停止模拟线程的事件
 
-    def start_simulation(self):
+    async def start_simulation(self):
         self.engine = SimulationEngine(self.db_queues)
         while not self.stop_event.is_set():  # 检查是否需要停止
-            self.engine.step()
+            await self.engine.step()
         self.engine.update_status_in_db()  # 确保在停止时更新状态
-
-    def start(self):
+ 
+    async def start(self):
         self.db_queues = init_db_queues()  # 初始化队列
         # 启动数据库处理进程
         self.processing_db = ProcessingDB(self.db_queues)

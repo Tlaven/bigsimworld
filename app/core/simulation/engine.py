@@ -60,7 +60,7 @@ class SimulationEngine:
         return character_ids
 
     @time_limit(0.2, record_name = "simulation_step/s") # 这里设置的时间限制尽量大于 1 秒，防止线程无法正常结束
-    def step(self):
+    async def step(self):
         print(f"Step {self.simulation_time}:{py_cache.get('simulation_step/s')[-1]} people:{len(self.characters)}")
         self.simulation_time += 1
         for character in self.characters.values():
