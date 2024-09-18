@@ -34,7 +34,7 @@ class SimulationEngine:
             # 查询结果并创建 Character 对象
             self.characters.update({
                 character_tuple[0]: Character(self, **dict(zip(
-            ('id', 'name', 'age', 'gender', 'xing', 'property', 'relationships', 'start_time', 'end_time','status', 'pedometer'),
+            crud.Table.__table__.columns.keys(),
               character_tuple))) for character_tuple in query
             })
         print(f"Created {len(self.characters)} characters.")
@@ -63,10 +63,18 @@ class SimulationEngine:
         character_ids = crud.insert_multiple_characters(characters_list)
         # self.characters.update({character_id: Character(self, **character_dict, id = character_id) for character_id, character_dict in zip(character_ids, characters_list)})
         return character_ids
+    
+    # 基本属性变化
+    def change_attribute(self):
+        self.simulation_time += 1
+        year, step = divmod(self.simulation_time, 360)
+        month, day = divmod(step, 30)
+        self.UTC = f"{year}-{month}-{day}"
+
 
     def step(self):
+        self.change_attribute()
         print(f"Step {self.simulation_time}:{py_cache.get('simulation_step/s')[-1]} people:{len(self.characters)}")
-        self.simulation_time += 1
         for character in self.characters.values():
             character.step()
         PeopleEvents(self.event_plaza)

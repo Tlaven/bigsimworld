@@ -5,6 +5,7 @@ class MarryEvent:
     def __init__(self, character):
         self.character = character
         self.relationships = character.relationships
+        self.relation_record = character.relation_record
 
     def happen(self, other):
         self.self_event(other)
@@ -12,11 +13,12 @@ class MarryEvent:
         for friend in self.relationships['friend']:
             friend.marry_event.notify_friend(friend)
 
-        for parent in self.character.relationships['father'] + self.character.relationships['mother']:
+        for parent in self.character.relationships['parent']:
             parent.marry_event.notify_parent(parent)
 
     def self_event(self, other):
-        self.character.relationships['spouse'].append(other)
+        self.relationships['spouse'].append(other)
+        self.relation_record['spouse'].append(other.id)
         if other in self.relationships['friend']:
             self.relationships['friend'].remove(other)
         elif other in self.relationships['familiarity']:

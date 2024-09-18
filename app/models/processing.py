@@ -1,5 +1,4 @@
 from multiprocessing import Process, Manager, Event
-import time
 
 from . import crud
 from app.utils.logger import setup_logger
@@ -71,27 +70,27 @@ class ProcessingDB(Process):
                 logging.error(f"Error in db_delete_worker: {e}")
 
     @time_limit(30, "db_processing/30s")
-    async def step30(self):
+    def step30(self):
         """ 30秒周期的批量任务处理 """
         self.db_insert_worker()
         self.db_update_worker()
         self.db_delete_worker()
 
     @time_limit(10, "db_processing/10s")
-    async def step10(self):
+    def step10(self):
         """ 10秒周期的批量任务处理 """
         self.db_insert_worker()
         self.db_update_worker()
         self.db_delete_worker()
 
     @time_limit(1, "db_processing/1s")
-    async def step1(self):
+    def step1(self):
         """ 1秒周期的批量任务处理 """
         self.db_insert_worker()
         self.db_update_worker()
         self.db_delete_worker()
 
-    async def run(self):
+    def run(self):
         """ 运行数据库处理进程，监听队列并进行批量处理 """
         logging.info("Database processing started.")
         try:
@@ -100,15 +99,13 @@ class ProcessingDB(Process):
                 
                 if db_queue_size >= 1000:
                     logging.info(f"High load: Processing queue size {db_queue_size}")
-                    await self.step1()
+                    self.step1()
                 elif db_queue_size >= 100:
                     logging.info(f"Medium load: Processing queue size {db_queue_size}")
-                    await self.step10()
+                    self.step10()
                 else:
                     logging.info(f"Low load: Processing queue size {db_queue_size}")
-                    await self.step30()
-                
-                time.sleep(0.1)  # 避免高 CPU 占用，短暂休眠
+                    self.step30()
                 
         except KeyboardInterrupt:
             logging.info("KeyboardInterrupt received. Stopping processing...")

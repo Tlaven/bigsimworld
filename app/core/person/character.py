@@ -34,9 +34,11 @@ class Character:
             self.relatives.update(value)
         self.relationships = temp_ralationships
 
+        self.relation_record = defaultdict(list, self.relation_record)
+
         
-        self.publish_keys = ["id", "name", "gender", "age", "property"]
-        self.publish_relationship_keys = ["friend", "spouse","father","mother", "child"]
+        self.publish_keys = ["id", "name", "gender", "age", "wealth"]
+        self.publish_relationship_keys = ["friend", "spouse","parent", "child"]
 
         # init 一些需要的类
         self.events = IndividualEvents(self.model, self)
@@ -47,12 +49,7 @@ class Character:
     # 将人物关系的索引 id 转换为对象
     def init_relationships(self):
         for key, value in self.relationships.items():
-            try:
-                self.relationships[key] = [self.model.characters[id] for id in value]
-            except KeyError as e:
-                print(f"KeyError: {e}")
-                print("Invalid character id in relationships, please check the data\nAttempting to repair...")
-                self.relationships[key] = [self.model.characters[id] for id in value if id in self.model.characters]
+            self.relationships[key] = [self.model.characters[id] for id in value]
                 
     # 基本属性变化
     def change_attribute(self):

@@ -1,5 +1,4 @@
 from threading import Thread, Event
-import asyncio
 
 from app.core.simulation.engine import SimulationEngine
 from app.models.processing import ProcessingDB, init_db_queues
@@ -9,7 +8,6 @@ from app.utils.cache import py_cache
 from flask_sse import sse
 
 
-import time
 class SimulationRunner:
     def __init__(self, app):
         self.app = app
@@ -19,7 +17,7 @@ class SimulationRunner:
         self.engine.step_count = 0
 
 
-    @time_limit(1, record_name = "simulation_step/s") # 这里设置的时间限制尽量大于 1 秒，防止线程无法正常结束
+    @time_limit(0.01, record_name = "simulation_step/s") # 这里设置的时间限制尽量大于 1 秒，防止线程无法正常结束
     def step(self):
         self.engine.step()
         print(len(self.engine.__publish_json__))
