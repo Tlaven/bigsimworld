@@ -49,7 +49,13 @@ class Character:
     # 将人物关系的索引 id 转换为对象
     def init_relationships(self):
         for key, value in self.relationships.items():
-            self.relationships[key] = [self.model.characters[id] for id in value]
+            ids = []
+            for id in value:
+                if id not in self.model.characters:
+                    print(f"Character {id} not found in database.")
+                else:
+                    ids.append(id)
+            self.relationships[key] = [self.model.characters[id] for id in ids]
                 
     # 基本属性变化
     def change_attribute(self):

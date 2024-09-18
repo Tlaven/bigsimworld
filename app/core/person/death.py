@@ -7,6 +7,7 @@ class DeathEvent:
         self.publish_list = model.publish_list
         self.character = character
         self.relationships = character.relationships
+        self.relation_record = character.relation_record
 
     def happen(self):
         for friend in self.character.relationships['friend']:
@@ -29,9 +30,13 @@ class DeathEvent:
 
     def self_event(self):
         self.character.status = 'dead'
+        self.relation_record['friend'].extend([character.id for character in self.relationships['friend']])
         for relationship, others in self.relationships.items():
             for other in others:
-                other.relationships[relationship].remove(self.character)
+                try:
+                    other.relationships[relationship].remove(self.character)
+                except ValueError:
+                    print(f"Error: {self.character.id} not in {other.id}'s {relationship} list")
         self.relationships.clear()
             
 
@@ -39,7 +44,7 @@ class DeathEvent:
         self.model.event_plaza['acquaintance'] = [character for character in self.model.event_plaza['acquaintance'] if character.id != self.character.id]
 
     def notify_friend(self, friend):
-        pass
+        friend.relation_record['friend'].append(self.character.id)
 
     def notify_spouse(self, spouse):
         pass

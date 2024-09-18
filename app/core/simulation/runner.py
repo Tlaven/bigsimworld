@@ -17,11 +17,9 @@ class SimulationRunner:
         self.engine.step_count = 0
 
 
-    @time_limit(0.01, record_name = "simulation_step/s") # 这里设置的时间限制尽量大于 1 秒，防止线程无法正常结束
+    @time_limit(0.5, record_name = "simulation_step/s") # 这里设置的时间限制尽量大于 1 秒，防止线程无法正常结束
     def step(self):
         self.engine.step()
-        print(len(self.engine.__publish_json__))
-        self.engine.publish_list.clear()
         #sse.publish(self.engine.__publish_json__)
 
     def start_simulation(self):

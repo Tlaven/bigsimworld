@@ -34,30 +34,29 @@ class IndividualEvents:
 
     def acquaintance_event(self):
         temp_num = len(self.relationships['acquaintance'])
-        if (count := round_up_probability(0.1 * self.step_threshold / (temp_num * 10 + 120) * 120)):
+        if (count := round_up_probability(0.1 * self.step_threshold / (temp_num + 12) * 12)):
             self.event_plaza['acquaintance'].extend([self.character] * count)
-        if temp_num > 20:
+        if temp_num > 12:
             # 数量太多删除一些最早的
-            split_index = random.randint(0, temp_num - 20)
+            split_index = random.randint(0, temp_num - 12)
             self.relationships['acquaintance'], temp_list = self.relationships['acquaintance'][split_index:], self.relationships['acquaintance'][:split_index]
             for temp_c in temp_list:
                 temp_c.relationships['acquaintance'].remove(self.character)
         
     def familiarity_event(self):
         temp_num1, temp_num2 = len(self.relationships['familiarity']), len(self.relationships['acquaintance'])
-        if (count := round_up_probability(0.1 * self.step_threshold * temp_num2 / (temp_num1 * 10 + 60) * 60 / 12)):
+        if (count := round_up_probability(0.01 * self.step_threshold * temp_num2 / (temp_num1 + 6) * 6 / 12)):
             count = min(count, temp_num2)
             self.move_temp_set(self.relationships['acquaintance'], self.relationships['familiarity'], count, 'acquaintance', 'familiarity')
-        if (temp_num := temp_num1 + count) > 10:
+        if (temp_num := temp_num1 + count) > 6:
             # 数量太多随机降级几个关系
-            self.move_temp_set(self.relationships['familiarity'], self.relationships['acquaintance'], random.randint(0, temp_num - 10), 'familiarity', 'acquaintance')
+            self.move_temp_set(self.relationships['familiarity'], self.relationships['acquaintance'], random.randint(0, temp_num - 6), 'familiarity', 'acquaintance')
 
     def friend_event(self):
         temp_num1, temp_num2 = len(self.relationships['friend']), len(self.relationships['familiarity'])
-        if (count := round_up_probability(0.1 * self.step_threshold * temp_num2 / (temp_num1 * 100 + 3000) * 3000 / 6)):
+        if (count := round_up_probability(0.001 * self.step_threshold * temp_num2 / (temp_num1 + 3) * 3 / 6)):
             count = min(count, temp_num2)
             temp_set = self.move_temp_set(self.relationships['familiarity'], self.relationships['friend'], count, 'familiarity', 'friend')
-            self.relation_record['friend'].extend([character.id for character in temp_set])
 
         if (temp_num := temp_num1 + count) > 3:
             # 数量太多随机降级几个关系

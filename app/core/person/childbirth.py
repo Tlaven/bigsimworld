@@ -29,7 +29,9 @@ class ChildbirthEvent:
             xing = self.character.xing
         else:
             xing = other.xing
-        child_dict = generate_character(xing = xing, DOB = self.model.UTC, relationships = {'parent': [self.character, other]}, relation_record = {'parent': [self.character, other]})
+        child_dict = generate_character(xing = xing, DOB = self.model.UTC, 
+                                        relationships = {'parent': [self.character.id, other.id]}, 
+                                        relation_record = {'parent': [self.character.id, other.id]})
         child = self.model.create_character(child_dict)
         self.relationships['child'].append(child)
         other.relationships['child'].append(child)
