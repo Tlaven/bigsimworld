@@ -4,7 +4,7 @@ from flask_sse import sse
 
 from .api import api_blueprint  # 导入总的 API 蓝图
 from .utils.cache import cache
-from app.core.simulation.runner import SimulationRunner
+from .core.simulation.runner import SimulationRunner
 
 
 def create_app():
@@ -28,4 +28,3 @@ def create_app():
     return app
 
 app = create_app()
-background_runner = SimulationRunner()

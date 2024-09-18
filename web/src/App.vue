@@ -1,20 +1,20 @@
 <template>
   <div id="app">
-    <TimeDisplay />
+    <DataDisplay />
   </div>
 </template>
 
 <script>
-import TimeDisplay from './components/TimeDisplay.vue';
+import DataDisplay from './components/DataDisplay.vue';
 
 export default {
   name: 'App',
   components: {
-    TimeDisplay,
+    DataDisplay,
   },
 };
 </script>
 
 <style>
-/* 全局样式可以放在这里 */
+/* 全局样式 */
 </style>

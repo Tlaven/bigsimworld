@@ -25,7 +25,7 @@ class Character:
             temp_pedometer[key] = value
         self.pedometer = temp_pedometer
         
-        #relationship_keys = {'acquaintance','familiarity','friend','spouse', 'ex-spouses', 'father','mother', 'child'}
+        #relationship_keys = {"acquaintance","familiarity","friend","spouse", "ex-spouses", "father","mother", "child"}
         self.relatives = set()
 
         temp_ralationships = defaultdict(list)
@@ -33,6 +33,10 @@ class Character:
             temp_ralationships[key] = value
             self.relatives.update(value)
         self.relationships = temp_ralationships
+
+        
+        self.publish_keys = ["id", "name", "gender", "age", "property"]
+        self.publish_relationship_keys = ["friend", "spouse","father","mother", "child"]
 
         # init 一些需要的类
         self.events = IndividualEvents(self.model, self)
@@ -52,19 +56,25 @@ class Character:
                 
     # 基本属性变化
     def change_attribute(self):
-        self.pedometer['step'] += 1
-        if self.pedometer['step'] % 360 == 0:
+        self.pedometer["step"] += 1
+        if self.pedometer["step"] % 360 == 0:
             self.age += 1
 
 
 
     def step(self):
         self.change_attribute()
-        if self.pedometer['step'] % self.pedometer['step_threshold'] == 0:
+        if self.pedometer["step"] % self.pedometer["step_threshold"] == 0:
             self.events.possible_events()
 
     @property
     def __dict__(self):
         output_dict = {key: getattr(self, key) for key in Table.__table__.columns.keys()}
-        output_dict['relationships'] = {key: [character.id for character in value if isinstance(character, Character)] for key, value in self.relationships.items()}
+        output_dict["relationships"] = {key: [character.id for character in value if isinstance(character, Character)] for key, value in self.relationships.items()}
+        return output_dict
+    
+    @property
+    def __publish_dict__(self):
+        output_dict = {"atr": [getattr(self, key) for key in self.publish_keys]}
+        output_dict["relationships"] = [[(character.id, character.name) for character in self.relationships[key] if isinstance(character, Character)] for key in  self.publish_relationship_keys]
         return output_dict

@@ -1,3 +1,5 @@
+from json import dumps
+
 from app.models import crud
 from app.core.person.character import Character
 from app.core.simulation.events import PeopleEvents
@@ -13,6 +15,7 @@ class SimulationEngine:
         self.event_plaza = {
             "acquaintance": [],
         }
+        self.publish_list = []  # 需要 publish 对象的集合，根据是否更新关系来决定是否加入
         self.later_queue = LaterDeque()
         
         self.create_characters_from_db()
@@ -48,19 +51,20 @@ class SimulationEngine:
         character = Character(self, **character_dict)
         self.later_queue.add_later(self.characters.update,{id: character})
         self.insert_queue.put(character.__dict__)
+
         return character
 
     def remove_character(self, character_id, character):
         self.later_queue.add_later(self.characters.pop, character_id)
         self.later_queue.add_later(self.update_queue.put, character.__dict__)
 
+
     def create_characters(self, characters_list):
         character_ids = crud.insert_multiple_characters(characters_list)
         # self.characters.update({character_id: Character(self, **character_dict, id = character_id) for character_id, character_dict in zip(character_ids, characters_list)})
         return character_ids
 
-    @time_limit(0.2, record_name = "simulation_step/s") # 这里设置的时间限制尽量大于 1 秒，防止线程无法正常结束
-    async def step(self):
+    def step(self):
         print(f"Step {self.simulation_time}:{py_cache.get('simulation_step/s')[-1]} people:{len(self.characters)}")
         self.simulation_time += 1
         for character in self.characters.values():
@@ -73,5 +77,9 @@ class SimulationEngine:
         crud.update_multiple_characters(self.characters)
         print("Updated character status in database.")
 
-
+    @property
+    def __publish_json__(self):
+        # publish_json = dumps(self.publish_list)
+        # self.publish_list.clear()
+        return dumps(self.characters[1].__publish_dict__)
 
