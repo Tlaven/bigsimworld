@@ -14,6 +14,10 @@ def init_db_queues():
     db_update_queue = manager.Queue()
     db_delete_queue = manager.Queue()
 
+    db_insert_queue.daemon = True
+    db_update_queue.daemon = True
+    db_delete_queue.daemon = True
+
     return {'insert': db_insert_queue,
             'update': db_update_queue,
             'delete': db_delete_queue}

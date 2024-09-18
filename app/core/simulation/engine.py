@@ -1,3 +1,5 @@
+from json import dumps
+
 from app.models import crud
 from app.core.person.character import Character
 from app.core.simulation.events import PeopleEvents
@@ -13,6 +15,7 @@ class SimulationEngine:
         self.event_plaza = {
             "acquaintance": [],
         }
+        self.publish_list = []  # 需要 publish 对象的集合，根据是否更新关系来决定是否加入
         self.later_queue = LaterDeque()
         
         self.create_characters_from_db()
@@ -48,11 +51,13 @@ class SimulationEngine:
         character = Character(self, **character_dict)
         self.later_queue.add_later(self.characters.update,{id: character})
         self.insert_queue.put(character.__dict__)
+
         return character
 
     def remove_character(self, character_id, character):
         self.later_queue.add_later(self.characters.pop, character_id)
         self.later_queue.add_later(self.update_queue.put, character.__dict__)
+
 
     def create_characters(self, characters_list):
         character_ids = crud.insert_multiple_characters(characters_list)
@@ -73,14 +78,8 @@ class SimulationEngine:
         print("Updated character status in database.")
 
     @property
-    def __dict__(self):
-        count = 10
-        result = {}
-        for id, character in self.characters.items():
-            if count == 0:
-                result[id] = character.__dict__
-                return result
-            count -= 1
+    def __publish_json__(self):
+        # publish_json = dumps(self.publish_list)
+        # self.publish_list.clear()
+        return dumps(self.characters[1].__publish_dict__)
 
-
-import random

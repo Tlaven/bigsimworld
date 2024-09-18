@@ -5,8 +5,10 @@ from app.models.processing import ProcessingDB, init_db_queues
 from app.services.publish import sse_publish
 from app.utils.decorators import time_limit
 from app.utils.cache import py_cache
+from flask_sse import sse
 
 
+import time
 class SimulationRunner:
     def __init__(self, app):
         self.app = app
@@ -18,14 +20,15 @@ class SimulationRunner:
 
     @time_limit(1, record_name = "simulation_step/s") # 这里设置的时间限制尽量大于 1 秒，防止线程无法正常结束
     def step(self):
-        self.engine.step_count += 1
         self.engine.step()
-        t = py_cache.get("simulation_step/s")[-1]
-        sse_publish(self.app, self.engine.__dict__)
+        print(len(self.engine.__publish_json__))
+        self.engine.publish_list.clear()
+        #sse.publish(self.engine.__publish_json__)
 
     def start_simulation(self):
-        while not self.stop_event.is_set():  # 检查是否需要停止
-            self.step()
+        with self.app.app_context():
+            while not self.stop_event.is_set():  # 检查是否需要停止
+                self.step()
 
     def start(self):
         # 启动数据库处理进程

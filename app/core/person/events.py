@@ -9,6 +9,7 @@ class IndividualEvents:
     def __init__(self, model, character):
         self.characters = model.characters
         self.event_plaza = model.event_plaza
+        self.publish_list = model.publish_list
         self.character = character
         self.relationships = character.relationships
         self.step_threshold = character.pedometer['step_threshold']
@@ -39,7 +40,10 @@ class IndividualEvents:
             split_index = random.randint(0, temp_num - 20)
             self.relationships['acquaintance'], temp_list = self.relationships['acquaintance'][split_index:], self.relationships['acquaintance'][:split_index]
             for temp_c in temp_list:
-                temp_c.relationships['acquaintance'].remove(self.character)
+                try:
+                    temp_c.relationships['acquaintance'].remove(self.character)
+                except:
+                    self.character.death_event.happen()
         
     def familiarity_event(self):
         temp_num1, temp_num2 = len(self.relationships['familiarity']), len(self.relationships['acquaintance'])
@@ -54,10 +58,15 @@ class IndividualEvents:
         temp_num1, temp_num2 = len(self.relationships['friend']), len(self.relationships['familiarity'])
         if (count := round_up_probability(0.1 * self.step_threshold * temp_num2 / (temp_num1 * 100 + 500) * 500 / 10)):
             count = min(count, temp_num2)
-            self.move_temp_set(self.relationships['familiarity'], self.relationships['friend'], count, 'familiarity', 'friend')
+            temp_set = self.move_temp_set(self.relationships['familiarity'], self.relationships['friend'], count, 'familiarity', 'friend')
+            
+            self.publish_list.extend([("friend", self.character.id, other.id) for other in temp_set])
+
         if (temp_num := temp_num1 + count) > 5:
             # 数量太多随机降级几个关系
-            self.move_temp_set(self.relationships['friend'], self.relationships['acquaintance'], random.randint(0, temp_num - 5), 'friend', 'acquaintance')
+            temp_set = self.move_temp_set(self.relationships['friend'], self.relationships['acquaintance'], random.randint(0, temp_num - 5), 'friend', 'acquaintance')
+            
+            self.publish_list.extend([("re-friend", self.character.id, other.id) for other in temp_set])
 
     def spouse_event(self):
         if round_up_probability(0.1 * self.step_threshold / 360) and (temp_p := self.relationships['friend'] + self.relationships['familiarity']):
@@ -66,15 +75,22 @@ class IndividualEvents:
                 # 重要事件，即需要联系有关人员的事件
                 self.character.marry_event.happen(temp_c)
                 temp_c.marry_event.happen(self.character)
+                
+                self.publish_list.append(("spouse", self.character.id, temp_c.id))
+
+                if temp_c in self.relationships["friend"]:
+                    self.publish_list.append(("re-friend", self.character.id, temp_c.id))
 
     def childbirth_event(self):
         if (count := round_up_probability(0.1 * 0.1 / 2 * self.step_threshold / 18)):
             for _ in range(count):
-                self.character.childbirth_event.happen(self.relationships['spouse'][0])
+                spouse = self.relationships['spouse'][0]
+                self.character.childbirth_event.happen(spouse)
 
     def death_event(self):
         if round_up_probability(0.05 * self.step_threshold / 360):
             self.character.death_event.happen()
+            
 
 
 
@@ -90,10 +106,11 @@ class IndividualEvents:
                 to_list.append(temp_c)
             except Exception as e:
                 print(e)
-                print(f"other_character:{temp_c.id} {from_relation_type}:{[c.id for c in temp_c.relationships[from_relation_type]]}")
-                print(f"other_character:{temp_c.id}: {to_relation_type}:{[c.id for c in temp_c.relationships[to_relation_type]]}")
-                print(f"self_character:{self.character.id}: {from_relation_type}:{[c.id for c in from_list]}")
-                print(f"self_character:{self.character.id}: {to_relation_type}:{[c.id for c in to_list]}")
+                self.character.death_event.happen()
+                # print(f"other_character:{temp_c.id} {from_relation_type}:{[c.id for c in temp_c.relationships[from_relation_type]]}")
+                # print(f"other_character:{temp_c.id}: {to_relation_type}:{[c.id for c in temp_c.relationships[to_relation_type]]}")
+                # print(f"self_character:{self.character.id}: {from_relation_type}:{[c.id for c in from_list]}")
+                # print(f"self_character:{self.character.id}: {to_relation_type}:{[c.id for c in to_list]}")
         return temp_set
 
 
