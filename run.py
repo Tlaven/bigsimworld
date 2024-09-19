@@ -1,6 +1,4 @@
-import sys
 
-sys.setrecursionlimit(1500)  # 设置更大的递归深度
 
 from app import app, SimulationRunner
 

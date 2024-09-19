@@ -17,7 +17,7 @@ class SimulationRunner:
         self.engine.step_count = 0
 
 
-    @time_limit(0.5, record_name = "simulation_step/s") # 这里设置的时间限制尽量大于 1 秒，防止线程无法正常结束
+    @time_limit(0.01, record_name = "simulation_step/s") # 这里设置的时间限制尽量大于 1 秒，防止线程无法正常结束
     def step(self):
         self.engine.step()
         #sse.publish(self.engine.__publish_json__)
@@ -41,5 +41,6 @@ class SimulationRunner:
     def stop(self):
         self.stop_event.set()  # 设置停止事件，通知模拟线程停止
         self.simulation_thread.join()  # 等待模拟线程结束
+        self.processing_db.join()  # 等待数据库处理进程结束
         self.processing_db.kill()  # 停止数据库处理进程
         self.engine.update_status_in_db()  # 确保在停止时更新状态

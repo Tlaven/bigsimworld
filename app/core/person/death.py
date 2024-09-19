@@ -10,63 +10,66 @@ class DeathEvent:
         self.relation_record = character.relation_record
 
     def happen(self):
-        for friend in self.character.relationships['friend']:
-            friend.death_event.notify_friend(friend)
+        for acquaintance in self.relationships['acquaintance']:
+            acquaintance.death_event.notify_acquaintance(self.character)
 
-        for spouse in self.character.relationships['spouse']:
-            spouse.death_event.notify_spouse(spouse)
+        for familiarity in self.relationships['familiarity']:
+            familiarity.death_event.notify_familiarity(self.character)
+
+        for friend in self.relationships['friend']:
+            friend.death_event.notify_friend(self.character)
+
+        for spouse in self.relationships['spouse']:
+            spouse.death_event.notify_spouse(self.character)
             
-        for parent in self.character.relationships['parent']:
-            parent.death_event.notify_parent(parent)
+        for parent in self.relationships['parent']:
+            parent.death_event.notify_parent(self.character)
 
-        for sibling in self.character.relationships['sibling']:
-            sibling.death_event.notify_sibling(sibling)
-
-        for child in self.character.relationships['child']:
-            child.death_event.notify_child(child)
+        for sibling in self.relationships['sibling']:
+            sibling.death_event.notify_sibling(self.character)
+ 
+        for child in self.relationships['child']:
+            child.death_event.notify_child(self.character)
 
         self.self_event()
 
 
     def self_event(self):
         self.character.status = 'dead'
-        self.relation_record['friend'].extend([character.id for character in self.relationships['friend']])
-        for relationship, others in self.relationships.items():
-            for other in others:
-                try:
-                    other.relationships[relationship].remove(self.character)
-                except ValueError:
-                    print(f"Error: {self.character.id} not in {other.id}'s {relationship} list")
         self.relationships.clear()
             
-
         self.model.remove_character(self.character.id, self.character)
         self.model.event_plaza['acquaintance'] = [character for character in self.model.event_plaza['acquaintance'] if character.id != self.character.id]
 
+    def notify_acquaintance(self, acquaintance):
+        self.relationships['acquaintance'].remove(acquaintance)
+
+    def notify_familiarity(self, familiarity):
+        self.relationships['familiarity'].remove(familiarity)
+
     def notify_friend(self, friend):
+        self.relationships['friend'].remove(friend)
+        self.relation_record['friend'].append(friend.id)
         friend.relation_record['friend'].append(self.character.id)
 
     def notify_spouse(self, spouse):
-        pass
+        self.relationships['spouse'].remove(spouse)
+        self.relation_record['spouse'].append(spouse.id)
+        spouse.relation_record['spouse'].append(self.character.id)
 
-    def notify_parent(self, parent):
-        pass
+    def notify_parent(self, child):
+        self.relationships['child'].remove(child)
+        self.relation_record['child'].append(child.id)
+        child.relation_record['parent'].append(self.character.id)
 
     def notify_sibling(self, sibling):
-        pass
+        self.relationships['sibling'].remove(sibling)
+        self.relation_record['sibling'].append(sibling.id)
+        sibling.relation_record['sibling'].append(self.character.id)
 
-    def notify_child(self, child):
-        pass
-
-
-
-
-
-
-
-
-
-
-
+    def notify_child(self, parent):
+        self.relationships['parent'].remove(parent)
+        self.relation_record['parent'].append(parent.id)
+        parent.relation_record['child'].append(self.character.id)
 
 

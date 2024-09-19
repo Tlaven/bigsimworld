@@ -11,24 +11,22 @@ class MarryEvent:
         self.self_event(other)
         # 通知有关人员
         for friend in self.relationships['friend']:
-            friend.marry_event.notify_friend(friend)
+            friend.marry_event.notify_friend(self.character)
 
-        for parent in self.character.relationships['parent']:
-            parent.marry_event.notify_parent(parent)
+        for parent in self.relationships['parent']:
+            parent.marry_event.notify_parent(self.character)
 
     def self_event(self, other):
         self.relationships['spouse'].append(other)
-        self.relation_record['spouse'].append(other.id)
         if other in self.relationships['friend']:
             self.relationships['friend'].remove(other)
         elif other in self.relationships['familiarity']:
             self.relationships['familiarity'].remove(other)
-        return
 
     def notify_friend(self, friend):
         #print(f"{self.character.name}的朋友{friend.name}结婚了")
         return
     
-    def notify_parent(self, parent):
+    def notify_parent(self, child):
         #print(f"{self.character.name}的{parent.gender}父母{parent.name}结婚了")
         return

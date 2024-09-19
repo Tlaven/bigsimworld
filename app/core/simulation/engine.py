@@ -49,8 +49,7 @@ class SimulationEngine:
         character_dict['id'] = id
         self.max_id += 1
         character = Character(self, **character_dict)
-        self.later_queue.add_later(self.characters.update,{id: character})
-        self.later_queue.add_later(character.init_relationships)
+        self.later_queue.add_later(self.characters.update, {id: character})
         self.insert_queue.put(character.__dict__)
 
         return character

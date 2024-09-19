@@ -52,7 +52,7 @@ class Character:
             ids = []
             for id in value:
                 if id not in self.model.characters:
-                    print(f"Character {id} not found in database.")
+                    print(f"Character id:{id} not found in characters.")
                 else:
                     ids.append(id)
             self.relationships[key] = [self.model.characters[id] for id in ids]

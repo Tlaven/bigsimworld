@@ -19,8 +19,8 @@ class IndividualEvents:
     def possible_events(self):
         if self.character.age >= 6:
             self.acquaintance_event()
-            self.familiarity_event()
-            self.friend_event()
+        self.familiarity_event()
+        self.friend_event()
 
         if 18 <= self.character.age < 60 and not self.relationships['spouse']:
             self.spouse_event()
@@ -73,7 +73,7 @@ class IndividualEvents:
                 
 
     def childbirth_event(self):
-        if (count := round_up_probability(0.1 * 0.1 / 2 * self.step_threshold / 18)):
+        if (count := round_up_probability(0.1 * 0.1 / 2 * self.step_threshold / 27)):
             for _ in range(count):
                 spouse = self.relationships['spouse'][0]
                 self.character.childbirth_event.happen(spouse)
