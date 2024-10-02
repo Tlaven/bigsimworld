@@ -1,20 +1,11 @@
 <template>
-  <div id="app">
-    <DataDisplay />
-  </div>
+  <v-app>
+    <v-main>
+      <router-view /> <!-- 方便使用 Vue Router -->
+    </v-main>
+  </v-app>
 </template>
 
-<script>
-import DataDisplay from './components/DataDisplay.vue';
-
-export default {
-  name: 'App',
-  components: {
-    DataDisplay,
-  },
-};
+<script setup>
+import AppLayout from './views/layout/AppLayout.vue'
 </script>
-
-<style>
-/* 全局样式 */
-</style>

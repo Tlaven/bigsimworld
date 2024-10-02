@@ -74,7 +74,6 @@ class SimulationEngine:
 
     def step(self):
         self.change_attribute()
-        print(f"Step {self.simulation_time}:{py_cache.get('simulation_step/s')[-1]} people:{len(self.characters)}")
         for character in self.characters.values():
             character.step()
         PeopleEvents(self.event_plaza)

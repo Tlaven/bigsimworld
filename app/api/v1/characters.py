@@ -1,6 +1,6 @@
 from flask import Blueprint, jsonify
 
-character_routes = Blueprint('character_routes', __name__)
+character_routes = Blueprint('character_routes1', __name__)
 
 @character_routes.route('/characters', methods=['GET'])
 def get_characters():

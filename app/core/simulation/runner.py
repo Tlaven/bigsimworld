@@ -2,7 +2,7 @@ from threading import Thread, Event
 
 from app.core.simulation.engine import SimulationEngine
 from app.models.processing import ProcessingDB, init_db_queues
-from app.services.publish import sse_publish
+from app.services.sse_manager import sse_manager
 from app.utils.decorators import time_limit
 from app.utils.cache import py_cache
 from flask_sse import sse
@@ -17,10 +17,12 @@ class SimulationRunner:
         self.engine.step_count = 0
 
 
-    @time_limit(0.01, record_name = "simulation_step/s") # 这里设置的时间限制尽量大于 1 秒，防止线程无法正常结束
+    @time_limit(1, record_name = "simulation_step/s") # 这里设置的时间限制尽量大于 1 秒，防止线程无法正常结束
     def step(self):
+        print(f"Step {self.engine.simulation_time}:{py_cache.get('simulation_step/s')[-1]} people:{len(self.engine.characters)}")
         self.engine.step()
-        #sse.publish(self.engine.__publish_json__)
+        sse.publish({'time': self.engine.UTC, 'simulation_load': py_cache.get('simulation_step/s')[-1]}, type='data')
+        sse_manager.publish({'time': self.engine.UTC, 'simulation_load': py_cache.get('simulation_step/s')[-1]}, type='data')
 
     def start_simulation(self):
         with self.app.app_context():

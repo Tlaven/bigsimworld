@@ -1,1 +1,1 @@
-from . import publish
+from . import sse_manager
