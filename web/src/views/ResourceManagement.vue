@@ -27,12 +27,21 @@
           </v-card>
         </v-col>
       </v-row>
+        <v-col cols="8">
+          <v-card style="height: 400px;"> <!-- 设置高度 -->
+            <v-card-title>Current Data</v-card-title>
+            <v-card-text>
+              <CurrentDataComponent />
+            </v-card-text>
+          </v-card>
+        </v-col>
     </v-container>
   </v-app>
 </template>
 
 <script setup>
 import ChartComponent from '@/components/SimulationLoadChart.vue'; // 导入你的图表组件
+import CurrentDataComponent from '@/components/CurrentData'; // 导入当前数据
 </script>
 
 <style scoped>

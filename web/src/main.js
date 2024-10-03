@@ -12,7 +12,7 @@ const sseData = ref([]);
 const error = ref(null);
 
 // 启动 SSE 连接
-useSSE('/events', sseData, error);
+useSSE('http://localhost:5000/stream', sseData, error);
 
 // 将响应式数据和错误状态提供给整个应用
 app.provide('sseData', sseData);

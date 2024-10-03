@@ -3,12 +3,11 @@
   </template>
   
   <script setup>
-  import { ref, onMounted, onUnmounted, watch, computed } from 'vue';
+  import { ref, onMounted, onUnmounted, watch, computed, inject } from 'vue';
   import * as echarts from 'echarts';
-  import { useSSE } from '@/services/sseService.js';
-  
-  // 通过 useSSE 函数获取 SSE 数据
-  const { sseData } = useSSE('http://localhost:5000/stream');
+
+  // 使用 inject 获取全局提供的 sseData 和 error
+  const sseData = inject('sseData');
   
   const chart = ref(null);
   const chartInstance = ref(null);
