@@ -14,6 +14,7 @@
       </v-toolbar-title>
   
       <v-spacer></v-spacer>
+      <RefreshSubscription />
       <v-btn @click="toggleTheme">
         Toggle Theme
       </v-btn>
@@ -22,6 +23,7 @@
   
   <script setup>
   import { useTheme } from 'vuetify'
+  import RefreshSubscription from '@/components/RefreshSubscription.vue';
   
   const theme = useTheme()
   
