@@ -1,91 +1,108 @@
 <template>
-    <div ref="chart" style="width: 100%; height: 400px;"></div>
-  </template>
-  
-  <script setup>
-  import { ref, onMounted, onUnmounted, watch, computed, inject } from 'vue';
-  import * as echarts from 'echarts';
+  <div ref="chart" style="width: 100%; height: 400px;"></div>
+</template>
 
-  // 使用 inject 获取全局提供的 sseData 和 error
-  const sseData = inject('sseData');
-  
-  const chart = ref(null);
-  const chartInstance = ref(null);
-  
-  // 计算属性：返回持久化的 SSE 数据中最新的 simulation_load 数组
-  const currentData = computed(() => {
-    return sseData.value.length > 0
-      ? sseData.value.map(item => item.simulation_load)
-      : [];
-  });
-  
-  // 初始化 ECharts 图表
-  const initChart = () => {
-    chartInstance.value = echarts.init(chart.value);
-    const options = {
-      title: {
-        text: 'Simulation Load Over Time',
+<script setup>
+import { ref, onMounted, onUnmounted, watch, inject } from 'vue';
+import * as echarts from 'echarts';
+
+// 使用 inject 获取全局提供的 sseData
+const sseData = inject('sseData');
+
+const chart = ref(null);
+const chartInstance = ref(null);
+
+// 本地保存的最多 60 条数据
+const localData = ref(JSON.parse(localStorage.getItem('localData')) || []);  // 从 localStorage 加载
+const timestamps = ref(JSON.parse(localStorage.getItem('timestamps')) || []); // 同样加载时间戳
+
+// 初始化 ECharts 图表
+const initChart = () => {
+  chartInstance.value = echarts.init(chart.value);
+  const options = {
+    title: {
+      text: 'Simulation Load Over Time',
+    },
+    tooltip: {
+      trigger: 'axis',
+    },
+    xAxis: {
+      type: 'category',
+      boundaryGap: false,
+      data: [], // x 轴数据将在后面更新
+      show: false, // 隐藏 x 轴
+    },
+    yAxis: {
+      type: 'value',
+      min: 0,
+      max: 1,
+    },
+    series: [
+      {
+        name: 'Load',
+        type: 'line',
+        data: [], // 初始化时无数据
+        smooth: true,
+        symbol: 'none', // 不显示数据点
       },
-      tooltip: {
-        trigger: 'axis',
-      },
+    ],
+  };
+  chartInstance.value.setOption(options);
+  
+  // 初始化时如果有缓存的数据，先显示它们
+  if (localData.value.length > 0) {
+    updateChart(); 
+  }
+};
+
+// 更新图表数据
+const updateChart = () => {
+  if (sseData.value) {
+    // 将新数据添加到本地数组中
+    localData.value.push(sseData.value.simulation_load);
+    timestamps.value.push(sseData.value.timestamp);  // 假设有时间戳字段
+
+    // 只保留最近 60 条数据
+    if (localData.value.length > 60) {
+      localData.value.shift();
+      timestamps.value.shift();
+    }
+
+    // 将数据保存到 localStorage 中
+    localStorage.setItem('localData', JSON.stringify(localData.value));
+    localStorage.setItem('timestamps', JSON.stringify(timestamps.value));
+
+    // 更新图表数据
+    chartInstance.value.setOption({
       xAxis: {
-        type: 'category',
-        boundaryGap: false,
-        data: [], // x 轴数据将在后面更新
-      },
-      yAxis: {
-        type: 'value',
-        min: 0,
-        max: 1,
+        data: timestamps.value, // 更新 x 轴的时间戳数据
       },
       series: [
         {
           name: 'Load',
-          type: 'line',
-          data: currentData.value, // 使用 currentData
-          smooth: true,
-          symbol: 'none', // 不显示数据点
+          data: localData.value, // 更新为最新 60 条数据
         },
       ],
-    };
-    chartInstance.value.setOption(options);
-  };
-  
-  // 更新图表数据
-  const updateChart = () => {
-    if (sseData.value.length > 0) {
-      const timestamps = sseData.value.map(item => item.timestamp); // 假设有 timestamp 字段
-  
-      chartInstance.value.setOption({
-        xAxis: {
-          data: timestamps,
-        },
-        series: [
-          {
-            name: 'Load',
-            data: currentData.value, // 更新为 currentData
-          },
-        ],
-      });
-    }
-  };
-  
-  // 监听 SSE 数据的变化
-  watch(sseData, updateChart);
-  
-  onMounted(() => {
-    initChart();
-  });
-  
-  onUnmounted(() => {
-    if (chartInstance.value) {
-      chartInstance.value.dispose(); // 清理实例
-    }
-  });
-  </script>
-  
-  <style scoped>
-  /* 自定义样式 */
-  </style>
-  
+    });
+  }
+};
+
+// 监听 SSE 数据的变化
+watch(sseData, updateChart);
+
+// 挂载时初始化图表
+onMounted(() => {
+  initChart();
+});
+
+// 卸载时清理图表实例
+onUnmounted(() => {
+  if (chartInstance.value) {
+    chartInstance.value.dispose(); // 清理实例
+  }
+});
+</script>
+
+<style scoped>
+/* 可选：自定义样式 */
+</style>

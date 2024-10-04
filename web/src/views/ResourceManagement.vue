@@ -12,7 +12,6 @@
       <v-row>
         <v-col cols="8">
           <v-card style="height: 400px;"> <!-- 设置高度 -->
-            <v-card-title>Simulation Load</v-card-title>
             <v-card-text>
               <ChartComponent ref="chart" />
             </v-card-text>

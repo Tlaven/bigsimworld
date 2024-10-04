@@ -28,15 +28,10 @@ const error = inject('sseError');
 
 // 计算属性：获取 SSE 流中的最新数据
 const currentData = computed(() => {
-  // 如果 sseData 存在且不为空
-  if (sseData.value && sseData.value.length > 0) {
-    // 返回数组中最后一个元素
-    return sseData.value[sseData.value.length - 1];
-  } else {
-    // 否则返回 null，表示没有数据
-    return null;
-  }
+  // 如果 sseData 存在且不为 null
+  return sseData.value || null;
 });
+
 
 </script>
 

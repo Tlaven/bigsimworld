@@ -7,11 +7,38 @@ export async function fetchClientIdAndStartSSE(url, onMessage, onError) {
     const clientId = data.client_id; // 获取客户端 ID
     localStorage.setItem('clientId', clientId); // 存储到 localStorage
 
-    // 使用客户端ID建立SSE连接
-    return startSSE(`http://localhost:5000/stream?channel=${clientId}`, onMessage, onError);
+    // 使用客户端ID建立SSE连接，并在连接成功后发送通知
+    const eventSource = startSSE(`http://localhost:5000/stream?channel=${clientId}`, onMessage, onError);
+
+    // 等待连接打开后发送通知
+    eventSource.onopen = async () => {
+      await notifyConnectionEstablished(`http://localhost:5000/api/v1/notify-connection`, { clientId });
+    };
+
+    return eventSource; // 返回 EventSource 实例以便外部管理
   } catch (err) {
     console.error('Failed to fetch client ID:', err);
     onError(err); // 调用错误处理回调
+  }
+}
+
+// 发送连接建立通知
+async function notifyConnectionEstablished(url, payload) {
+  try {
+    const response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+    });
+
+    if (!response.ok) {
+      throw new Error('Failed to send notification');
+    }
+    console.log('Connection established notification sent successfully');
+  } catch (error) {
+    console.error('Error sending connection notification:', error);
   }
 }
 
@@ -38,25 +65,22 @@ export async function unsubscribe() {
 export function startSSE(url, onMessage, onError) {
   const eventSource = new EventSource(url);
 
-  // 监听自定义事件 'data'
-  eventSource.addEventListener('data', (event) => {
+  // 处理 SSE 消息
+  const handleMessage = (event) => {
     try {
       const data = JSON.parse(event.data); // 解析 JSON 数据
       onMessage(data); // 调用回调函数处理数据
     } catch (e) {
       console.error('Failed to parse SSE message:', e);
+      onError(e); // 通知调用者解析错误
     }
-  });
+  };
+
+  // 监听自定义事件 'data'
+  eventSource.addEventListener('data', handleMessage);
   
   // 监听自定义事件 'initial_data'
-  eventSource.addEventListener('initial_data', (event) => {
-    try {
-      const data = JSON.parse(event.data); // 解析 JSON 数据
-      onMessage(data); // 调用回调函数处理数据
-    } catch (e) {
-      console.error('Failed to parse initial data:', e);
-    }
-  });
+  eventSource.addEventListener('initial_data', handleMessage);
 
   // 错误处理
   eventSource.onerror = (event) => {

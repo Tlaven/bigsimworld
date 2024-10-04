@@ -1,6 +1,7 @@
 from threading import Thread, Event
 
 from app.core.simulation.engine import SimulationEngine
+from app.core.statistics.surveys import SurveyManager
 from app.models.processing import ProcessingDB, init_db_queues
 from app.services.sse_manager import sse_manager
 from app.utils.decorators import time_limit
@@ -14,14 +15,16 @@ class SimulationRunner:
         self.stop_event = Event()  # 用于停止模拟线程的事件
         self.db_queues = init_db_queues()  # 初始化队列
         self.engine = SimulationEngine(self.db_queues)  # 初始化模拟引擎
-        self.engine.step_count = 0
+        self.survey_manager = SurveyManager(self.engine)  # 初始化问卷管理器
 
 
     @time_limit(1, record_name = "simulation_step/s") # 这里设置的时间限制尽量大于 1 秒，防止线程无法正常结束
     def step(self):
         print(f"Step {self.engine.simulation_time}:{py_cache.get('simulation_step/s')[-1]} people:{len(self.engine.characters)}")
+        
+        if self.engine.simulation_time % 100 == 0:
+            self.survey_manager.run()
         self.engine.step()
-        sse.publish({'time': self.engine.UTC, 'simulation_load': py_cache.get('simulation_step/s')[-1]}, type='data')
         sse_manager.publish({'time': self.engine.UTC, 'simulation_load': py_cache.get('simulation_step/s')[-1]}, type='data')
 
     def start_simulation(self):

@@ -30,7 +30,7 @@ export default {
         await fetchClientIdAndStartSSE(
           'http://localhost:5000/api/v1/get-client-id',
           (data) => {
-            sseData.value.push(data); // 更新响应式数据
+            sseData.value = data; // 更新响应式数据
           },
           (err) => {
             error.value = 'Error: ' + err.message; // 更新错误状态
