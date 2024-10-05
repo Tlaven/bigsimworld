@@ -1,4 +1,3 @@
-<<<<<<< HEAD
 # Vuetify (Default)
 
 This is the official scaffolding tool for Vuetify, designed to give you a head start in building your new Vuetify application. It sets up a base template with all the necessary configurations and standard directory structure, enabling you to begin development without the hassle of setting up the project from scratch.
@@ -78,48 +77,3 @@ This project is built with [Vuetify](https://vuetifyjs.com/en/), a UI Library wi
 [MIT](http://opensource.org/licenses/MIT)
 
 Copyright (c) 2016-present Vuetify, LLC
-=======
-
-
-character -> individual_event -> event_plaza -> people_event -> simulation_engine
-
-event_plaza: dict[str, list[character]]
-event_plaza = {
-    "acquaintance": [obj1, obj2, obj3],
-
-}
-
-```
-SimuWorld
-├─ app
-│  ├─ api
-│  │  └─ v1
-│  ├─ core
-│  │  ├─ generation
-│  │  │  ├─ human.py
-│  │  │  ├─ name.py
-│  │  │  └─ __init__.py
-│  │  ├─ person
-│  │  │  ├─ character.py
-│  │  │  ├─ events.py
-│  │  │  └─ __init.py
-│  │  ├─ probability
-│  │  │  ├─ func.py
-│  │  │  └─ __init__.py
-│  │  └─ simulation
-│  │     ├─ engine.py
-│  │     ├─ events.py
-│  │     ├─ later.py
-│  │     └─ __init__.py
-│  ├─ models
-│  │  ├─ crud.py
-│  │  ├─ table.py
-│  │  └─ __init__.py
-│  ├─ schemas
-│  ├─ services
-│  ├─ utils
-│  └─ __init__.py
-├─ README.md
-├─ run.py
-└─ web
->>>>>>> 24ee715969c08651fec577736ce321c2f08fa0f6

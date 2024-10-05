@@ -31,11 +31,6 @@ import DistributionStatistics from '@/views/DistributionStatistics.vue'
           name: 'DistributionStatistics',
           component: DistributionStatistics
         },
-        {
-          path: 'RoleInformation',
-          name: 'RoleInformation',
-          component: () => import('@/views/RoleInformation.vue')
-        }
 
       ]
     },

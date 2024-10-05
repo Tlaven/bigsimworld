@@ -12,13 +12,13 @@
 
 <script>
 import { ref, inject } from 'vue';
-import { handleSSE, unsubscribe } from '@/services/sseService';
+import { fetchClientIdAndStartSSE, unsubscribe } from '@/services/sseService';
 
 export default {
   setup() {
     const sseData = inject('sseData');
     const error = ref(null);
-    const snackbar = ref(false);
+    const snackbar = ref(false); // 控制 snackbar 显示的状态
 
     const refreshSubscription = async () => {
       error.value = null; // 清除之前的错误
@@ -27,12 +27,19 @@ export default {
       await unsubscribe(); // 从 localStorage 获取 clientId 并取消订阅
 
       try {
-        // 调用通用的 SSE 处理函数
-        await handleSSE(sseData, error);
-        snackbar.value = !!error.value; // 如果有错误则显示 snackbar
+        await fetchClientIdAndStartSSE(
+          'http://localhost:5000/api/v1/get-client-id',
+          (data) => {
+            sseData.value.push(data); // 更新响应式数据
+          },
+          (err) => {
+            error.value = 'Error: ' + err.message; // 更新错误状态
+            snackbar.value = true; // 显示 snackbar
+          }
+        );
       } catch (err) {
-        error.value = 'Failed to refresh subscription: ' + err.message;
-        snackbar.value = true;
+        error.value = 'Failed to refresh subscription: ' + err.message; // 处理获取错误
+        snackbar.value = true; // 显示 snackbar
       }
     };
 

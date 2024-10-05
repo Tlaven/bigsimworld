@@ -1,4 +1,21 @@
 // src/services/sseService.js
+// 通用的 SSE 处理函数
+export async function handleSSE(sseData, error) {
+  try {
+    await fetchClientIdAndStartSSE(
+      'http://localhost:5000/api/v1/get-client-id',
+      (data) => {
+        const updatedData = { ...sseData.value, ...data }; // 合并旧数据与新数据
+        sseData.value = updatedData;
+      },
+      (err) => {
+        error.value = err; // 更新错误状态
+      }
+    );
+  } catch (err) {
+    error.value = 'Failed to refresh subscription: ' + err.message;
+  }
+}
 
 export async function fetchClientIdAndStartSSE(url, onMessage, onError) {
   try {

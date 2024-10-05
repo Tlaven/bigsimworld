@@ -24,12 +24,6 @@
         </v-list-item-icon>
         </v-list-item>
 
-      <v-list-item link :to="{ name: 'RoleInformation' }" title="角色信息">
-        <v-list-item-icon>
-          <v-icon>mdi-account-group</v-icon>
-        </v-list-item-icon>
-      </v-list-item>
-
     </v-list>
   </v-navigation-drawer>
 </template>
