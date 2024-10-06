@@ -1,9 +1,12 @@
 // src/services/sseService.js
+
 // 通用的 SSE 处理函数
 export async function handleSSE(sseData, error) {
+  const baseUrl = import.meta.env.VITE_API_BASE_URL;; // 获取基础 API URL
+  
   try {
     await fetchClientIdAndStartSSE(
-      'http://localhost:5000/api/v1/get-client-id',
+      `${baseUrl}/api/v1/get-client-id`,
       (data) => {
         const updatedData = { ...sseData.value, ...data }; // 合并旧数据与新数据
         sseData.value = updatedData;
@@ -18,6 +21,8 @@ export async function handleSSE(sseData, error) {
 }
 
 export async function fetchClientIdAndStartSSE(url, onMessage, onError) {
+  const baseUrl = import.meta.env.VITE_API_BASE_URL;; // 获取基础 API URL
+
   try {
     const response = await fetch(url);
     const data = await response.json();
@@ -25,11 +30,11 @@ export async function fetchClientIdAndStartSSE(url, onMessage, onError) {
     localStorage.setItem('clientId', clientId); // 存储到 localStorage
 
     // 使用客户端ID建立SSE连接，并在连接成功后发送通知
-    const eventSource = startSSE(`http://localhost:5000/stream?channel=${clientId}`, onMessage, onError);
+    const eventSource = startSSE(`${baseUrl}/stream?channel=${clientId}`, onMessage, onError);
 
     // 等待连接打开后发送通知
     eventSource.onopen = async () => {
-      await notifyConnectionEstablished(`http://localhost:5000/api/v1/notify-connection`, { clientId });
+      await notifyConnectionEstablished(`${baseUrl}/api/v1/notify-connection`, { clientId });
     };
 
     return eventSource; // 返回 EventSource 实例以便外部管理
@@ -61,10 +66,12 @@ async function notifyConnectionEstablished(url, payload) {
 
 export async function unsubscribe() {
   const clientId = localStorage.getItem('clientId'); // 从 localStorage 获取 clientId
+  const baseUrl = import.meta.env.VITE_API_BASE_URL;; // 获取基础 API URL
+
   if (!clientId) return;
 
   try {
-    const response = await fetch(`http://localhost:5000/api/v1/unsubscribe/${clientId}`, {
+    const response = await fetch(`${baseUrl}/api/v1/unsubscribe/${clientId}`, {
       method: 'POST',
     });
     const result = await response.json();
