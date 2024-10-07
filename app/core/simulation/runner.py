@@ -18,7 +18,7 @@ class SimulationRunner:
         self.survey_manager = SurveyManager(self.engine)  # 初始化问卷管理器
 
 
-    @time_limit(1, record_name = "simulation_step/s") # 这里设置的时间限制尽量大于 1 秒，防止线程无法正常结束
+    @time_limit(0.1, record_name = "simulation_step/s") # 这里设置的时间限制尽量大于 1 秒，防止线程无法正常结束
     def step(self):
         print(f"Step {self.engine.simulation_time}:{py_cache.get('simulation_step/s')[-1]} people:{len(self.engine.characters)}")
         

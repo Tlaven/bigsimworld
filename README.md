@@ -40,6 +40,7 @@ BigSimWorld是一个模拟项目，使用Python作为后端和Vue.js作为前端
 ## 安装说明
 
 ### 后端（Python）
+- 需要Python 3.11及以上版本。
 1. 安装依赖：
    ```bash
    pip install -r requirements.txt
@@ -54,7 +55,7 @@ BigSimWorld是一个模拟项目，使用Python作为后端和Vue.js作为前端
    ```bash
    cd web
    ```
-2. 安装前端依赖：
+2. 安装前端依赖（需要Node.js 20及以上版本）：
    ```bash
    pnpm install
    ```

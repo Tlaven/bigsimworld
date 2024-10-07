@@ -56,7 +56,7 @@ class RandomUtil:
     
     @classmethod
     def generate_wealths(cls,count):
-        return [random.gauss(10000,1000) for _ in range(count)]
+        return [random.randint(1,10000) for _ in range(count)]
 
 if __name__ == "__main__":
     name,gender = RandomUtil.generate_name()

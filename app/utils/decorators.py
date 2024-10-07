@@ -17,7 +17,7 @@ def time_limit(seconds, record_name):
                 print(f"Error in {func.__name__}: {e}")
                 raise
             doing_time = time.time() - start_time
-            py_cache[record_name].append(doing_time)
+            py_cache[record_name].append(doing_time / seconds)
 
             if doing_time < seconds:
                 time.sleep(seconds - doing_time)
