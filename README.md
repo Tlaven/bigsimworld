@@ -1,82 +1,73 @@
-Here's the updated README with your requested modifications:
-
-```markdown
 # BigSimWorld
 
-## Overview
-BigSimWorld is a simulation project utilizing Python for the backend and Vue.js for the frontend, designed to simulate large-scale environments and interactions.
+[English](./README-en.md) | 简体中文
 
-## Features
-- Interactive simulation visualization with Vue.js
-- Data processing and API endpoints managed by a Python backend
-- SQLite3 for lightweight database management
-- Redis for caching and real-time data handling
+## 概述
+BigSimWorld是一个模拟项目，使用Python作为后端和Vue.js作为前端，旨在模拟大规模环境和交互。
 
-## Project Structure
+## 特性
+- 使用Vue.js进行交互式模拟可视化
+- 由Python后端管理的数据处理和API端点
+- 使用SQLite3进行轻量级数据库管理
+- 使用Redis进行缓存和实时数据处理
+
+## 项目结构
 ```bash
-# Project directory structure
+# 项目目录结构
 
 .
 ├── app/
-│   ├── api/                # API endpoints
-│   ├── core/               # Core functionality (generation, simulation, statistics)
-│   ├── models/             # Database models and processing
-│   ├── schemas/            # JSON schemas for API
-│   ├── services/           # Services for data handling
-│   └── utils/              # Utility functions
-├── LICENSE                  # Project license
-├── logs/                   # Log files
-├── run.py                  # Main script to run the simulation
+│   ├── api/                # API端点
+│   ├── core/               # 核心功能（生成、模拟、统计）
+│   ├── models/             # 数据库模型和处理
+│   ├── schemas/            # API的JSON架构
+│   ├── services/           # 数据处理服务
+│   └── utils/              # 工具函数
+├── LICENSE                  # 项目许可证
+├── logs/                   # 日志文件
+├── run.py                  # 运行模拟的主脚本
 └── web/
     ├── package.json
     ├── src/
     │   ├── App.vue
-    │   ├── components/      # Reusable Vue components
-    │   ├── plugins/         # Vue plugins
-    │   ├── router/          # Vue router configuration
-    │   └── views/           # Main views for the application
-    └── vite.config.mjs      # Vite configuration
+    │   ├── components/      # 可重用的Vue组件
+    │   ├── plugins/         # Vue插件
+    │   ├── router/          # Vue路由配置
+    │   └── views/           # 应用程序的主视图
+    └── vite.config.mjs      # Vite配置
 ```
 
-## Setup Instructions
+## 安装说明
 
-### Backend (Python)
-1. Install dependencies:
+### 后端（Python）
+1. 安装依赖：
    ```bash
    pip install -r requirements.txt
    ```
-2. Run the backend:
+2. 运行后端：
    ```bash
    python run.py
    ```
 
-### Frontend (Vue.js)
-1. Navigate to the `web` directory:
+### 前端（Vue.js）
+1. 进入`web`目录：
    ```bash
    cd web
    ```
-2. Install frontend dependencies:
+2. 安装前端依赖：
    ```bash
    pnpm install
    ```
-3. Start the frontend:
+3. 启动前端：
    ```bash
    pnpm dev
    ```
 
 ## API
-The project provides RESTful endpoints for interaction. Sample endpoints:
-- `/api/v1/subscribe/get-client-id`: Retrieves a unique client ID for the user.
-- `/api/v1/subscribe/notify-connection`: Notifies the server that the client has connected.
-- `/api/v1/subscribe/unsubscribe/<client_id>`: Unsubscribes the client from the simulation.
+该项目提供RESTful端点供交互使用。示例端点：
+- `/api/v1/subscribe/get-client-id`：获取用户的唯一客户端ID。
+- `/api/v1/subscribe/notify-connection`：通知服务器客户端已连接。
+- `/api/v1/subscribe/unsubscribe/<client_id>`：从模拟中取消订阅客户端。
 
-## License
-This project is licensed under the MIT License.
-```
-
-### Key Changes:
-- Added sections for SQLite3 and Redis under **Features**.
-- Maintained the structure and clarity of the project details.
-- Included descriptions of sample API endpoints.
-
-Feel free to adjust any specific details as needed!
+## 许可证
+该项目采用MIT许可证。
