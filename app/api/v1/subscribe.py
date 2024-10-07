@@ -2,6 +2,9 @@ from flask import Blueprint, jsonify, request
 import uuid
 
 from app.services.sse_manager import sse_manager
+from app.utils.logger import setup_logger
+
+logger = setup_logger()
 
 subscribe_routes = Blueprint('sse', __name__)
 
@@ -18,21 +21,32 @@ def notify_connection():
         # 获取请求中的 JSON 数据
         data = request.get_json()
         
-        # 提取客户端 ID
+        # 提取客户端 ID 和通知类型
         client_id = data.get('clientId')
-        
+        notification_type = data.get('type')  # 新增获取 type 字段
+
         if not client_id:
             return jsonify({'success': False, 'message': 'Missing clientId'}), 400
-        
-        # 这里可以进行进一步处理，比如记录到日志或数据库
-        print(f"Client connected with ID: {client_id}")
-        sse_manager.send_initial_data(client_id)
 
+        # 记录到日志
+        logger.info(f"Received subscription notification from client ID: {client_id}, type: {notification_type}")
+
+
+        if notification_type == 'connect':
+            # 处理连接建立的情况
+            sse_manager.send_initial_data(client_id)
+            logger.info(f"Initial data sent to client ID: {client_id}")
+        
+        elif notification_type == 'keepalive':
+            # 处理保持连接的情况
+            sse_manager.send_keepalive(client_id)
+            logger.info(f"Keepalive sent to client ID: {client_id}")
+        
         # 返回成功响应
         return jsonify({'success': True, 'message': 'Connection notification received'}), 200
 
     except Exception as e:
-        print(f"Error processing subscription notification: {e}")
+        logger.exception(f"Error processing subscription notification from client ID: {client_id}, type: {notification_type}")
         return jsonify({'success': False, 'message': 'Internal Server Error'}), 500
 
 # 根据client_id为路由解除订阅

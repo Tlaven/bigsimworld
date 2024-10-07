@@ -110,7 +110,7 @@ const updateWealthChart = () => {
     series: [
       {
         name: 'Population',
-        type: 'line', // Changed to line chart
+        type: 'bar', // Changed to line chart
         data: wealthData[1], // Get corresponding values from the second array
         itemStyle: {
           color: '#66bb6a', // 选择适合的颜色

@@ -2,8 +2,8 @@
 
 // 通用的 SSE 处理函数
 export async function handleSSE(sseData, error) {
-  const baseUrl = import.meta.env.VITE_API_BASE_URL;; // 获取基础 API URL
-  
+  const baseUrl = import.meta.env.VITE_API_BASE_URL; // 获取基础 API URL
+
   try {
     await fetchClientIdAndStartSSE(
       `${baseUrl}/api/v1/get-client-id`,
@@ -21,7 +21,7 @@ export async function handleSSE(sseData, error) {
 }
 
 export async function fetchClientIdAndStartSSE(url, onMessage, onError) {
-  const baseUrl = import.meta.env.VITE_API_BASE_URL;; // 获取基础 API URL
+  const baseUrl = import.meta.env.VITE_API_BASE_URL; // 获取基础 API URL
 
   try {
     const response = await fetch(url);
@@ -32,9 +32,9 @@ export async function fetchClientIdAndStartSSE(url, onMessage, onError) {
     // 使用客户端ID建立SSE连接，并在连接成功后发送通知
     const eventSource = startSSE(`${baseUrl}/stream?channel=${clientId}`, onMessage, onError);
 
-    // 等待连接打开后发送通知
+    // 等待连接打开后发送建立连接的通知
     eventSource.onopen = async () => {
-      await notifyConnectionEstablished(`${baseUrl}/api/v1/notify-connection`, { clientId });
+      await sendConnectionNotification(`${baseUrl}/api/v1/notify-connection`, { clientId }, 'connect');
     };
 
     return eventSource; // 返回 EventSource 实例以便外部管理
@@ -44,31 +44,36 @@ export async function fetchClientIdAndStartSSE(url, onMessage, onError) {
   }
 }
 
-// 发送连接建立通知
-async function notifyConnectionEstablished(url, payload) {
+// 发送连接通知
+async function sendConnectionNotification(url, payload, type) {
   try {
     const response = await fetch(url, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({ ...payload, type }), // 添加类型信息
     });
 
     if (!response.ok) {
-      throw new Error('Failed to send notification');
+      throw new Error(`Failed to send ${type} notification`);
     }
-    console.log('Connection established notification sent successfully');
+    console.log(`${type.charAt(0).toUpperCase() + type.slice(1)} notification sent successfully`);
   } catch (error) {
-    console.error('Error sending connection notification:', error);
+    console.error(`Error sending ${type} notification:`, error);
   }
+}
+
+// 发送保持连接通知
+export async function sendKeepAliveNotification(url, payload) {
+  await sendConnectionNotification(url, payload, 'keepalive');
 }
 
 export async function unsubscribe() {
   const clientId = localStorage.getItem('clientId'); // 从 localStorage 获取 clientId
-  const baseUrl = import.meta.env.VITE_API_BASE_URL;; // 获取基础 API URL
+  const baseUrl = import.meta.env.VITE_API_BASE_URL; // 获取基础 API URL
 
-  if (!clientId) return;
+  if (!clientId) return false;
 
   try {
     const response = await fetch(`${baseUrl}/api/v1/unsubscribe/${clientId}`, {
@@ -88,6 +93,8 @@ export async function unsubscribe() {
 
 export function startSSE(url, onMessage, onError) {
   const eventSource = new EventSource(url);
+  const baseUrl = import.meta.env.VITE_API_BASE_URL;
+  const clientId = localStorage.getItem('clientId');
 
   // 处理 SSE 消息
   const handleMessage = (event) => {
@@ -106,11 +113,28 @@ export function startSSE(url, onMessage, onError) {
   // 监听自定义事件 'initial_data'
   eventSource.addEventListener('initial_data', handleMessage);
 
+  // 定期发送保持活动通知（每30秒）
+  const keepAliveInterval = setInterval(async () => {
+    try {
+      await sendKeepAliveNotification(`${baseUrl}/api/v1/notify-connection`, { clientId });
+    } catch (error) {
+      console.error('Error sending keep-alive notification:', error);
+      onError(error); // 通知错误回调
+    }
+  }, 30000); // 30秒间隔
+
   // 错误处理
   eventSource.onerror = (event) => {
     console.error('SSE error:', event);
     onError(event); // 调用回调函数处理错误
     eventSource.close(); // 关闭连接
+    clearInterval(keepAliveInterval); // 关闭连接时清除定时器
+  };
+
+  // 处理关闭连接（清理）
+  eventSource.onclose = () => {
+    clearInterval(keepAliveInterval); // 停止发送保持活动消息
+    console.log('SSE connection closed');
   };
 
   return eventSource; // 返回 EventSource 实例以便外部管理

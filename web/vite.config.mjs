@@ -36,4 +36,17 @@ export default defineConfig({
   server: {
     port: 3000,
   },
+  build: {
+    chunkSizeWarningLimit: 1000, // 增加 chunk 大小警告阈值到 1000 kB
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          // 根据模块名称手动分块
+          if (id.includes('node_modules')) {
+            return id.split('node_modules/')[1].split('/')[0].toString();
+          }
+        },
+      },
+    },
+  },
 });

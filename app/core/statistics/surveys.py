@@ -1,4 +1,5 @@
 import bisect
+import math
 
 from app.utils.cache import py_cache
 
@@ -30,7 +31,7 @@ class SurveyManager:
 
     def age_distribution(self):
         age_distribution_data = [0] * 21
-        age_boundaries = [0, 5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]
+        age_boundaries = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]
         age_labels = ["0-4", "5-9", "10-14", "15-19", "20-24", "25-29", "30-34", "35-39", "40-44", "45-49", "50-54", 
                       "55-59", "60-64", "65-69", "70-74", "75-79", "80-84", "85-89", "90-94", "95-99", "100+"]
         for _, age in self.data:
@@ -43,11 +44,11 @@ class SurveyManager:
     def wealth_distribution(self):
         wealths = sorted([individual[0] for individual in self.data])
         # 取前 1% 的财富分布，剩下的分20份, 计算数量按顺序放在字典中
-        wealth_mains, wealth_maxs = wealths[:int(self.characters_num*0.99)], wealths[int(self.characters_num*0.99):]
-        spacing = wealth_maxs[0] / 20
+        wealth_mains, wealth_maxs = wealths[:int(len(wealths) * 0.99)], wealths[int(len(wealths) * 0.99):]
+        spacing = first_digit_rounding_corrected(wealth_maxs[0]) // 20
         age_distribution_data = [0] * 21
         wealth_boundaries = [i*spacing for i in range(1,21)]
-        wealth_labels = [f"{i*spacing}-{(i + 1) * spacing}" for i in range(20)] + [f"{wealth_maxs[0]}+"]
+        wealth_labels = [f"{i * spacing}-{(i + 1) * spacing}" for i in range(20)] + [f"{spacing*20}+"]
         for wealth in wealth_mains:
             index = bisect.bisect_right(wealth_boundaries, wealth)
             age_distribution_data[index] += 1
@@ -56,4 +57,10 @@ class SurveyManager:
         return [wealth_labels, age_distribution_data]
 
 
-        
+def first_digit_rounding_corrected(n):
+    if n == 0:
+        return 0
+    order_of_magnitude = math.floor(math.log10(n))
+    if n / math.pow(10, order_of_magnitude) >= 5:
+        order_of_magnitude += 1
+    return int(math.pow(10, order_of_magnitude))

@@ -62,6 +62,8 @@ class Character:
         self.pedometer["step"] += 1
         if self.pedometer["step"] % 360 == 0:
             self.age += 1
+        if self.pedometer['step'] % 30 == 0 and 60 > self.age > 18:
+            self.wealth += 1000
 
 
 

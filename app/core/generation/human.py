@@ -32,6 +32,11 @@ def generate_characters(num, **kwargs):
     else:
         pedometers = [{'step': kwargs.get('pedometer'), 'step_threshold': 10}] * num
 
+    if kwargs.get('wealth') is None:
+        wealths = RandomUtil.generate_wealths(num)
+    else:
+        wealths = [kwargs.get('wealth')] * num
+
     return [{'name': name, 'age': age, 'gender': gender,'xing': xing,'property': 0,
               'wealth': wealth, 'relationships': {}, 'pedometer': pedometer, 'relation_record': {}}
-             for (name, gender, xing), age, pedometer, wealth in zip(names, ages, pedometers, [10] * num)]
+             for (name, gender, xing), age, pedometer, wealth in zip(names, ages, pedometers, wealths)]
