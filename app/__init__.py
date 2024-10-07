@@ -25,6 +25,8 @@ def create_app():
     # 注册 API 蓝图
     app.register_blueprint(api_blueprint, url_prefix='/api')
 
-    return app
+    # 启动模拟器
+    background = SimulationRunner(app)
+    background.start()
 
-app = create_app()
+    return app, background
