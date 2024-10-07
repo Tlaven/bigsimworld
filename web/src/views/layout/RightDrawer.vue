@@ -7,11 +7,8 @@
       <v-card>
         <v-card-title>Current Data</v-card-title>
         <v-card-text>
-          <!-- Show error if there is any -->
-          <v-alert v-if="error" type="error">{{ error }}</v-alert>
-
           <!-- Show current data or waiting message -->
-          <span v-else>{{ currentData ? currentData.time : 'Waiting for data...' }}</span>
+          <span>{{ currentData ? currentData.time : 'Waiting for data...' }}</span>
         </v-card-text>
       </v-card>
       
