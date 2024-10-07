@@ -56,4 +56,3 @@ def unsubscribe(client_id):
         sse_manager.unsubscribe(client_id)
     return jsonify({'success': True})
 
-
