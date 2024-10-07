@@ -25,7 +25,7 @@ class SimulationRunner:
         if self.engine.simulation_time % 100 == 0:
             self.survey_manager.run()
         self.engine.step()
-        sse_manager.publish({'time': self.engine.UTC, 'simulation_load': py_cache.get('simulation_step/s')[-1]}, type='data')
+        sse_manager.publish({'time': self.engine.UTC, 'simulation_load': py_cache.get('simulation_step/s')[-1], 'people': len(self.engine.characters)}, type='data')
         sse.publish({'time': self.engine.UTC, 'simulation_load': py_cache.get('simulation_step/s')[-1]}, type='data')
 
     def start_simulation(self):

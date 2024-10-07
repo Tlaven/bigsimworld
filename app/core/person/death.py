@@ -68,8 +68,8 @@ class DeathEvent:
         sibling.relation_record['sibling'].append(self.character.id)
 
     def notify_child(self, parent):
-        # 平分10%的遗产
-        self.character.wealth += parent.wealth * 0.1 / len(parent.relationships['child'])
+        # 平分50%的遗产
+        self.character.wealth += parent.wealth * 0.5 / len(parent.relationships['child'])
         self.relationships['parent'].remove(parent)
         self.relation_record['parent'].append(parent.id)
         parent.relation_record['child'].append(self.character.id)

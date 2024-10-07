@@ -73,7 +73,7 @@ class IndividualEvents:
                 
 
     def childbirth_event(self):
-        if (count := round_up_probability(0.1 * 0.1 / 2 * self.step_threshold / 27)):
+        if (count := round_up_probability(0.1 * 0.1 / 2 * self.step_threshold / 32)):
             for _ in range(count):
                 spouse = self.relationships['spouse'][0]
                 self.character.childbirth_event.happen(spouse)
