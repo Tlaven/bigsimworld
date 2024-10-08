@@ -11,7 +11,7 @@
 
       <v-spacer></v-spacer>
       <v-toolbar-title class="text-center" style="flex: 1; text-align: center;">
-        <a href="https://github.com/your-username/your-repo" target="_blank" style="color: inherit; text-decoration: none;">
+        <a href="https://github.com/Tlaven/bigsimworld" target="_blank" style="color: inherit; text-decoration: none;">
           BigSimWorld
         </a>
       </v-toolbar-title>
