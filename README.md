@@ -45,7 +45,11 @@ BigSimWorld是一个模拟项目，使用Python作为后端和Vue.js作为前端
    ```bash
    pip install -r requirements.txt
    ```
-2. 运行后端：
+2. 配置数据库：
+   ```bash
+   python app/core/generation/CreateCharacters.py
+   ```
+3. 运行后端：
    ```bash
    python run.py
    ```
