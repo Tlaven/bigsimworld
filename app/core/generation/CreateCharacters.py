@@ -11,5 +11,6 @@ from app.core.generation.human import generate_character, generate_characters
 from app.models.crud import insert_multiple_characters_by_dict
 
 if __name__ == '__main__':
-    characters = generate_characters(10000)
+    num = input("请输入生成的角色数量：")
+    characters = generate_characters(int(num))
     insert_multiple_characters_by_dict(characters)
