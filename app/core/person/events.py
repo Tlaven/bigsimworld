@@ -88,7 +88,8 @@ class IndividualEvents:
 
     # 根据 from_list 里的元素的权重属性，随机将 list 里的 count 个元素移动到另一个 list 里
     def move_temp_set(self, from_list: list[object], to_list: list[object], count, from_relation_type, to_relation_type) -> set[object]:
-        temp_set = set(random.choices(from_list, [0.1 for temp_c in from_list], k=count))
+        # 所有元素权重相同，等价于无权重均匀抽样；避免 O(n) 构造权重列表
+        temp_set = set(random.choices(from_list, k=count))
         for temp_c in temp_set:
             temp_c.relationships[from_relation_type].remove(self.character)
             temp_c.relationships[to_relation_type].append(self.character)
@@ -100,4 +101,7 @@ class IndividualEvents:
 # 输入一个 float 值，进行随机取整
 def round_up_probability(value: float) -> int:
     remainder = value % 1
+    if remainder == 0.0:
+        # 整数概率无需掷骰（原实现也会掷一次但结果恒定）
+        return int(value)
     return int(value + 1) if remainder > random.random() else int(value)

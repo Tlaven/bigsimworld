@@ -6,12 +6,12 @@
 事件堆的排序键为 ``(time, seq, priority, counter)``：
 
 - ``seq`` 是角色的插入序（与旧引擎 dict 迭代序一致），保证"按角色分组"；
-- 同一角色在同 tick 内按 ``priority`` 排序：AGE(0) -> WEALTH(1) -> LIFE(2)，
-  复现旧引擎"先变更属性、再判定个体事件"的顺序；
+- 每个角色在堆中只有**一个**待办事件（下一次 wake）；wake 时刻是三路周期的并集
+  （个体事件周期 ``step_threshold``、财富周期 30、年龄周期 360）；
 - 广场配对（PLZ）以一个大 ``seq`` 排在同一 tick 的所有角色事件之后。
 
-由于三类周期 10/30/360 共用同一相位，且 AGE/WEALTH 无随机调用，因此
-只要个体事件的集合与顺序一致，随机数流即与原引擎一致。
+因为三类周期共用同一相位、且属性变更没有随机调用，因此只要个体事件的集合与
+顺序一致，随机数流即与原引擎一致（见 tests/test_event_engine.py 的逐位一致性测试）。
 """
 
 import heapq
@@ -22,12 +22,13 @@ from app.models import crud
 from app.core.person.character import Character
 from app.core.simulation.events import PeopleEvents
 
-AGE = 0
-WEALTH = 1
-LIFE = 2
-PLZ = 3
+WAKE = 0
+PLZ = 1
 
 _PLAZA_SEQ = 10 ** 18
+
+AGE_PERIOD = 360
+WEALTH_PERIOD = 30
 
 
 class EventEngine:
@@ -91,32 +92,25 @@ class EventEngine:
 
     # ------------------------------------------------------------------ 调度
 
-    def _next_seq(self):
-        self._seq += 1
-        return self._seq
-
     def _schedule_character(self, character):
         base = int(character.pedometer["step"])
         character._base_step = base
         character._spawn_time = self.simulation_time
         character._seq = self._next_seq()
-
-        self._push(self._first_time(base, 360), AGE, character)
-        self._push(self._first_time(base, 30), WEALTH, character)
-        self._push(
-            self._first_time(base, int(character.pedometer["step_threshold"])),
-            LIFE,
-            character,
-        )
+        character._next_life = self._first_time(base, int(character.pedometer["step_threshold"]))
+        character._next_wealth = self._first_time(base, WEALTH_PERIOD)
+        character._next_age = self._first_time(base, AGE_PERIOD)
+        self._push(_next_wake(character), WAKE, character)
 
     def _first_time(self, base, period):
         offset = (-base) % period
         if offset == 0:
             offset = period
-        return self._spawn_time_now() + offset
+        return self.simulation_time + offset
 
-    def _spawn_time_now(self):
-        return self.simulation_time
+    def _next_seq(self):
+        self._seq += 1
+        return self._seq
 
     def _push(self, when, priority, character):
         seq = _PLAZA_SEQ if character is None else character._seq
@@ -142,31 +136,33 @@ class EventEngine:
 
     def _run_until(self, target):
         heap = self._heap
+        characters = self.characters
         while heap and heap[0][0] <= target:
             when, _seq, priority, _counter, character = heapq.heappop(heap)
             self.simulation_time = when
             if priority == PLZ:
                 self._dispatch_plaza(when)
                 continue
-            current = self.characters.get(character.id)
+            current = characters.get(character.id)
             if current is None:
                 continue
-            if priority == AGE:
+
+            if current._next_age == when:
                 current.age += 1
-                self._push(when + 360, AGE, current)
-            elif priority == WEALTH:
+                current._next_age += AGE_PERIOD
+            if current._next_wealth == when:
                 if 18 < current.age < 60:
                     current.wealth += 1000
-                self._push(when + 30, WEALTH, current)
-            elif priority == LIFE:
+                current._next_wealth += WEALTH_PERIOD
+            if current._next_life == when:
                 current.pedometer["step"] = current._base_step + (
                     when - current._spawn_time
                 )
                 current.events.possible_events()
                 self._ensure_plaza(when)
-                self._push(
-                    when + int(current.pedometer["step_threshold"]), LIFE, current
-                )
+                current._next_life += int(current.pedometer["step_threshold"])
+
+            self._push(_next_wake(current), WAKE, current)
 
     def _dispatch_plaza(self, when):
         self._plaza_scheduled_at = None
@@ -195,3 +191,7 @@ class EventEngine:
     def remove_character(self, character_id, character):
         self.characters.pop(character_id, None)
         self.update_queue.put(character.__dict__)
+
+
+def _next_wake(character):
+    return min(character._next_life, character._next_wealth, character._next_age)

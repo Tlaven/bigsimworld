@@ -10,10 +10,11 @@ def main():
     parser.add_argument("--n", type=int, default=10000)
     parser.add_argument("--steps", type=int, default=30)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--engine", choices=["legacy", "event"], default="legacy")
     parser.add_argument("--top", type=int, default=20)
     args = parser.parse_args()
 
-    engine = build_engine(args.n, seed=args.seed)
+    engine = build_engine(args.n, seed=args.seed, engine=args.engine)
     profiler = cProfile.Profile()
     profiler.enable()
     for _ in range(args.steps):
