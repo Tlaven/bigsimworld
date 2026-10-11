@@ -142,8 +142,20 @@ class WindowEngine:
     def population(self):
         return self.window.population()
 
+    @property
+    def UTC(self):
+        year, remainder = divmod(self.simulation_time, 360)
+        month, day = divmod(remainder, 30)
+        return f"{year}-{month}-{day}"
+
+    def sample_people(self, k=20):
+        """取窗口内若干真个体（用于前端/SSE 展示）。"""
+        characters = list(self.window.characters.values())
+        return [character.__publish_dict__ for character in characters[:k]]
+
     def step(self):
         self.measure_engine.step()
         self.simulation_time = self.measure_engine.simulation_time
         self.window.step(self.simulation_time)
+
 

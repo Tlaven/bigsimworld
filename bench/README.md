@@ -347,6 +347,8 @@ python -m bench.convergence --window --sizes 10000 100000 1000000 --capacity 100
 - capacity 强制：`len(窗口角色) ≤ capacity`。
 
 ## 接入
-`SimulationRunner(app, mode="measure")` 现使用 `WindowEngine`（测度 + 真个体窗口）；`mode="individual"` 仍为默认。
+- `SimulationRunner(app, mode="measure")` 使用 `WindowEngine`（测度 + 真个体窗口）；每个 tick 额外把窗口内若干**真个体**（`sample_people`）随 SSE `data` 事件推送。
+- `run.py` **默认 `measure` 模式**（`SIM_MODE=individual` 可切回逐个体；`SIM_CAPACITY`/`SIM_POPULATION` 可调）。
+- 端到端已验证：`measure` 模式下 `step()` 正常推进、`survey_data`（21 个年龄桶）写入缓存、SSE payload 含 `people`（真个体的 `atr`/`relationships`）。
 
 

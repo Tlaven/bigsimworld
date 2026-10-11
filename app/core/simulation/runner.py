@@ -54,6 +54,8 @@ class SimulationRunner:
 
         payload = {'time': self.engine.UTC,
                    'simulation_load': py_cache.get('simulation_step/s')[-1]}
+        if self.mode == "measure":
+            payload['people'] = self.engine.sample_people(20)
         sse_manager.publish(payload, type='data')
         try:
             sse.publish(payload, type='data')

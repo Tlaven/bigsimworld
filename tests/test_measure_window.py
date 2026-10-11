@@ -43,3 +43,21 @@ def test_window_has_marriages_and_births():
     married = sum(1 for c in window.characters.values() if c.relationships["spouse"])
     assert married > 0
     assert window.stats["births"] > 0
+
+
+def test_window_engine_sample_people_and_utc():
+    from app.core.measure.engine import MeanFieldEngine
+    from app.core.measure.transitions import FULL_FLOWS
+    from app.core.measure.window import WindowEngine
+    from bench.world import make_characters
+
+    mf = MeanFieldEngine(characters=make_characters(2000, seed=1), flows=FULL_FLOWS)
+    engine = WindowEngine(mf, capacity=300, window=300)
+    for _ in range(200):
+        engine.step()
+    people = engine.sample_people(10)
+    assert isinstance(people, list)
+    assert 0 < len(people) <= 10
+    assert "atr" in people[0] and "relationships" in people[0]
+    assert isinstance(engine.UTC, str) and "-" in engine.UTC
+
