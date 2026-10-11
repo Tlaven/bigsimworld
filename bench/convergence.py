@@ -43,6 +43,7 @@ def compare_fingerprint(fp_a, fp_b):
         "degree_l1": _l1(fp_a["degree_hist"], fp_b["degree_hist"]),
         "gini_diff": float(abs(fp_a["gini_wealth"] - fp_b["gini_wealth"])),
         "wealth_rel": _wealth_rel(fp_a, fp_b),
+        "married_diff": float(abs(fp_a.get("married_frac", 0.0) - fp_b.get("married_frac", 0.0))),
     }
 
 
@@ -71,15 +72,37 @@ def run_measure(n, steps, seed):
     return measure_fingerprint(engine.measure, engine.space)
 
 
+def run_measure_full(n, steps, seed):
+    from app.core.measure.engine import MeanFieldEngine
+    from app.core.measure.transitions import FULL_FLOWS
+
+    engine = MeanFieldEngine(characters=make_characters(n, seed=seed), flows=FULL_FLOWS)
+    engine.run_until(steps)
+    return measure_fingerprint(engine.measure, engine.space)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Convergence baselines / comparison")
     parser.add_argument("--individual", type=int, nargs="+")
     parser.add_argument("--measure-compare", action="store_true")
+    parser.add_argument("--full-compare", action="store_true")
     parser.add_argument("--sizes", type=int, nargs="+", default=[1000, 10000, 50000])
     parser.add_argument("--steps", type=int, default=500)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--out", default="bench/results/fingerprints")
     args = parser.parse_args()
+
+    if args.full_compare:
+        print(f"{'N':>8} {'age_l1':>9} {'gini_diff':>10} {'wealth_rel':>11} "
+              f"{'married_diff':>13} {'pop_ind':>9} {'pop_mf':>9}")
+        for n in args.sizes:
+            ind = run_individual(n, args.steps, args.seed)
+            mf = run_measure_full(n, args.steps, args.seed)
+            diff = compare_fingerprint(ind, mf)
+            print(f"{n:>8} {diff['age_l1']:>9.4f} {diff['gini_diff']:>10.4f} "
+                  f"{diff['wealth_rel']:>11.4f} {diff['married_diff']:>13.4f} "
+                  f"{ind['population']:>9} {mf['population']:>9}")
+        return
 
     if args.measure_compare:
         print(f"{'N':>8} {'age_l1':>10} {'degree_l1':>10} {'gini_diff':>10} {'wealth_rel':>10}")

@@ -40,6 +40,8 @@ def measure_fingerprint(measure, space):
     age_hist = [0] * (len(AGE_BOUNDARIES) + 1)
     age_sum = 0.0
     pop = 0.0
+    adults = 0.0
+    married_adults = 0.0
     wealth_by_bucket = {}
     for index in measure.occupied:
         count = measure.counts[index]
@@ -48,6 +50,10 @@ def measure_fingerprint(measure, space):
         age, gender, wealth_bucket, marital = space.decode(index)
         age_hist[np.digitize([age], AGE_BOUNDARIES)[0]] += count
         age_sum += age * count
+        if 18 <= age < 60:
+            adults += count
+            if marital == 1:
+                married_adults += count
         wealth_by_bucket[wealth_bucket] = wealth_by_bucket.get(wealth_bucket, 0.0) + count
         pop += count
 
@@ -65,6 +71,7 @@ def measure_fingerprint(measure, space):
         "degree_hist": [int(round(pop))] if pop else [0],
         "gini_wealth": round(gini_weighted(values, weights), 5) if buckets else 0.0,
         "mean_age": round(age_sum / pop, 3) if pop else 0.0,
+        "married_frac": round(married_adults / adults, 5) if adults else 0.0,
     }
 
 
@@ -87,6 +94,10 @@ def fingerprint(engine):
     wealths = np.array([c.wealth for c in chars], dtype=np.float64)
     degrees = np.array([len(c.relatives) for c in chars], dtype=np.int64)
 
+    adults = [c for c in chars if 18 <= c.age < 60]
+    married = [c for c in adults if c.relationships.get("spouse")]
+    married_frac = round(len(married) / len(adults), 5) if adults else 0.0
+
     return {
         "population": n,
         "total_wealth": round(float(wealths.sum()), 3),
@@ -97,4 +108,5 @@ def fingerprint(engine):
         "degree_hist": np.bincount(degrees, minlength=int(degrees.max()) + 1).tolist(),
         "gini_wealth": round(gini(wealths), 5),
         "mean_age": round(float(ages.mean()), 3),
+        "married_frac": married_frac,
     }

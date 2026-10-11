@@ -1,4 +1,4 @@
-from bench.convergence import compare_fingerprint, run_measure, run_reduced
+from bench.convergence import compare_fingerprint, run_individual, run_measure, run_measure_full, run_reduced
 
 
 def test_measure_converges_to_reduced_model():
@@ -12,3 +12,16 @@ def test_measure_converges_to_reduced_model():
     assert large["age_l1"] < 0.02
     assert large["gini_diff"] < 0.03
     assert large["wealth_rel"] < 0.05
+
+
+def test_measure_full_matches_individual():
+    # 带婚配/生育（FULL_FLOWS）的测度引擎应与完整个体引擎统计相近。
+    steps = 2500
+    ind = run_individual(3000, steps, 42)
+    mf = run_measure_full(3000, steps, 42)
+    diff = compare_fingerprint(ind, mf)
+    assert diff["gini_diff"] < 0.03
+    assert diff["wealth_rel"] < 0.05
+    assert diff["married_diff"] < 0.10
+    assert diff["age_l1"] < 0.06
+
