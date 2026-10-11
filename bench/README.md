@@ -295,4 +295,31 @@ python -m bench.convergence --materialize --sizes 10000 100000 1000000 10000000 
 - 物化个体目前是**轻量状态**（年龄/性别/财富/婚配），按个体模型速率随机演化；**真关系图/家谱**仍待接入（把 `Character` 接进物化层）。
 - Stage 0–4 全部完成：测度层（人口/财富/婚配/生育/继承）+ 物化层，且**成本与 N 无关**。
 
+---
+
+# 均值场引擎 · Stage 5 已完成（工程集成）
+
+1. **统计直接读测度**：`app/core/measure/survey.py::measure_survey(measure, space)` 生成前端用的 `{age:[labels,counts], wealth:[labels,counts]}`，成本 `O(占用桶数)`，**取代对个体的 O(N) 扫描**。
+2. **持久化**：`app/models/snapshot.py` 新增 `snapshots` 表（`simulation_time` + 测度 payload + 物化窗口 payload），`measure_to_payload`/`measure_from_payload` 做紧凑序列化（只存非零桶）。**一次快照存下整个世界，不再是"每个体一行"**。
+3. **驱动切换**：`SimulationRunner(app, mode="measure"|"individual")`。`measure` 模式用 `MaterializedEngine`（测度 + 窗口），统计走 `measure_survey`，不启动 DB 写进程；`individual` 为默认，行为不变。
+
+## 验证
+- `measure_survey` 计数总和 = 人口；手工构造测度桶位正确。
+- 快照 payload 往返无损（`occupied` 一致、总量误差 <1e-6）。
+- `SimulationRunner(mode="measure")` 可构建并推进（窗口 ≤ capacity）。
+- 全套 `pytest` **50 passed**。
+
+## 至此 Stage 0–5 全部完成
+```
+个体引擎（高保真参照，保留）
+        ↑ 收敛验证
+测度引擎（分布为主体，成本 ∝ 桶数、与 N 无关）
+        ↕ 守恒同步
+物化层（≤M 真个体窗口）
+        ↓
+观测（measure_survey）/ 持久化（snapshot）/ 驱动（runner mode）
+```
+
+**核心结论：只要把"个体集合"换成"状态空间上的分布"，就能在固定成本下把单位数推到千万级。**
+
 
