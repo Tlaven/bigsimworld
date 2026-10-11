@@ -19,12 +19,16 @@ def make_characters(n, seed=None, age_range=(0, 80)):
             wealth=random.gauss(10000, 1000),
         )
         character["id"] = i
+        # 随机的个人相位：不同角色的事件落在不同 tick，贴近真实世界
+        character["pedometer"] = {"step": random.randint(0, 359), "step_threshold": 10}
         characters.append(character)
     return characters
 
 
-def build_engine(n, seed=None, age_range=(0, 80)):
-    return SimulationEngine(
-        make_sink_queues(),
-        characters=make_characters(n, seed=seed, age_range=age_range),
-    )
+def build_engine(n, seed=None, age_range=(0, 80), engine="legacy"):
+    characters = make_characters(n, seed=seed, age_range=age_range)
+    if engine == "event":
+        from app.core.simulation.event_engine import EventEngine
+
+        return EventEngine(make_sink_queues(), characters=characters)
+    return SimulationEngine(make_sink_queues(), characters=characters)

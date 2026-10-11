@@ -6,9 +6,9 @@
 
 | 脚本 | 用途 | 命令 |
 | --- | --- | --- |
-| `bench.run_scaling` | 扫描多个人口规模，输出扩展曲线到 CSV | `python -m bench.run_scaling --sizes 1000 2000 5000 10000 20000 --steps 30 --warmup 5` |
+| `bench.run_scaling` | 扫描多个人口规模，输出扩展曲线到 CSV | `python -m bench.run_scaling --engine legacy --sizes 1000 2000 5000 10000 20000 --steps 30 --warmup 5` |
 | `bench.profile_step` | 用 cProfile 找 `engine.step` 的热点函数 | `python -m bench.profile_step --n 10000 --steps 30 --top 20` |
-| `bench.world` | 用固定随机种子构造 N 个角色的引擎（可复现） | `from bench.world import build_engine; build_engine(1000, seed=42)` |
+| `bench.world` | 用固定随机种子构造 N 个角色的引擎（可复现），`engine="legacy"｜"event"` | `from bench.world import build_engine; build_engine(1000, seed=42, engine="event")` |
 | `bench.measure` | 逐步计时 + RSS 采样，返回 `avg/p50/p95/max` | `from bench.measure import measure_steps` |
 
 结果默认写入 `bench/results/`。
@@ -45,3 +45,40 @@
 Phase 2 将把"全局同步 tick"改为"离散事件调度"：给每个体维护 `next_event_time`，用堆（heapq）只处理"下一次真正要发生的事"。目标是把成本从 **∝ 人口** 降到 **∝ 事件数**，让闲置个体零成本。
 
 **Phase 2 完成后必须重跑本文件的基线命令做对比，验证人均耗时不再随人口增长而上升。**
+
+---
+
+# Phase 2：离散事件引擎（已完成）
+
+实现于 `app/core/simulation/event_engine.py`（`EventEngine`）。它**复用同一套 `Character` 与事件类，只替换驱动器**：为每个角色按自身相位调度 `LIFE`（周期 `step_threshold`）、`WEALTH`（30）、`AGE`（360）三类事件，用最小堆 `(time, 角色插入序, 优先级)` 只处理"到点"的事件。
+
+## 正确性：与原引擎逐位一致
+
+`tests/test_event_engine.py::test_event_engine_matches_legacy` 验证：同一随机种子下，200 人跑 300 步，两引擎的 `(时间, 人口, 年龄总和, 财富总和, 好友关系数)` **完全相等**。即离散事件调度在改变驱动方式的同时，**没有改变仿真语义**。
+
+## 对照结果（每配置独立进程，重复 3 次取中位；seed=42，30 步）
+
+| N | legacy avg_ms | event avg_ms | 提速 | legacy p95 | event p95 | legacy MB | event MB |
+| ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
+| 1,000 | 0.385 | 0.275 | **1.40×** | 0.62 | 0.36 | 64.8 | 66.8 |
+| 5,000 | 1.96 | 1.86 | 1.05× | 2.9 | 3.1 | 74.5 | 84.2 |
+| 10,000 | 4.03 | 3.85 | 1.05× | 5.6 | 5.0 | 86.4 | 105.4 |
+| 20,000 | 9.54 | 10.12 | **0.94×** | 23 | 32 | 111 | 147 |
+
+## 关键结论（一个重要的"负结果"）
+
+1. **离散事件调度并没有改变渐近瓶颈。** 在 5k–20k 人时提速约等于零，20k 时甚至**更慢**，且内存多约 30%。
+2. **原因：真正的瓶颈不是"驱动器"，而是 `possible_events()` 的调用频率。** 每个"活跃"角色每 10 tick 就必须掷一次骰子，两种引擎都是每 tick `≈ N/10` 次 `possible_events`。单次 `possible_events` 约 5µs，**远大于**旧引擎每 tick 全量扫描的开销（约 0.4µs/人）。DS 省下的扫描开销（~0.4N µs）几乎被堆操作开销（~0.3N µs）抵消。
+3. **DS 只在"稀疏/小规模"世界明显胜出**（1k 人时 1.40×），因为此时"到点事件"稀疏，时钟可以跳过大量空 tick；而人口一密，每个 tick 都有满量事件，跳过无从谈起。
+4. **教训：优化前先找瓶颈。** "事件驱动 = 更快"是常见误判——当每个体都有一条密集的周期事件流时，DS 并不比同步扫描快。
+
+## 这意味着 Phase 3 应该做什么
+
+既然瓶颈是"每个活跃个体每 10 tick 必须掷骰 + 维护关系链表"，下一阶段的杠杆是**降低单次交互成本、并减少无效掷骰**，而不是再优化调度器：
+
+- **交互局部化**：把 `event_plaza` 的全局 `random.shuffle` 换成局部邻域抽样（去掉 O(规模) 洗牌）；
+- **减少无效事件**：儿童/老人等不可能触发某些事件的状态，跳过对应判定；
+- **数据布局**：对象图 → 数组（SoA）+ CSR，消除每角色沉重的 Python 对象。
+
+> 结论已存入 `bench/results/scaling_legacy.csv` 与 `scaling_event.csv`。
+

@@ -12,20 +12,22 @@ def main():
     parser.add_argument("--steps", type=int, default=30)
     parser.add_argument("--warmup", type=int, default=5)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--engine", choices=["legacy", "event"], default="legacy")
     parser.add_argument("--out", default="bench/results/scaling.csv")
     args = parser.parse_args()
 
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
     rows = []
-    header = ["n", "steps", "avg_ms", "p50_ms", "p95_ms", "max_ms", "rss_mb", "population_after"]
+    header = ["engine", "n", "steps", "avg_ms", "p50_ms", "p95_ms", "max_ms", "rss_mb", "population_after"]
+    print(f"engine={args.engine}")
     print(f"{'N':>8} {'avg_ms':>10} {'p50_ms':>10} {'p95_ms':>10} {'rss_MB':>10} {'pop':>8}")
     for n in args.sizes:
-        engine = build_engine(n, seed=args.seed)
+        engine = build_engine(n, seed=args.seed, engine=args.engine)
         if args.warmup:
             measure_steps(engine, args.warmup)
         result = measure_steps(engine, args.steps)
         summary = summarize(result)
-        row = {"n": n, "steps": args.steps, **summary,
+        row = {"engine": args.engine, "n": n, "steps": args.steps, **summary,
                "population_after": summary["population"]}
         rows.append(row)
         print(f"{n:>8} {summary['avg_ms']:>10.3f} {summary['p50_ms']:>10.3f} "
