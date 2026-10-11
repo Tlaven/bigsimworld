@@ -36,6 +36,15 @@ def _wealth_rel(fp_a, fp_b):
     return float(min(1.0, np.abs(qa - qb).mean() / scale))
 
 
+def _wealth_ks(fp_a, fp_b):
+    qa = np.asarray(fp_a.get("wealth_quantiles", []), dtype=np.float64)
+    qb = np.asarray(fp_b.get("wealth_quantiles", []), dtype=np.float64)
+    if qa.size == 0 or qb.size == 0:
+        return 0.0
+    scale = max(float(qa[-1]), float(qb[-1]), 1e-9)
+    return float(min(1.0, np.abs(qa - qb).max() / scale))
+
+
 def compare_fingerprint(fp_a, fp_b):
     """返回归一化到 [0,1] 的各分量差异；完全一致时全为 0。"""
     return {
@@ -43,6 +52,7 @@ def compare_fingerprint(fp_a, fp_b):
         "degree_l1": _l1(fp_a["degree_hist"], fp_b["degree_hist"]),
         "gini_diff": float(abs(fp_a["gini_wealth"] - fp_b["gini_wealth"])),
         "wealth_rel": _wealth_rel(fp_a, fp_b),
+        "wealth_ks": _wealth_ks(fp_a, fp_b),
         "married_diff": float(abs(fp_a.get("married_frac", 0.0) - fp_b.get("married_frac", 0.0))),
     }
 
@@ -93,15 +103,15 @@ def main():
     args = parser.parse_args()
 
     if args.full_compare:
-        print(f"{'N':>8} {'age_l1':>9} {'gini_diff':>10} {'wealth_rel':>11} "
-              f"{'married_diff':>13} {'pop_ind':>9} {'pop_mf':>9}")
+        print(f"{'N':>8} {'age_l1':>9} {'gini_diff':>10} {'wealth_ks':>10} "
+              f"{'married_diff':>13} {'gini_ind':>9} {'gini_mf':>9}")
         for n in args.sizes:
             ind = run_individual(n, args.steps, args.seed)
             mf = run_measure_full(n, args.steps, args.seed)
             diff = compare_fingerprint(ind, mf)
             print(f"{n:>8} {diff['age_l1']:>9.4f} {diff['gini_diff']:>10.4f} "
-                  f"{diff['wealth_rel']:>11.4f} {diff['married_diff']:>13.4f} "
-                  f"{ind['population']:>9} {mf['population']:>9}")
+                  f"{diff['wealth_ks']:>10.4f} {diff['married_diff']:>13.4f} "
+                  f"{ind['gini_wealth']:>9.4f} {mf['gini_wealth']:>9.4f}")
         return
 
     if args.measure_compare:

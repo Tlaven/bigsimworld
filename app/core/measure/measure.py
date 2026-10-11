@@ -12,6 +12,8 @@ class Measure:
         self.space = space
         self.counts = np.zeros(space.size, dtype=np.float64)
         self.occupied = set()
+        self.recent_deaths = []  # 本 tick 死亡记录 [(age, wealth_bucket, amount)]，供继承算子使用
+        self.pending_shift = {}  # 每个年龄段累积的"不足一桶"的财富位移（避免碎片化）
 
     # ---------------------------------------------------------------- 基本
 

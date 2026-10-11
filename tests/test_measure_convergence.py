@@ -25,3 +25,13 @@ def test_measure_full_matches_individual():
     assert diff["married_diff"] < 0.10
     assert diff["age_l1"] < 0.06
 
+
+def test_measure_full_wealth_tail_with_inheritance():
+    # Stage 3：带继承的财富分布（基尼 / 分位 KS）应与个体引擎接近。
+    steps = 4000
+    ind = run_individual(3000, steps, 42)
+    mf = run_measure_full(3000, steps, 42)
+    diff = compare_fingerprint(ind, mf)
+    assert diff["gini_diff"] < 0.02
+    assert diff["wealth_ks"] < 0.06
+
