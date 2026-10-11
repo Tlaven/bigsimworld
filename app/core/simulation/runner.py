@@ -24,13 +24,12 @@ class SimulationRunner:
         if mode == "measure":
             from app.core.generation.human import generate_characters
             from app.core.measure.engine import MeanFieldEngine
-            from app.core.measure.materialize import MaterializedEngine
             from app.core.measure.transitions import FULL_FLOWS
+            from app.core.measure.window import WindowEngine
 
             measure_engine = MeanFieldEngine(
                 characters=generate_characters(population), flows=FULL_FLOWS)
-            self.engine = MaterializedEngine(measure_engine, capacity=capacity,
-                                             window=capacity)
+            self.engine = WindowEngine(measure_engine, capacity=capacity, window=capacity)
         else:
             self.db_queues = init_db_queues()  # 初始化队列
             self.engine = SimulationEngine(self.db_queues)  # 初始化模拟引擎
@@ -47,7 +46,7 @@ class SimulationRunner:
         if self.mode == "measure":
             self.engine.step()
             py_cache["survey_data"] = measure_survey(
-                self.engine.layer.measure, self.engine.measure_engine.space)
+                self.engine.measure_engine.measure, self.engine.measure_engine.space)
         else:
             if self.engine.simulation_time % 100 == 0:
                 self.survey_manager.run()

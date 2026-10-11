@@ -6,5 +6,5 @@ def test_runner_measure_mode_builds_and_steps():
     for _ in range(100):
         runner.engine.step()
     assert runner.engine.simulation_time == 100
-    assert len(runner.engine.layer.agents) <= 500
+    assert len(runner.engine.window.characters) <= 500
     assert runner.engine.population() > 0

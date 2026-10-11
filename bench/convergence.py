@@ -109,12 +109,32 @@ def run_materialized(n, steps, capacity, seed=42, window=1000):
     return ms, engine.population(), len(engine.layer.agents), len(mf.measure.occupied)
 
 
+def run_window(n, steps, capacity, seed=42, window=1000):
+    from app.core.measure.engine import MeanFieldEngine
+    from app.core.measure.transitions import FULL_FLOWS
+    from app.core.measure.window import WindowEngine
+
+    base = min(n, 10000)
+    mf = MeanFieldEngine(characters=make_characters(base, seed=seed), flows=FULL_FLOWS)
+    if n > base:
+        mf.measure.counts *= (n / base)
+    engine = WindowEngine(mf, capacity=capacity, window=min(window, capacity))
+    start = time.perf_counter()
+    for _ in range(steps):
+        engine.step()
+    ms = (time.perf_counter() - start) / steps * 1000
+    friends = sum(len(c.relationships["friend"]) for c in engine.window.characters.values())
+    married = sum(1 for c in engine.window.characters.values() if c.relationships["spouse"])
+    return ms, engine.population(), len(engine.window.characters), friends, married
+
+
 def main():
     parser = argparse.ArgumentParser(description="Convergence baselines / comparison")
     parser.add_argument("--individual", type=int, nargs="+")
     parser.add_argument("--measure-compare", action="store_true")
     parser.add_argument("--full-compare", action="store_true")
     parser.add_argument("--materialize", action="store_true")
+    parser.add_argument("--window", action="store_true")
     parser.add_argument("--capacity", type=int, default=1000)
     parser.add_argument("--sizes", type=int, nargs="+", default=[1000, 10000, 50000])
     parser.add_argument("--steps", type=int, default=500)
@@ -129,6 +149,15 @@ def main():
             ms, pop, window, occupied = run_materialized(
                 n, args.steps, args.capacity, args.seed)
             print(f"{n:>12} {ms:>10.4f} {round(pop):>14} {window:>8} {occupied:>10}")
+        return
+
+    if args.window:
+        print(f"capacity={args.capacity}（窗口内为真角色/真关系）")
+        print(f"{'N':>12} {'ms/step':>10} {'pop':>14} {'window':>7} {'friend_edges':>13} {'married':>8}")
+        for n in args.sizes:
+            ms, pop, window, friends, married = run_window(
+                n, args.steps, args.capacity, args.seed)
+            print(f"{n:>12} {ms:>10.4f} {round(pop):>14} {window:>7} {friends:>13} {married:>8}")
         return
 
     if args.full_compare:
