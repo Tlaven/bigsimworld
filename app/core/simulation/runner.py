@@ -56,6 +56,10 @@ class SimulationRunner:
                    'simulation_load': py_cache.get('simulation_step/s')[-1]}
         if self.mode == "measure":
             payload['people'] = self.engine.sample_people(20)
+            survey = py_cache.get("survey_data")
+            if survey:
+                payload['age'] = survey['age']
+                payload['wealth'] = survey['wealth']
         sse_manager.publish(payload, type='data')
         try:
             sse.publish(payload, type='data')
