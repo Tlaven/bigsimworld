@@ -41,7 +41,7 @@ class IndividualEvents:
     def acquaintance_event(self):
         temp_num = len(self.relationships['acquaintance'])
         if (count := round_up_probability(0.1 * self.step_threshold / (temp_num + 12) * 12)):
-            self.event_plaza['acquaintance'].extend([self.character] * count)
+            self.event_plaza['acquaintance'][self.character.cell].extend([self.character] * count)
         if temp_num > 12:
             # 数量太多删除一些最早的
             split_index = random.randint(0, temp_num - 12)

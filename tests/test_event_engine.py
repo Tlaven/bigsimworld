@@ -61,3 +61,20 @@ def test_fast_stride_is_statistically_close():
     pop10, acq10 = run(10)
     assert abs(pop10 - pop1) / pop1 < 0.10
     assert abs(acq10 - acq1) / acq1 < 0.20
+
+
+def test_localization_runs_and_forms_relationships():
+    # n_cells>1：只在同格子内配对。世界仍应形成关系，且不等同于全局。
+    from app.core.simulation.event_engine import EventEngine
+
+    engine = EventEngine(
+        make_sink_queues(),
+        characters=make_characters(2000, seed=5),
+        n_cells=16,
+    )
+    random.seed(11)
+    for _ in range(200):
+        engine.step()
+    chars = list(engine.characters.values())
+    mean_acq = sum(len(c.relationships["acquaintance"]) for c in chars) / len(chars)
+    assert mean_acq > 0.2

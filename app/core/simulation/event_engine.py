@@ -32,11 +32,12 @@ WEALTH_PERIOD = 30
 
 
 class EventEngine:
-    def __init__(self, db_queues, characters=None, rare_stride=1):
+    def __init__(self, db_queues, characters=None, rare_stride=1, n_cells=1):
         self.simulation_time = 0
         self.characters = {}
+        self.n_cells = n_cells
         self.event_plaza = {
-            "acquaintance": [],
+            "acquaintance": [[] for _ in range(n_cells)],
         }
         self.publish_list = []
         self.max_id = 0
@@ -76,6 +77,7 @@ class EventEngine:
                 character_dict["id"] = cid
             self.max_id = max(self.max_id, cid)
             self.characters[cid] = Character(self, **character_dict)
+            self.characters[cid].cell = cid % self.n_cells
         print(f"Created {len(self.characters)} characters.")
 
         for character in self.characters.values():
@@ -173,9 +175,10 @@ class EventEngine:
 
     def _dispatch_plaza(self, when):
         self._plaza_scheduled_at = None
-        if len(self.event_plaza["acquaintance"]) > 1:
+        plaza = self.event_plaza["acquaintance"]
+        if any(len(cell_plaza) > 1 for cell_plaza in plaza):
             PeopleEvents(self.event_plaza)
-        if len(self.event_plaza["acquaintance"]) > 1:
+        if any(len(cell_plaza) > 1 for cell_plaza in plaza):
             self._ensure_plaza(when + 1)
 
     def _update_utc(self):
@@ -190,6 +193,7 @@ class EventEngine:
         character_dict["id"] = cid
         self.max_id += 1
         character = Character(self, **character_dict)
+        character.cell = cid % self.n_cells
         self.characters[cid] = character
         self.insert_queue.put(character.__dict__)
         self._schedule_character(character)

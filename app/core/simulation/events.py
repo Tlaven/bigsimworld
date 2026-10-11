@@ -4,17 +4,17 @@ import random
 class PeopleEvents:
     def __init__(self, event_plaza):
         self.event_plaza = event_plaza
-        self.acquaintance_plaza = event_plaza['acquaintance']
         self.possible_events()
 
-    
     def possible_events(self):
-        if len(self.acquaintance_plaza) > 1:
-            self.acquaintance_event()
-        
+        # event_plaza['acquaintance'] 是按"空间格子"分区的列表的列表：
+        # 只在同一格子内部配对，实现局部化（n_cells=1 时等价于原全局行为）。
+        for cell_plaza in self.event_plaza['acquaintance']:
+            if len(cell_plaza) > 1:
+                self.acquaintance_event(cell_plaza)
 
-    def acquaintance_event(self):
-        paire_plaza, self.event_plaza['acquaintance'] = random_pairing(self.acquaintance_plaza)
+    def acquaintance_event(self, cell_plaza):
+        paire_plaza, _left = random_pairing(cell_plaza)
         for (p1, p2) in paire_plaza:
             if p1 not in p2.relatives and p2 not in p1.relatives and p1.id != p2.id:
                 p1.relationships['acquaintance'].append(p2)

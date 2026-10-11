@@ -11,11 +11,12 @@ from app.utils.later import LaterDeque
 
 
 class SimulationEngine:
-    def __init__(self, db_queues, characters=None):
+    def __init__(self, db_queues, characters=None, n_cells=1):
         self.simulation_time = 0
         self.characters = {}
+        self.n_cells = n_cells
         self.event_plaza = {
-            "acquaintance": [],
+            "acquaintance": [[] for _ in range(n_cells)],
         }
         self.publish_list = []  # 需要 publish 对象的集合，根据是否更新关系来决定是否加入
         self.later_queue = LaterDeque()
@@ -43,6 +44,7 @@ class SimulationEngine:
                 character_dict['id'] = cid
             self.max_id = max(self.max_id, cid)
             self.characters[cid] = Character(self, **character_dict)
+            self.characters[cid].cell = cid % self.n_cells
         print(f"Created {len(self.characters)} characters.")
 
         for character in self.characters.values():
@@ -65,6 +67,7 @@ class SimulationEngine:
         character_dict['id'] = id
         self.max_id += 1
         character = Character(self, **character_dict)
+        character.cell = id % self.n_cells
         self.later_queue.add_later(self.characters.update, {id: character})
         self.insert_queue.put(character.__dict__)
 

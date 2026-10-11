@@ -39,7 +39,8 @@ class DeathEvent:
         self.relationships.clear()
             
         self.model.remove_character(self.character.id, self.character)
-        self.model.event_plaza['acquaintance'] = [character for character in self.model.event_plaza['acquaintance'] if character.id != self.character.id]
+        cell_plaza = self.model.event_plaza['acquaintance'][self.character.cell]
+        cell_plaza[:] = [character for character in cell_plaza if character.id != self.character.id]
 
     def notify_acquaintance(self, acquaintance):
         self.relationships['acquaintance'].remove(acquaintance)

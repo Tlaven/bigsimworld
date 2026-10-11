@@ -25,10 +25,11 @@ def make_characters(n, seed=None, age_range=(0, 80)):
     return characters
 
 
-def build_engine(n, seed=None, age_range=(0, 80), engine="legacy", rare_stride=1):
+def build_engine(n, seed=None, age_range=(0, 80), engine="legacy", rare_stride=1, n_cells=1):
     characters = make_characters(n, seed=seed, age_range=age_range)
     if engine == "event":
         from app.core.simulation.event_engine import EventEngine
 
-        return EventEngine(make_sink_queues(), characters=characters, rare_stride=rare_stride)
-    return SimulationEngine(make_sink_queues(), characters=characters)
+        return EventEngine(make_sink_queues(), characters=characters,
+                           rare_stride=rare_stride, n_cells=n_cells)
+    return SimulationEngine(make_sink_queues(), characters=characters, n_cells=n_cells)
