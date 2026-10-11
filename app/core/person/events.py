@@ -16,21 +16,27 @@ class IndividualEvents:
         self.step_threshold = character.pedometer['step_threshold']
 
 
-    def possible_events(self):
+    def possible_events(self, rare_scale=1):
+        # rare_scale：稀有事件评估的降频倍数。评估间隔拉长 K 倍时，把单次概率
+        # 放大 K 倍（近似二项/泊松累积），从而在保持长期发生率的同时把评估次数降到 1/K。
         if self.character.age >= 6:
             self.acquaintance_event()
-        self.familiarity_event()
-        self.friend_event()
+        self.familiarity_event(rare_scale)
+        self.friend_event(rare_scale)
 
         if 18 <= self.character.age < 60 and not self.relationships['spouse']:
-            self.spouse_event()
+            self.spouse_event(rare_scale)
 
         if self.relationships['spouse'] and self.character.age <= 50:
-            self.childbirth_event()
+            self.childbirth_event(rare_scale)
 
         if self.character.age >= 60:
-            self.death_event()
+            self.death_event(rare_scale)
 
+    # 只跑高频事件（结识），供"非评估帧"使用
+    def acquaintance_only(self):
+        if self.character.age >= 6:
+            self.acquaintance_event()
 
     def acquaintance_event(self):
         temp_num = len(self.relationships['acquaintance'])
@@ -43,18 +49,18 @@ class IndividualEvents:
             for temp_c in temp_list:
                 temp_c.relationships['acquaintance'].remove(self.character)
         
-    def familiarity_event(self):
+    def familiarity_event(self, scale=1):
         temp_num1, temp_num2 = len(self.relationships['familiarity']), len(self.relationships['acquaintance'])
-        if (count := round_up_probability(0.01 * self.step_threshold * temp_num2 / (temp_num1 + 6) * 6 / 12)):
+        if (count := round_up_probability(scale * 0.01 * self.step_threshold * temp_num2 / (temp_num1 + 6) * 6 / 12)):
             count = min(count, temp_num2)
             self.move_temp_set(self.relationships['acquaintance'], self.relationships['familiarity'], count, 'acquaintance', 'familiarity')
         if (temp_num := temp_num1 + count) > 6:
             # 数量太多随机降级几个关系
             self.move_temp_set(self.relationships['familiarity'], self.relationships['acquaintance'], random.randint(0, temp_num - 6), 'familiarity', 'acquaintance')
 
-    def friend_event(self):
+    def friend_event(self, scale=1):
         temp_num1, temp_num2 = len(self.relationships['friend']), len(self.relationships['familiarity'])
-        if (count := round_up_probability(0.001 * self.step_threshold * temp_num2 / (temp_num1 + 3) * 3 / 6)):
+        if (count := round_up_probability(scale * 0.001 * self.step_threshold * temp_num2 / (temp_num1 + 3) * 3 / 6)):
             count = min(count, temp_num2)
             temp_set = self.move_temp_set(self.relationships['familiarity'], self.relationships['friend'], count, 'familiarity', 'friend')
 
@@ -63,8 +69,8 @@ class IndividualEvents:
             temp_set = self.move_temp_set(self.relationships['friend'], self.relationships['acquaintance'], random.randint(0, temp_num - 3), 'friend', 'acquaintance')
             
 
-    def spouse_event(self):
-        if round_up_probability(0.1 * self.step_threshold / 360) and (temp_p := self.relationships['friend'] + self.relationships['familiarity']):
+    def spouse_event(self, scale=1):
+        if round_up_probability(scale * 0.1 * self.step_threshold / 360) and (temp_p := self.relationships['friend'] + self.relationships['familiarity']):
             if (temp_p := [p for p in temp_p if 18 <= p.age < 60 and not p.relationships['spouse']]):
                 temp_c = random.choices(temp_p, [0.1 for id in temp_p], k=1)[0]
                 # 重要事件，即需要联系有关人员的事件
@@ -72,14 +78,14 @@ class IndividualEvents:
                 temp_c.marry_event.happen(self.character)
                 
 
-    def childbirth_event(self):
-        if (count := round_up_probability(0.1 * 0.1 / 2 * self.step_threshold / 27)):
+    def childbirth_event(self, scale=1):
+        if (count := round_up_probability(scale * 0.1 * 0.1 / 2 * self.step_threshold / 27)):
             for _ in range(count):
                 spouse = self.relationships['spouse'][0]
                 self.character.childbirth_event.happen(spouse)
 
-    def death_event(self):
-        if round_up_probability(0.05 * self.step_threshold / 360):
+    def death_event(self, scale=1):
+        if round_up_probability(scale * 0.05 * self.step_threshold / 360):
             self.character.death_event.happen()
             
 

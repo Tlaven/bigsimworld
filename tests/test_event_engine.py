@@ -39,3 +39,25 @@ def test_event_engine_matches_legacy():
     legacy = SimulationEngine(make_sink_queues(), characters=copy.deepcopy(chars))
     event = EventEngine(make_sink_queues(), characters=copy.deepcopy(chars))
     assert _run(legacy, 300, 999) == _run(event, 300, 999)
+
+
+def test_fast_stride_is_statistically_close():
+    # rare_stride>1 是有意的近似：评估次数降到 1/K、概率放大 K 倍。
+    # 这里只守卫"没有系统性崩坏"，允许小偏差。
+    def run(stride):
+        engine = EventEngine(
+            make_sink_queues(),
+            characters=make_characters(2000, seed=123),
+            rare_stride=stride,
+        )
+        random.seed(7)
+        for _ in range(300):
+            engine.step()
+        chars = list(engine.characters.values())
+        mean_acq = sum(len(c.relationships["acquaintance"]) for c in chars) / len(chars)
+        return len(chars), mean_acq
+
+    pop1, acq1 = run(1)
+    pop10, acq10 = run(10)
+    assert abs(pop10 - pop1) / pop1 < 0.10
+    assert abs(acq10 - acq1) / acq1 < 0.20

@@ -32,7 +32,7 @@ WEALTH_PERIOD = 30
 
 
 class EventEngine:
-    def __init__(self, db_queues, characters=None):
+    def __init__(self, db_queues, characters=None, rare_stride=1):
         self.simulation_time = 0
         self.characters = {}
         self.event_plaza = {
@@ -40,6 +40,8 @@ class EventEngine:
         }
         self.publish_list = []
         self.max_id = 0
+        # 稀有事件评估的降频倍数：=1 时与原引擎逐位一致；>1 时评估次数降到 1/K、概率放大 K 倍
+        self.rare_stride = rare_stride
 
         # 数据库修改进程的共享队列
         self.insert_queue = db_queues["insert"]
@@ -97,6 +99,7 @@ class EventEngine:
         character._base_step = base
         character._spawn_time = self.simulation_time
         character._seq = self._next_seq()
+        character._roll = 0
         character._next_life = self._first_time(base, int(character.pedometer["step_threshold"]))
         character._next_wealth = self._first_time(base, WEALTH_PERIOD)
         character._next_age = self._first_time(base, AGE_PERIOD)
@@ -158,7 +161,11 @@ class EventEngine:
                 current.pedometer["step"] = current._base_step + (
                     when - current._spawn_time
                 )
-                current.events.possible_events()
+                if self.rare_stride > 1 and current._roll % self.rare_stride:
+                    current.events.acquaintance_only()
+                else:
+                    current.events.possible_events(self.rare_stride)
+                current._roll += 1
                 self._ensure_plaza(when)
                 current._next_life += int(current.pedometer["step_threshold"])
 
