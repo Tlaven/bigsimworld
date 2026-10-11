@@ -10,8 +10,8 @@ import os
 
 import numpy as np
 
-from bench.fingerprint import fingerprint
-from bench.world import build_engine
+from bench.fingerprint import fingerprint, measure_fingerprint
+from bench.world import build_engine, make_characters
 
 
 def _norm_hist(hist):
@@ -53,16 +53,46 @@ def run_individual(n, steps, seed):
     return fingerprint(engine)
 
 
+def run_reduced(n, steps, seed, run_seed=7):
+    import random as _random
+    from bench.reduced_model import ReducedModel
+
+    model = ReducedModel(n, seed=seed)
+    _random.seed(run_seed)
+    model.run_until(steps)
+    return fingerprint(model)
+
+
+def run_measure(n, steps, seed):
+    from app.core.measure.engine import MeanFieldEngine
+
+    engine = MeanFieldEngine(characters=make_characters(n, seed=seed))
+    engine.run_until(steps)
+    return measure_fingerprint(engine.measure, engine.space)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Convergence baselines / comparison")
     parser.add_argument("--individual", type=int, nargs="+")
+    parser.add_argument("--measure-compare", action="store_true")
+    parser.add_argument("--sizes", type=int, nargs="+", default=[1000, 10000, 50000])
     parser.add_argument("--steps", type=int, default=500)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--out", default="bench/results/fingerprints")
     args = parser.parse_args()
 
+    if args.measure_compare:
+        print(f"{'N':>8} {'age_l1':>10} {'degree_l1':>10} {'gini_diff':>10} {'wealth_rel':>10}")
+        for n in args.sizes:
+            ind = run_reduced(n, args.steps, args.seed)
+            mf = run_measure(n, args.steps, args.seed)
+            diff = compare_fingerprint(ind, mf)
+            print(f"{n:>8} {diff['age_l1']:>10.4f} {diff['degree_l1']:>10.4f} "
+                  f"{diff['gini_diff']:>10.4f} {diff['wealth_rel']:>10.4f}")
+        return
+
     if not args.individual:
-        parser.error("provide --individual N [N ...]")
+        parser.error("provide --individual N [N ...]  or  use --measure-compare")
 
     os.makedirs(args.out, exist_ok=True)
     for n in args.individual:

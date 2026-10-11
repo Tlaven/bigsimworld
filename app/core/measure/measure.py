@@ -47,14 +47,23 @@ class Measure:
         return removed
 
 
+def _field(character, name, default=None):
+    if isinstance(character, dict):
+        return character.get(name, default)
+    return getattr(character, name, default)
+
+
 def measure_from_characters(characters, space):
-    """把一批 Character 按 (age, gender, 财富段, 婚配状态) 落桶。"""
+    """把一批个体（Character 对象或 dict）按 (age, gender, 财富段, 婚配状态) 落桶。"""
     measure = Measure(space)
     for character in characters:
-        marital = 1 if character.relationships["spouse"] else 0
+        relationships = _field(character, "relationships", {}) or {}
+        marital = 1 if relationships.get("spouse") else 0
+        gender = _field(character, "gender")
         index = space.encode(
-            character.age, 0 if character.gender == "male" else 1,
-            space.wealth_bucket(character.wealth), marital,
+            _field(character, "age"), 0 if gender == "male" else 1,
+            space.wealth_bucket(_field(character, "wealth", 0.0)), marital,
         )
         measure.add(index, 1.0)
     return measure
+
