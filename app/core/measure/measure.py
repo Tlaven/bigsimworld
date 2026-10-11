@@ -69,3 +69,20 @@ def measure_from_characters(characters, space):
         measure.add(index, 1.0)
     return measure
 
+
+def measure_to_payload(measure):
+    """序列化为可持久化的紧凑结构（只存非零桶）。"""
+    return {
+        "size": measure.space.size,
+        "cells": [[index, round(float(measure.counts[index]), 6)]
+                  for index in measure.occupied if measure.counts[index] > 0],
+    }
+
+
+def measure_from_payload(payload, space):
+    measure = Measure(space)
+    for index, count in payload["cells"]:
+        measure.add(int(index), float(count))
+    return measure
+
+
