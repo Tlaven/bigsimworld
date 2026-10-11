@@ -1,35 +1,13 @@
 <template>
   <!-- Right Navigation Drawer -->
-  <v-navigation-drawer app location="right" permanent width="250px">
+  <v-navigation-drawer app location="right" permanent width="320px">
     <v-list>
-      <v-list-item title="Right Drawer Item" prepend-icon="mdi-information"></v-list-item>
-      
-      <v-card>
-        <v-card-title>Current Data</v-card-title>
-        <v-card-text>
-          <!-- Show current data or waiting message -->
-          <span>{{ currentData ? currentData.time : 'Waiting for data...' }}</span>
-        </v-card-text>
-      </v-card>
-      
+      <v-list-item title="实时世界" prepend-icon="mdi-earth"></v-list-item>
+      <PeopleList max-height="70vh" />
     </v-list>
   </v-navigation-drawer>
 </template>
 
 <script setup>
-import { inject, computed } from 'vue';
-
-// 使用 inject 获取全局提供的 sseData 和 error
-const sseData = inject('sseData');
-const error = inject('sseError');
-
-// 计算属性：获取 SSE 流中的最新数据
-const currentData = computed(() => {
-  // 如果 sseData 存在且不为 null
-  return sseData.value || null;
-});
-
-
+import PeopleList from '@/components/PeopleList.vue';
 </script>
-
-
