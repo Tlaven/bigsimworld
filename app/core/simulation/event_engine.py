@@ -100,7 +100,7 @@ class EventEngine:
         character._next_life = self._first_time(base, int(character.pedometer["step_threshold"]))
         character._next_wealth = self._first_time(base, WEALTH_PERIOD)
         character._next_age = self._first_time(base, AGE_PERIOD)
-        self._push(_next_wake(character), WAKE, character)
+        self._push(min(character._next_life, character._next_wealth, character._next_age), WAKE, character)
 
     def _first_time(self, base, period):
         offset = (-base) % period
@@ -162,7 +162,7 @@ class EventEngine:
                 self._ensure_plaza(when)
                 current._next_life += int(current.pedometer["step_threshold"])
 
-            self._push(_next_wake(current), WAKE, current)
+            self._push(min(current._next_life, current._next_wealth, current._next_age), WAKE, current)
 
     def _dispatch_plaza(self, when):
         self._plaza_scheduled_at = None
@@ -191,7 +191,3 @@ class EventEngine:
     def remove_character(self, character_id, character):
         self.characters.pop(character_id, None)
         self.update_queue.put(character.__dict__)
-
-
-def _next_wake(character):
-    return min(character._next_life, character._next_wealth, character._next_age)

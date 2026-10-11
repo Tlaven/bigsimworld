@@ -22,11 +22,18 @@ class PeopleEvents:
 
 
 
-# 随机配对一部分取出
+# 随机抽取配对：避免对整份广场做 O(m) 洗牌，只做 O(配对数) 的抽样腾挪
 def random_pairing(lst) -> list[tuple[any, any]]:
-    # 分割索引两半，并保证一个列表长度为偶数
-    split_index = len(lst) // 2
-
-    random.shuffle(lst)
-    pair_list, left_list = lst[:split_index], lst[split_index:]
-    return list(zip(pair_list[::2], pair_list[1::2])), left_list
+    pairs_count = len(lst) // 4
+    pair_list = []
+    for _ in range(pairs_count):
+        i = random.randrange(len(lst))
+        p1 = lst[i]
+        lst[i] = lst[-1]
+        lst.pop()
+        j = random.randrange(len(lst))
+        p2 = lst[j]
+        lst[j] = lst[-1]
+        lst.pop()
+        pair_list.append((p1, p2))
+    return pair_list, lst
