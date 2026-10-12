@@ -63,9 +63,14 @@ python -m bench.run_scaling --engine legacy --sizes 1000 2000 5000 10000 20000 -
 | `bench/README.md` | 基准工具用法与当前权威数字 |
 | `web/README.md` | 前端（页面/SSE 契约/环境变量） |
 
-## 测试
+## 测试与 CI
 
 ```bash
-python -m pytest -q      # 58 条：等价性/收敛门槛/守恒/契约
-cd web && pnpm build     # 前端构建
+python -m pytest -q                   # 等价性/收敛门槛/守恒/契约
+ruff check . --exclude web            # 运行时缺陷级别检查（风格约束刻意不设）
+cd web && pnpm build                  # 前端构建
 ```
+
+GitHub Actions（`.github/workflows/ci.yml`）在 push/PR 时自动跑同样的事：后端（依赖安装 + ruff + pytest，
+含 `bench.audit_ledger` 的小规模守恒门禁）与前端（`pnpm install --frozen-lockfile` + 构建）。
+守恒审计的全尺寸版与收敛对比保持为本地测量工具（`bench/README.md`），不进 CI 时间预算。
