@@ -158,3 +158,75 @@ def test_window_engine_sample_people_and_utc():
     for key in ("id", "name", "gender", "age", "wealth", "relationships"):
         assert key in person
     assert isinstance(engine.UTC, str) and "-" in engine.UTC
+
+
+def test_dematerialize_severs_all_references():
+    """退场断链：离场者不再被任何窗口成员/广场引用（无幽灵）；守恒不变。"""
+    window = _seeded_window(capacity=100, sample=50)
+    for tick in range(1, 301):
+        window.step(tick)
+    a, b = next(iter(window.characters)), None
+    chars = list(window.characters.values())
+    a = chars[0]
+    b = chars[1]
+    a.marry_event.happen(b)
+    b.marry_event.happen(a)
+    assert a.relationships["spouse"] and b.relationships["spouse"]
+
+    before = window.population()
+    assert window.dematerialize(b.id) is True
+    assert window.population() == before
+
+    locals_left = list(window.characters.values())
+    for member in locals_left:
+        for key in ("acquaintance", "familiarity", "friend", "spouse", "parent", "sibling", "child"):
+            assert b not in member.relationships[key]  # 对方视图里没有幽灵
+    for cell in window.event_plaza["acquaintance"]:
+        assert b not in cell  # 广场没有幽灵
+    assert a.relation_record["spouse"]  # 婚姻记档
+    assert len(locals_left) == len(chars) - 1
+
+
+def test_capacity_evicts_least_embedded_first():
+    """最小嵌入优先：单身无友者总是先退，已婚/有友者留（家庭连续性）。"""
+    space = StateSpace()
+    engine = build_engine(2000, seed=1)
+    measure = measure_from_characters(engine.characters.values(), space)
+    window = IndividualWindow(measure, capacity=3)
+    random.seed(11)
+    n_made = window.materialize_sample(3)
+    assert n_made == 3
+    a, b, c = window.characters[list(window.characters)[0]], \
+        window.characters[list(window.characters)[1]], \
+        window.characters[list(window.characters)[2]]
+    for other in (b, c):
+        a.relationships["friend"].append(other)
+        other.relationships["friend"].append(a)
+    c.relationships["friend"].remove(a)  # c 保持孤立
+    a.relationships["friend"].remove(c)
+    a.age, b.age, c.age = 65, 25, 40  # 嵌入度优先于年龄：虽 c 最老但先退的是"嵌入最少"者
+
+    window.enforce_capacity()  # 已 <=capacity，无人退场
+    assert set(window.characters) == {a.id, b.id, c.id}
+
+    window.capacity = 2
+    window.enforce_capacity()  # 孤立者 c 退场 —— 嵌入度是唯一口径，年龄无关
+    assert set(window.characters) == {a.id, b.id}
+
+    window.capacity = 1
+    window.enforce_capacity()  # a/b 嵌入度相同(1)——平局按插入序：a(先入)先退
+    assert list(window.characters) == [b.id]
+
+
+def test_materialize_seeds_acquaintance_for_adults():
+    """入窗建网：成年人物化后至少与窗口内成员互补 acquaintance。"""
+    window = _seeded_window(capacity=100, sample=30)
+    random.seed(13)
+    space = window.space
+    made = window.materialize_sample(1)
+    made_id = max(window.characters)
+    newcomer = window.characters[made_id]
+    assert made >= 1
+    assert len(newcomer.relationships["acquaintance"]) > 0
+    for other in list(newcomer.relationships["acquaintance"]):
+        assert newcomer in other.relationships["acquaintance"]  # 双向补齐

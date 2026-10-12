@@ -70,10 +70,10 @@ SIM_MODE=measure ──────────┤
 
 `window.py`：`IndividualWindow` 实现个体模型的 model 接口（characters/event_plaza/publish_list…），因此内部跑完整个体语义。
 
-- `materialize(age,gender,wealth,marital)`：测度 −1 → 生成 Character（`generate_character`）。要求该桶计数 ≥1。
-- `dematerialize(id)`：窗口 −1 → 测度 +1（保留 age/gender/财富/婚配，丢弃关系）。
-- 容量强制：超 `capacity` 时**最老者**退料。
-- **守恒律**：`Σ测度 + len(窗口) == 初始 + 窗口出生 − 窗口死亡`（测试覆盖 20000 步长跑）。
+- `materialize(age,gender,wealth,marital)`：测度 −1 → 生成 Character（`generate_character`）。要求该桶计数 ≥1。**入窗建网（Stage 9）**：成年人入窗时与至多 3 位窗口内成年人互认 acquaintance（避免"空图老人"式凭空物化）。
+- `dematerialize(id)`：**退场断链（Stage 9）**——先借用 DeathEvent 的 notify 语义（在**对方**的事件上以离场者为参数）解除 acquaintance/familiarity/friend/spouse/parent/sibling 并双向记档；`child` 边手工断链（**离场不触发死亡结算，子女不继承**）；随后把本人从广场格清除；最后折算 (age,gender,财富,婚配) 回测度（配偶边已断 → 折算为单身）。
+- 容量强制：超 `capacity` 时按**最小嵌入优先**退场（嵌入度 = `2×|spouse| + |friend| + |familiarity| + |acquaintance|`，同分按插入序；已婚者最后离场——家庭连续性）。
+- **守恒律**：`Σ测度 + len(窗口) == 初始 + 窗口出生 − 窗口死亡`（断链不改变总量；测试覆盖长跑 + 无幽灵断言）。
 - `WindowEngine` = `MeanFieldEngine` + `IndividualWindow`；`WindowEngine.restore(snapshot, capacity)` 从快照重建整世界（测度 payload + 窗口 Character 字典，id/关系图按 id 接回；恢复后的 population == 存档时，含池余）。
 
 ## 5. 持久化（snapshot）

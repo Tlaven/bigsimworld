@@ -75,7 +75,11 @@ class IndividualWindow:
         return self.measure.total() + len(self.characters)
 
     def materialize(self, age, gender, wealth_bucket, marital):
-        """从测度引出 1 个真个体（测度 -1，窗口 +1）。"""
+        """从测度引出 1 个真个体（测度 -1，窗口 +1）。
+
+        来历种子：成年人（age≥6）入窗时与至多 3 位窗口内成年人互认 acquaintance，
+        避免"空图老人"式凭空物化（社交漏斗随后照常运转）。
+        """
         index = self.space.encode(age, gender, wealth_bucket, marital)
         if self.measure.counts[index] < 1.0:
             return None
@@ -85,6 +89,12 @@ class IndividualWindow:
             wealth=self.space.wealth_value(wealth_bucket),
         )
         character = self._make_character(data)
+        if character.age >= 6:
+            adults = [c for c in self.characters.values()
+                      if c is not character and 18 <= c.age < 60]
+            for other in random.sample(adults, min(3, len(adults))):
+                character.relationships["acquaintance"].append(other)
+                other.relationships["acquaintance"].append(character)
         self.stats["materialized"] += 1
         return character.id
 
@@ -115,10 +125,17 @@ class IndividualWindow:
         return made
 
     def dematerialize(self, character_id):
-        """把窗口个体折算回测度（窗口 -1，测度 +1），丢弃其关系。"""
+        """把窗口个体折算回测度（窗口 -1，测度 +1）。
+
+        退场断链（Stage 9）：先按"非死亡离场"语义解除所有关系
+        （双方移除 + relation_record 记档；**不**触发死亡结算——子女不继承），
+        并把本人从广场格清掉，然后才把 (age,gender,财富,婚配) 折算回测度。
+        """
         character = self.characters.pop(character_id, None)
         if character is None:
             return False
+        self._sever_relationships(character)
+        self._strip_plaza(character)
         marital = 1 if character.relationships["spouse"] else 0
         index = self.space.encode(
             character.age, 0 if character.gender == "male" else 1,
@@ -128,10 +145,48 @@ class IndividualWindow:
         self.stats["dematerialized"] += 1
         return True
 
+    def _sever_relationships(self, character):
+        """解除该个体的全部关系并双向记档。
+
+        DeathEvent 的 notify_* 语义是"在对方的事件对象上、以离场者为参数"——
+        它把本人从对方的列表里移除（并双向写 relation_record）。
+        child 边不适用死亡的 notify_child（会触发遗产结算），离场手工断链。
+        """
+        for other in list(character.relationships["acquaintance"]):
+            other.death_event.notify_acquaintance(character)
+        for other in list(character.relationships["familiarity"]):
+            other.death_event.notify_familiarity(character)
+        for other in list(character.relationships["friend"]):
+            other.death_event.notify_friend(character)
+        for other in list(character.relationships["spouse"]):
+            other.death_event.notify_spouse(character)
+        for other in list(character.relationships["parent"]):
+            other.death_event.notify_parent(character)
+        for other in list(character.relationships["sibling"]):
+            other.death_event.notify_sibling(character)
+        for child in list(character.relationships["child"]):
+            child.relationships["parent"].remove(character)
+            child.relation_record["parent"].append(character.id)
+            character.relation_record["child"].append(child.id)
+
+    def _strip_plaza(self, character):
+        cell_plaza = self.event_plaza["acquaintance"][character.cell]
+        cell_plaza[:] = [c for c in cell_plaza if c.id != character.id]
+
+    @staticmethod
+    def _embedding(character):
+        """社交嵌入度：配偶权重最高（家庭故事优先留在窗口），朋友次之。"""
+        rels = character.relationships
+        return (2 * len(rels.get("spouse", []))
+                + len(rels.get("friend", []))
+                + len(rels.get("familiarity", []))
+                + len(rels.get("acquaintance", [])))
+
     def enforce_capacity(self):
+        """超容量时按"最小嵌入优先"退场（Family 连续性：已婚者最后离场）。"""
         while len(self.characters) > self.capacity:
-            oldest = max(self.characters, key=lambda cid: self.characters[cid].age)
-            self.dematerialize(oldest)
+            victim = min(self.characters, key=lambda cid: self._embedding(self.characters[cid]))
+            self.dematerialize(victim)
 
     # ------------------------------------------------------------ 演化
 
