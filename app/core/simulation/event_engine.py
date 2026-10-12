@@ -21,6 +21,9 @@ from sqlalchemy import func
 from app.models import crud
 from app.core.person.character import Character
 from app.core.simulation.events import PeopleEvents
+from app.utils.logger import setup_logger
+
+logger = setup_logger()
 
 WAKE = 0
 PLZ = 1
@@ -47,7 +50,6 @@ class EventEngine:
         # 数据库修改进程的共享队列
         self.insert_queue = db_queues["insert"]
         self.update_queue = db_queues["update"]
-        self.delete_queue = db_queues["delete"]
 
         # 事件堆与辅助计数
         self._heap = []
@@ -78,7 +80,7 @@ class EventEngine:
             self.max_id = max(self.max_id, cid)
             self.characters[cid] = Character(self, **character_dict)
             self.characters[cid].cell = cid % self.n_cells
-        print(f"Created {len(self.characters)} characters.")
+        logger.info(f"Created {len(self.characters)} characters.")
 
         for character in self.characters.values():
             character.init_relationships()

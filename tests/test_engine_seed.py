@@ -10,7 +10,7 @@ class _Sink:
 
 
 def _queues():
-    return {"insert": _Sink(), "update": _Sink(), "delete": _Sink()}
+    return {"insert": _Sink(), "update": _Sink()}
 
 
 def _char_dict(age=30, wealth=10000, gender="male", xing="张", name="张三"):

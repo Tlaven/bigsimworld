@@ -7,6 +7,9 @@ from app.models.processing import ProcessingDB, init_db_queues
 from app.services.sse_manager import sse_manager
 from app.utils.decorators import time_limit
 from app.utils.cache import py_cache
+from app.utils.logger import setup_logger
+
+logger = setup_logger()
 
 
 class SimulationRunner:
@@ -63,8 +66,8 @@ class SimulationRunner:
         from app.core.measure.window import WindowEngine
 
         engine = WindowEngine.restore(snapshot, capacity=capacity)
-        print(f"Restored world from snapshot at t={engine.simulation_time} "
-              f"(population={engine.population()}).")
+        logger.info(f"Restored world from snapshot at t={engine.simulation_time} "
+                    f"(population={engine.population()}).")
         return engine
 
     @time_limit(1, record_name="simulation_step/s")  # 这里设置的时间限制尽量大于 1 秒，防止线程无法正常结束
@@ -190,8 +193,11 @@ class SimulationRunner:
 
         if self.processing_db is not None:
             if self.processing_db.is_alive():
-                self.processing_db.kill()  # 停止数据库处理进程
-            self.processing_db.join(timeout=5)
+                self.processing_db.stop()          # 优雅停止：退出前 flush 剩余写操作
+                self.processing_db.join(timeout=5)
+                if self.processing_db.is_alive():
+                    self.processing_db.kill()      # 兜底：仍未退出则强杀
+                    self.processing_db.join(timeout=5)
             self.processing_db = None
             if self.mode == "individual":
                 self.engine.update_status_in_db()  # 确保在停止时更新状态
@@ -210,4 +216,4 @@ class SimulationRunner:
             save_snapshot(measure_to_payload(measure), self.engine.simulation_time,
                           self.engine.snapshot_payload())
         except Exception as exc:  # 快照失败绝不阻塞停止流程
-            print(f"Snapshot save skipped: {exc}")
+            logger.warning(f"Snapshot save skipped: {exc}")

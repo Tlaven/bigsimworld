@@ -3,6 +3,9 @@ from flask_sse import sse
 import time
 
 from app.utils.cache import py_cache
+from app.utils.logger import setup_logger
+
+logger = setup_logger()
 
 class SSEManager:
     def __init__(self):
@@ -32,7 +35,7 @@ class SSEManager:
                 for client in self.clients:
                     sse.publish(data, type=type, channel=client)
         except Exception as e:
-            print(f"Error publishing data to client {client_id}: {e}")
+            logger.exception(f"Error publishing data to client {client_id}: {e}")
 
     def send_initial_data(self, client_id):
         """发送初始数据给特定客户�?"""

@@ -4,6 +4,9 @@ from app.models import crud
 from app.core.person.character import Character
 from app.core.simulation.events import PeopleEvents
 from app.utils.later import LaterDeque
+from app.utils.logger import setup_logger
+
+logger = setup_logger()
 
 
 class SimulationEngine:
@@ -20,7 +23,6 @@ class SimulationEngine:
         # 数据库修改进程的共享队列
         self.insert_queue = db_queues['insert']
         self.update_queue = db_queues['update']
-        self.delete_queue = db_queues['delete']
 
         if characters is None:
             self.create_characters_from_db()
@@ -41,7 +43,7 @@ class SimulationEngine:
             self.max_id = max(self.max_id, cid)
             self.characters[cid] = Character(self, **character_dict)
             self.characters[cid].cell = cid % self.n_cells
-        print(f"Created {len(self.characters)} characters.")
+        logger.info(f"Created {len(self.characters)} characters.")
 
         for character in self.characters.values():
             character.init_relationships()
@@ -89,5 +91,5 @@ class SimulationEngine:
     # 更新数据库中的状态
     def update_status_in_db(self):
         crud.update_multiple_characters(self.characters)
-        print("Updated character status in database.")
+        logger.info("Updated character status in database.")
 

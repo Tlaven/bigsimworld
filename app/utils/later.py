@@ -1,6 +1,10 @@
 from functools import partial
 from collections import deque
 
+from app.utils.logger import setup_logger
+
+logger = setup_logger()
+
 
 class LaterDeque:
     """使用 deque 实现的延迟任务队列，任务按添加顺序执行。"""
@@ -19,7 +23,7 @@ class LaterDeque:
                 func = self.later_deque.popleft()  # 从队列左侧获取任务并移除
                 func()  # 执行延迟的函数
             except Exception as e:
-                print(f"Error executing {func}: {e}")  # 捕获并处理异常
+                logger.exception(f"Error executing {func}: {e}")  # 捕获并处理异常
 
     def __len__(self):
         """返回待执行函数的数量"""

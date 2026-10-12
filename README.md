@@ -29,6 +29,8 @@ cd web && pnpm install && pnpm dev   # http://localhost:3000
 环境变量：`SIM_MODE`（measure|individual）、`SIM_CAPACITY`（窗口大小，默认 1000）、
 `SIM_POPULATION`（初始人口，默认 5000）、`SIM_RESUME=1`（从最新快照续跑世界；
 `simulation/stop` 会自动落档，重启即续）。
+另有：`REDIS_URL`（SSE 依赖，默认 `redis://localhost:6379/0`）、`SIM_DB_PATH`（SQLite 路径，
+默认 `db.sqlite3`）、`CORS_ORIGINS`（允许来源，默认 `*`）。
 
 ## Web 接口
 

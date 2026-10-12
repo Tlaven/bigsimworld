@@ -28,7 +28,7 @@ def run_individual(n, steps, seed):
     random.seed(seed)
     characters = make_characters(n, seed=seed)
     engine = SimulationEngine(
-        {"insert": SinkQueue(), "update": SinkQueue(), "delete": SinkQueue()},
+        {"insert": SinkQueue(), "update": SinkQueue()},
         characters=characters)
     for _ in range(steps):
         engine.step()

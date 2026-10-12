@@ -6,7 +6,7 @@ from bench.sinks import SinkQueue
 
 
 def make_sink_queues():
-    return {"insert": SinkQueue(), "update": SinkQueue(), "delete": SinkQueue()}
+    return {"insert": SinkQueue(), "update": SinkQueue()}
 
 
 def make_characters(n, seed=None, age_range=(0, 80)):

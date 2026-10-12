@@ -3,7 +3,7 @@
 from sqlalchemy import Column, Integer, JSON
 
 from app.models import crud
-from app.models.table import Base, engine
+from app.models.table import Base
 
 
 class Snapshot(Base):
@@ -13,9 +13,6 @@ class Snapshot(Base):
     simulation_time = Column(Integer, nullable=False)
     measure = Column(JSON, nullable=False)   # {"size":..., "cells": [[index,count],...]}
     window = Column(JSON, nullable=False)     # 物化个体列表
-
-
-Base.metadata.create_all(engine)
 
 
 def save_snapshot(measure_payload, simulation_time, window=None):

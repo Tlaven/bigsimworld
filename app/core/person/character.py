@@ -5,6 +5,9 @@ from app.core.person.events import IndividualEvents
 from app.core.person.marry import MarryEvent
 from app.core.person.childbirth import ChildbirthEvent
 from app.core.person.death import DeathEvent
+from app.utils.logger import setup_logger
+
+logger = setup_logger()
 
 
 class Character:
@@ -50,7 +53,7 @@ class Character:
             ids = []
             for id in value:
                 if id not in self.model.characters:
-                    print(f"Character id:{id} not found in characters.")
+                    logger.warning(f"Character id:{id} not found in characters.")
                 else:
                     ids.append(id)
             self.relationships[key] = [self.model.characters[id] for id in ids]
