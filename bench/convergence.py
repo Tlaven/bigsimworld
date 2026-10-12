@@ -92,23 +92,6 @@ def run_measure_full(n, steps, seed):
     return measure_fingerprint(engine.measure, engine.space)
 
 
-def run_materialized(n, steps, capacity, seed=42, window=1000):
-    from app.core.measure.engine import MeanFieldEngine
-    from app.core.measure.materialize import MaterializedEngine
-    from app.core.measure.transitions import FULL_FLOWS
-
-    base = min(n, 10000)
-    mf = MeanFieldEngine(characters=make_characters(base, seed=seed), flows=FULL_FLOWS)
-    if n > base:
-        mf.measure.counts *= (n / base)  # 只放大计数，占用桶数不变
-    engine = MaterializedEngine(mf, capacity=capacity, window=min(window, capacity))
-    start = time.perf_counter()
-    for _ in range(steps):
-        engine.step()
-    ms = (time.perf_counter() - start) / steps * 1000
-    return ms, engine.population(), len(engine.layer.agents), len(mf.measure.occupied)
-
-
 def run_window(n, steps, capacity, seed=42, window=1000):
     from app.core.measure.engine import MeanFieldEngine
     from app.core.measure.transitions import FULL_FLOWS
@@ -133,7 +116,6 @@ def main():
     parser.add_argument("--individual", type=int, nargs="+")
     parser.add_argument("--measure-compare", action="store_true")
     parser.add_argument("--full-compare", action="store_true")
-    parser.add_argument("--materialize", action="store_true")
     parser.add_argument("--window", action="store_true")
     parser.add_argument("--capacity", type=int, default=1000)
     parser.add_argument("--sizes", type=int, nargs="+", default=[1000, 10000, 50000])
@@ -141,15 +123,6 @@ def main():
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--out", default="bench/results/fingerprints")
     args = parser.parse_args()
-
-    if args.materialize:
-        print(f"capacity={args.capacity}")
-        print(f"{'N':>12} {'ms/step':>10} {'pop':>14} {'window':>8} {'occupied':>10}")
-        for n in args.sizes:
-            ms, pop, window, occupied = run_materialized(
-                n, args.steps, args.capacity, args.seed)
-            print(f"{n:>12} {ms:>10.4f} {round(pop):>14} {window:>8} {occupied:>10}")
-        return
 
     if args.window:
         print(f"capacity={args.capacity}（窗口内为真角色/真关系）")
