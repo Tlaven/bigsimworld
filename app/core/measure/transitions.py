@@ -8,7 +8,6 @@ DEATH_RATE = 0.05 / 360        # age>=60，每 tick
 BIRTH_RATE = 0.005 / 27        # 已婚且 18<=age<=50，每 tick
 MARRIAGE_RATE = 0.1 / 360      # 单身且 18<=age<60，每 tick
 MARRIAGE_MEAN_DEG = 2.5        # 单身者的平均可接触对象数（用于可用性闭合）
-MEAN_PARENT_AGE_GAP = 25       # 父母与子女的年龄差（用于把遗产投向"子女"年龄段）
 INHERITANCE_FRACTION = 0.1     # 个体模型：每个子女得 10%/nchild，合计 10%
 INCOME_AMOUNT = 1000.0
 INCOME_PERIOD = 30             # 每 30 tick 加一次收入
@@ -64,59 +63,79 @@ def death(measure, tick):
 
 
 def inheritance(measure, tick):
-    """把死者 10% 的财富转移给"子女"年龄段（年龄差 MEAN_PARENT_AGE_GAP）。
+    """遗产流算子（年批 + 段池 + 秩保持整数分配）。
 
-    均值场近似：无父子链，故把每个死者年龄 a 的遗产投向 a-gap 的整个年龄段，
-    按人头均分（**均值正确**，丢失"富父母子女继承更多"的相关性）。
+    个体模型里：死者把 10%/子女 的财富交给**自己的**子女——
+    ① 子女年龄分布在孩子出生年龄（父母 18–50）的整个窗口，不必恰差 25；
+    ② 富父母的子女继承更多（"富→富"相关沿代际传导）。
 
-    为避免每次不足一桶的位移把计数碎片化到海量桶中，按年龄段累积位移，
-    攒够整数桶时再做**整桶平移**。
+    均值场闭合（Stage 3 教训的推论：分红桶的任何"分数拆分"会碎片化，
+    任何"跨主人复用桶索引"的账本会凭空注水——故全部用**整数桶分配、
+    支付即瞬发、无 per-cell 账本**）：
+    - 段池：死者 10% 财富按 gap 窗口 u∈[a-50, a-18] 进入
+      measure.yearly_inherited[u]（生育率对 18..50 岁父母近均匀 → 密度均匀）；
+    - 年度清算（每 360 tick 一次）：对每个非空段池，按接收桶的
+      **财富质量占比**分配各自的理想份额；每个桶只支付 floor() 得到的
+      **整数桶位移**（整桶平移，不拆分桶内计数）；余量留池下年再分。
+    - 守恒：池只进（遗产注入）出（支付 count×k×宽度 ≤ 理想份额），无注水。
     """
     space = measure.space
-    deaths = getattr(measure, "recent_deaths", None)
-    if not deaths:
-        return
-
-    inherited_by_child_age = {}
+    deaths = getattr(measure, "recent_deaths", None) or []
     for age, wealth, amount in deaths:
-        child_age = age - MEAN_PARENT_AGE_GAP
-        if child_age < 0:
-            continue
         inherited = amount * space.wealth_value(wealth) * INHERITANCE_FRACTION
-        inherited_by_child_age[child_age] = inherited_by_child_age.get(child_age, 0.0) + inherited
-    if not inherited_by_child_age:
+        child_low = max(0, age - 50)
+        child_high = max(0, age - 18)
+        window = child_high - child_low + 1
+        if window <= 0:
+            continue
+        per_child = inherited / window
+        pool = measure.yearly_inherited
+        for child_age in range(child_low, child_high + 1):
+            pool[child_age] = pool.get(child_age, 0.0) + per_child
+    measure.recent_deaths = []  # 死者已完成映射，避免重复入账
+    if tick % 360 != 0:
         return
 
     cells_by_age = {}
     for index in measure.occupied:
-        age = space.decode(index)[0]
-        cells_by_age.setdefault(age, []).append(index)
+        cells_by_age.setdefault(space.decode(index)[0], []).append(index)
 
-    pending = measure.pending_shift
-    for child_age, total_inherited in inherited_by_child_age.items():
+    pool = measure.yearly_inherited
+    for child_age, available in list(pool.items()):
         cells = cells_by_age.get(child_age)
         if not cells:
+            continue  # 接收段无人：余量留池，下一年（有人的时候）再分
+        total_mass = 0.0
+        masses = []
+        for index in cells:
+            count = measure.counts[index]
+            mass = count * space.wealth_value(space.decode(index)[2])
+            masses.append((index, count, mass))
+            total_mass += mass
+        if total_mass <= 0.0:
             continue
-        total_count = sum(measure.counts[i] for i in cells)
-        if total_count <= 0.0:
-            continue
-        pending[child_age] = pending.get(child_age, 0.0) + (total_inherited / total_count) / space.wealth_width
-        steps = int(pending[child_age])
-        if steps <= 0:
-            continue
-        pending[child_age] -= steps
-        _shift_age_wealth(measure, space, cells, steps)
+        for index, count, mass in masses:
+            if count <= 0.0 or available <= 0.0:
+                continue
+            ideal = available * (mass / total_mass)
+            k = int(ideal / (count * space.wealth_width))  # 整数桶位移（floor，不超付）
+            if k > 0:
+                _shift_age_wealth(measure, space, [index], k)
+                pool[child_age] = available - count * k * space.wealth_width
+                available = pool[child_age]
 
 
 def _shift_age_wealth(measure, space, cells, steps):
-    """把某年龄段所有桶的财富整体上移 steps 桶（整桶，无碎片）。"""
+    """把若干桶的财富整体上移 steps 桶（整桶，无碎片）。"""
     moves = {}
     for index in cells:
         count = measure.counts[index]
         if count <= 0.0:
             continue
         age, gender, wealth, marital = space.decode(index)
-        target = space.encode(age, gender, min(wealth + steps, space.wealth_bins - 1), marital)
+        if wealth + steps >= space.wealth_bins:
+            return  # 触顶：本桶余下的支付留池，不越界
+        target = space.encode(age, gender, wealth + steps, marital)
         moves[target] = moves.get(target, 0.0) + count
         measure.add(index, -count)
     for target, amount in moves.items():

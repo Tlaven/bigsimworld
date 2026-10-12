@@ -13,7 +13,7 @@ class Measure:
         self.counts = np.zeros(space.size, dtype=np.float64)
         self.occupied = set()
         self.recent_deaths = []  # 本 tick 死亡记录 [(age, wealth_bucket, amount)]，供继承算子使用
-        self.pending_shift = {}  # 每个年龄段累积的"不足一桶"的财富位移（避免碎片化）
+        self.yearly_inherited = {}  # 遗产池（按子女年龄段，财富单位）：年内累积，每年清算分配，余量留池
 
     # ---------------------------------------------------------------- 基本
 
