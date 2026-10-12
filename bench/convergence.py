@@ -100,7 +100,9 @@ def run_window(n, steps, capacity, seed=42, window=1000):
     base = min(n, 10000)
     mf = MeanFieldEngine(characters=make_characters(base, seed=seed), flows=FULL_FLOWS)
     if n > base:
-        mf.measure.counts *= (n / base)
+        scale = n / base  # 只放大计数（稀疏容器：逐桶乘），占用桶数不变
+        for index in list(mf.measure.occupied):
+            mf.measure.counts[index] = mf.measure.counts[index] * scale
     engine = WindowEngine(mf, capacity=capacity, window=min(window, capacity))
     start = time.perf_counter()
     for _ in range(steps):

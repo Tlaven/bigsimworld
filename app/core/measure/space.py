@@ -3,12 +3,15 @@
 Stage 1 维度：年龄段、性别、财富段、婚配状态。
 财富用**线性分桶**（宽度 = 收入步长），使"收入 +1000"是一次精确的桶位移；
 对数分桶无法表示小额加法漂移。
+
+财富桶上限自 Stage 10 解除：计数已改用稀疏容器（内存 ∝ 占用桶数），
+wealth_bins 提高（默认 60000 → 单人财富上限 6e7）不再带来线性内存代价。
 """
 
 
 class StateSpace:
     def __init__(self, age_buckets=121, genders=2, maritals=3,
-                 wealth_width=1000.0, wealth_bins=3000):
+                 wealth_width=1000.0, wealth_bins=60000):
         self.age_buckets = age_buckets
         self.genders = genders
         self.maritals = maritals

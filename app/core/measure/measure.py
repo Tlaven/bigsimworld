@@ -1,16 +1,53 @@
 """测度层：状态空间上的稀疏计数分布。
 
-计数用 `numpy` 数组存储，`occupied` 只记录非零桶，因此每 tick 的工作量
-正比于"占用桶数"，**与人口 N 无关**。
+计数用**稀疏容器**存储（只记非零桶），因此内存与每 tick 工作量都
+正比于"占用桶数"，**与状态空间大小、人口 N 无关**。
 """
 
-import numpy as np
+
+class SparseCounts:
+    """桶索引 → 计数 的稀疏容器：读空桶返回 0.0（不写入），写零清位。"""
+
+    __slots__ = ("_data",)
+
+    def __init__(self):
+        self._data = {}
+
+    def __getitem__(self, index):
+        return self._data.get(index, 0.0)
+
+    def __setitem__(self, index, value):
+        self._data[index] = float(value)
+
+    def __delitem__(self, index):
+        self._data.pop(index, None)
+
+    def __contains__(self, index):
+        return index in self._data
+
+    def __iter__(self):
+        return iter(self._data)
+
+    def __len__(self):
+        return len(self._data)
+
+    def keys(self):
+        return self._data.keys()
+
+    def values(self):
+        return self._data.values()
+
+    def items(self):
+        return self._data.items()
+
+    def sum(self):
+        return sum(self._data.values())
 
 
 class Measure:
     def __init__(self, space):
         self.space = space
-        self.counts = np.zeros(space.size, dtype=np.float64)
+        self.counts = SparseCounts()
         self.occupied = set()
         self.recent_deaths = []  # 本 tick 死亡记录 [(age, wealth_bucket, amount)]，供继承算子使用
         self.yearly_inherited = {}  # 遗产池（按子女年龄段，财富单位）：年内累积，每年清算分配，余量留池
@@ -18,10 +55,13 @@ class Measure:
     # ---------------------------------------------------------------- 基本
 
     def add(self, index, amount):
-        self.counts[index] += amount
-        if self.counts[index] > 0.0:
+        value = self.counts[index] + amount
+        if value > 0.0:
+            self.counts[index] = value
             self.occupied.add(index)
         else:
+            if index in self.counts:
+                self.counts[index] = 0.0
             self.occupied.discard(index)
 
     def inflow(self, index, amount):
@@ -42,10 +82,8 @@ class Measure:
         for index in list(self.occupied):
             if predicate(index):
                 amount = self.counts[index] * rate
-                self.counts[index] -= amount
+                self.add(index, -amount)
                 removed += amount
-                if self.counts[index] <= 0.0:
-                    self.occupied.discard(index)
         return removed
 
 
