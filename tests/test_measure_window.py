@@ -222,7 +222,6 @@ def test_materialize_seeds_acquaintance_for_adults():
     """入窗建网：成年人物化后至少与窗口内成员互补 acquaintance。"""
     window = _seeded_window(capacity=100, sample=30)
     random.seed(13)
-    space = window.space
     made = window.materialize_sample(1)
     made_id = max(window.characters)
     newcomer = window.characters[made_id]

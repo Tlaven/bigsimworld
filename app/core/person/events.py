@@ -62,11 +62,11 @@ class IndividualEvents:
         temp_num1, temp_num2 = len(self.relationships['friend']), len(self.relationships['familiarity'])
         if (count := round_up_probability(scale * 0.001 * self.step_threshold * temp_num2 / (temp_num1 + 3) * 3 / 6)):
             count = min(count, temp_num2)
-            temp_set = self.move_temp_set(self.relationships['familiarity'], self.relationships['friend'], count, 'familiarity', 'friend')
+            self.move_temp_set(self.relationships['familiarity'], self.relationships['friend'], count, 'familiarity', 'friend')
 
         if (temp_num := temp_num1 + count) > 3:
             # 数量太多随机降级几个关系
-            temp_set = self.move_temp_set(self.relationships['friend'], self.relationships['acquaintance'], random.randint(0, temp_num - 3), 'friend', 'acquaintance')
+            self.move_temp_set(self.relationships['friend'], self.relationships['acquaintance'], random.randint(0, temp_num - 3), 'friend', 'acquaintance')
             
 
     def spouse_event(self, scale=1):

@@ -1,6 +1,3 @@
-
-
-
 class MarryEvent:
     def __init__(self, character):
         self.character = character
@@ -24,9 +21,7 @@ class MarryEvent:
             self.relationships['familiarity'].remove(other)
 
     def notify_friend(self, friend):
-        #print(f"{self.character.name}的朋友{friend.name}结婚了")
         return
-    
+
     def notify_parent(self, child):
-        #print(f"{self.character.name}的{parent.gender}父母{parent.name}结婚了")
         return

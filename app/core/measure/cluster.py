@@ -270,7 +270,6 @@ class ClusterStore:
         cluster = self.clusters[cid]
         if cluster.level >= 1:
             return 0
-        kind = KINDS[cluster.kind]
         mini = cluster.state["engine"].measure
         size = int(mini.total())
         count = size if n is None else min(n, size)

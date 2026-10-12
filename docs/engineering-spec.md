@@ -111,7 +111,7 @@ SIM_MODE=measure ──────────┤
 
 ## 7. 验收与回归
 
-- `pytest`（62+ 条）：个体 DES 逐位一致、测度收敛门槛（gini<0.02、KS<0.06、age_l1<0.06）、窗口守恒/断链、财富守恒门禁（`bench.audit_ledger.run_audit`）、快照往返、控制路由、bench 构建冒烟。
+- `pytest`（92 条）：个体 DES 逐位一致、测度收敛门槛（gini<0.02、KS<0.06、age_l1<0.06）、窗口守恒/断链、财富守恒门禁（`bench.audit_ledger.run_audit`）、快照往返、控制路由、bench 构建冒烟。
 - 任何算子改动：`bench.convergence --full-compare` + `bench.audit_ledger`（门：identity 误差 <0.1%）+ `bench.diagnose_tail`（区分系统性偏差与 p100 噪声）。
 - `docs/history.md` 记录结论；`bench/results/` 存证据。
 

@@ -78,7 +78,6 @@ venv/
 ENV/
 env.bak/
 venv.bak/
-.python-version
 
 # Other tools and IDE settings
 *.sage.py

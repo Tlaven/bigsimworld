@@ -1,8 +1,6 @@
 from collections import defaultdict
 
-from app.models import crud
 from app.models.table import Table
-from app.core.generation.human import generate_character
 from app.core.person.events import IndividualEvents
 from app.core.person.marry import MarryEvent
 from app.core.person.childbirth import ChildbirthEvent

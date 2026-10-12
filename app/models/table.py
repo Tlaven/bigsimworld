@@ -1,11 +1,10 @@
-from sqlalchemy import create_engine, Column, Integer, String, Index, CheckConstraint
-from sqlalchemy.ext.declarative import declarative_base
+from sqlalchemy import create_engine, Column, Integer, String, Index, JSON
+from sqlalchemy.orm import declarative_base
 
 # 创建数据库引擎
 engine = create_engine('sqlite:///db.sqlite3')
 Base = declarative_base()
 
-from sqlalchemy import JSON
 
 class Table(Base):
     __tablename__ = 'characters'

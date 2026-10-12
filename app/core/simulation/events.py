@@ -1,4 +1,3 @@
-from app.core.statistics import func
 import random
 
 class PeopleEvents:

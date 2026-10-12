@@ -1,5 +1,3 @@
-import numpy as np
-
 from bench.convergence import compare_fingerprint
 from bench.fingerprint import fingerprint
 from bench.world import build_engine

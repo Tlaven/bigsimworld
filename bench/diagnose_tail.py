@@ -14,10 +14,8 @@ import argparse
 
 import numpy as np
 
-from app.core.generation.human import generate_characters
 from app.core.measure.engine import MeanFieldEngine
 from app.core.measure.transitions import FULL_FLOWS
-from app.core.measure.window import WindowEngine
 from bench.fingerprint import fingerprint, measure_fingerprint
 from bench.world import make_characters
 
@@ -67,7 +65,6 @@ def main():
 
         qs_ind = np.asarray(ind["wealth_quantiles"], dtype=np.float64)
         qs_mf = np.asarray(mf["wealth_quantiles"], dtype=np.float64)
-        rel = (qs_mf - qs_ind) / args.n ** 0  # 展示用原值
         scale = max(qs_ind[-1], qs_mf[-1], 1e-9)
         rels = (qs_mf - qs_ind) / scale
 

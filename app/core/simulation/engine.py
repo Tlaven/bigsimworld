@@ -1,12 +1,8 @@
-from json import dumps
-
 from sqlalchemy import func
 
 from app.models import crud
 from app.core.person.character import Character
 from app.core.simulation.events import PeopleEvents
-from app.utils.decorators import time_limit
-from app.utils.cache import py_cache
 from app.utils.later import LaterDeque
 
 
@@ -61,8 +57,6 @@ class SimulationEngine:
         self.load_characters(rows)
 
     def create_character(self, character_dict) -> Character:
-        # character_dict['id'] = crud.insert_character(**character_dict)
-
         id = self.max_id + 1
         character_dict['id'] = id
         self.max_id += 1
@@ -77,12 +71,6 @@ class SimulationEngine:
         self.later_queue.add_later(self.characters.pop, character_id)
         self.later_queue.add_later(self.update_queue.put, character.__dict__)
 
-
-    def create_characters(self, characters_list):
-        character_ids = crud.insert_multiple_characters(characters_list)
-        # self.characters.update({character_id: Character(self, **character_dict, id = character_id) for character_id, character_dict in zip(character_ids, characters_list)})
-        return character_ids
-    
     # 基本属性变化
     def change_attribute(self):
         self.simulation_time += 1
@@ -102,10 +90,4 @@ class SimulationEngine:
     def update_status_in_db(self):
         crud.update_multiple_characters(self.characters)
         print("Updated character status in database.")
-
-    @property
-    def __publish_json__(self):
-        # publish_json = dumps(self.publish_list)
-        # self.publish_list.clear()
-        return dumps(self.characters[1].__publish_dict__)
 

@@ -45,7 +45,7 @@ def notify_connection():
         # 返回成功响应
         return jsonify({'success': True, 'message': 'Connection notification received'}), 200
 
-    except Exception as e:
+    except Exception:
         logger.exception(f"Error processing subscription notification from client ID: {client_id}, type: {notification_type}")
         return jsonify({'success': False, 'message': 'Internal Server Error'}), 500
 
