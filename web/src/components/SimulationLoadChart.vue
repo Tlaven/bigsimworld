@@ -4,7 +4,7 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, inject, watch } from 'vue';
-import * as echarts from 'echarts';
+import echarts from '@/services/echarts';
 
 // sseData.simulation_load 为每步引擎耗时（秒），sseData.time 为世界时间。
 // 只保留最近 60 个 tick 的内存滑动窗口，不写入 localStorage。

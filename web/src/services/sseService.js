@@ -75,6 +75,13 @@ function subscribe() {
   sseStatus.value = 'connecting'
   installBeaconCleanup()
 
+  // 换新通道前先退订旧通道，避免服务端订阅残留累积（重连场景）
+  const previousId = clientId
+  if (previousId) {
+    fetch(`${baseUrl()}/api/v1/unsubscribe/${previousId}`, { method: 'POST' }).catch(() => {})
+  }
+  clientId = null
+
   fetch(`${baseUrl()}/api/v1/get-client-id`)
     .then((response) => {
       if (!response.ok) throw new Error(`get-client-id HTTP ${response.status}`)

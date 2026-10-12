@@ -24,7 +24,7 @@
 
 <script setup>
 import { ref, onMounted, onUnmounted, watch, inject, nextTick } from 'vue';
-import * as echarts from 'echarts';
+import echarts from '@/services/echarts';
 
 // 使用 inject 获取全局提供的 sseData（由 SSE 实时更新）
 const sseData = inject('sseData');

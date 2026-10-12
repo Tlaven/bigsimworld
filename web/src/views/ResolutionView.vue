@@ -89,7 +89,7 @@
 
 <script setup>
 import { ref, computed, inject, watch, onMounted, onUnmounted } from 'vue';
-import * as echarts from 'echarts';
+import echarts from '@/services/echarts';
 import { setAttention, fetchLife } from '@/services/apiService';
 
 const sseData = inject('sseData');

@@ -4,6 +4,3 @@ flask-sse==1.0.0
 redis==5.0.8
 SQLAlchemy==2.0.48
 numpy==1.26.4
-psutil==6.0.0
-pytest==9.0.3
-ruff==0.9.10

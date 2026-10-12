@@ -1,0 +1,6 @@
+# 开发/基准依赖（含运行时）
+-r requirements.txt
+
+psutil==6.0.0
+pytest==9.0.3
+ruff==0.9.10
