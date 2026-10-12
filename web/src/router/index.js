@@ -31,6 +31,11 @@ const routes = [
         path: 'role-information',
         name: 'RoleInformation',
         component: RoleInformation
+      },
+      {
+        path: 'resolution',
+        name: 'ResolutionView',
+        component: () => import('@/views/ResolutionView.vue')
       }
     ]
   },

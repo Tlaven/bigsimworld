@@ -94,14 +94,16 @@ class IndividualEvents:
 
     # 根据 from_list 里的元素的权重属性，随机将 list 里的 count 个元素移动到另一个 list 里
     def move_temp_set(self, from_list: list[object], to_list: list[object], count, from_relation_type, to_relation_type) -> set[object]:
-        # 所有元素权重相同，等价于无权重均匀抽样；避免 O(n) 构造权重列表
-        temp_set = set(random.choices(from_list, k=count))
-        for temp_c in temp_set:
+        # 所有元素权重相同，等价于无权重均匀抽样；避免 O(n) 构造权重列表。
+        # 保序去重（而非迭代 set）：对象 set 的迭代顺序随哈希/id 漂移，
+        # 会让关系表顺序 run-to-run 不定 → 结果不可复现（收敛测试偶发越界）。
+        chosen = list(dict.fromkeys(random.choices(from_list, k=count)))
+        for temp_c in chosen:
             temp_c.relationships[from_relation_type].remove(self.character)
             temp_c.relationships[to_relation_type].append(self.character)
             from_list.remove(temp_c)
             to_list.append(temp_c)
-        return temp_set
+        return set(chosen)
 
 
 # 输入一个 float 值，进行随机取整

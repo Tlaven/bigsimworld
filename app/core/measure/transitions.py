@@ -62,22 +62,11 @@ def death(measure, tick):
     measure.recent_deaths = deaths
 
 
-def inheritance(measure, tick):
-    """遗产流算子（年批 + 段池 + 秩保持整数分配）。
+def inject_inherited(measure, overflow=0.0, global_measure=None):
+    """把 ``recent_deaths`` 的 10% 遗产按 gap 窗口注入 ``yearly_inherited`` 池。
 
-    个体模型里：死者把 10%/子女 的财富交给**自己的**子女——
-    ① 子女年龄分布在孩子出生年龄（父母 18–50）的整个窗口，不必恰差 25；
-    ② 富父母的子女继承更多（"富→富"相关沿代际传导）。
-
-    均值场闭合（Stage 3 教训的推论：分红桶的任何"分数拆分"会碎片化，
-    任何"跨主人复用桶索引"的账本会凭空注水——故全部用**整数桶分配、
-    支付即瞬发、无 per-cell 账本**）：
-    - 段池：死者 10% 财富按 gap 窗口 u∈[a-50, a-18] 进入
-      measure.yearly_inherited[u]（生育率对 18..50 岁父母近均匀 → 密度均匀）；
-    - 年度清算（每 360 tick 一次）：对每个非空段池，按接收桶的
-      **财富质量占比**分配各自的理想份额；每个桶只支付 floor() 得到的
-      **整数桶位移**（整桶平移，不拆分桶内计数）；余量留池下年再分。
-    - 守恒：池只进（遗产注入）出（支付 count×k×宽度 ≤ 理想份额），无注水。
+    ``overflow`` 份额（[0,1]）改注入 ``global_measure`` 的池——用于"子女已离团"
+    的溢出（C1c）；``overflow=0`` 且 ``global_measure=None`` 时与原行为一致。
     """
     space = measure.space
     deaths = getattr(measure, "recent_deaths", None) or []
@@ -89,13 +78,24 @@ def inheritance(measure, tick):
         if window <= 0:
             continue
         per_child = inherited / window
+        leak = per_child * overflow if (overflow > 0.0 and global_measure is not None) else 0.0
+        keep = per_child - leak
         pool = measure.yearly_inherited
         for child_age in range(child_low, child_high + 1):
-            pool[child_age] = pool.get(child_age, 0.0) + per_child
+            if keep > 0.0:
+                pool[child_age] = pool.get(child_age, 0.0) + keep
+            if leak > 0.0:
+                gp = global_measure.yearly_inherited
+                gp[child_age] = gp.get(child_age, 0.0) + leak
     measure.recent_deaths = []  # 死者已完成映射，避免重复入账
-    if tick % 360 != 0:
-        return
 
+
+def distribute_pool(measure):
+    """把 ``yearly_inherited`` 池按接收桶财富质量占比、整数桶位移分配出去。
+
+    （整桶平移、不拆分桶计数；余量留池 —— 见 Stage 3/7 教训。）
+    """
+    space = measure.space
     cells_by_age = {}
     for index in measure.occupied:
         cells_by_age.setdefault(space.decode(index)[0], []).append(index)
@@ -123,6 +123,28 @@ def inheritance(measure, tick):
                 _shift_age_wealth(measure, space, [index], k)
                 pool[child_age] = available - count * k * space.wealth_width
                 available = pool[child_age]
+
+
+def inheritance(measure, tick):
+    """遗产流算子（年批 + 段池 + 秩保持整数分配）。
+
+    个体模型里：死者把 10%/子女 的财富交给**自己的**子女——
+    ① 子女年龄分布在孩子出生年龄（父母 18–50）的整个窗口，不必恰差 25；
+    ② 富父母的子女继承更多（"富→富"相关沿代际传导）。
+
+    均值场闭合（Stage 3 教训的推论：分红桶的任何"分数拆分"会碎片化，
+    任何"跨主人复用桶索引"的账本会凭空注水——故全部用**整数桶分配、
+    支付即瞬发、无 per-cell 账本**）：
+    - 段池：死者 10% 财富按 gap 窗口 u∈[a-50, a-18] 进入
+      measure.yearly_inherited[u]（生育率对 18..50 岁父母近均匀 → 密度均匀）；
+    - 年度清算（每 360 tick 一次）：对每个非空段池，按接收桶的
+      **财富质量占比**分配各自的理想份额；每个桶只支付 floor() 得到的
+      **整数桶位移**（整桶平移，不拆分桶内计数）；余量留池下年再分。
+    - 守恒：池只进（遗产注入）出（支付 count×k×宽度 ≤ 理想份额），无注水。
+    """
+    inject_inherited(measure)
+    if tick % 360 == 0:
+        distribute_pool(measure)
 
 
 def _shift_age_wealth(measure, space, cells, steps):

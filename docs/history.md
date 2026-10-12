@@ -245,3 +245,48 @@ N 无关性保持：1e6 人口 2.47ms/step，occupied 1379。**结论：不需�
 **长跑尾部实测（t=20000，≈56 年，首次跑到 8k tick 之外）**：
 最高占用桶 551/60000（≈551k 财富，上限的 109 倍余量）；末桶堆集为 0；
 occupied 稳定 ~1200（继承整数支付无碎片化）。规范 §8-1"财富溢出"边界删除。
+
+---
+
+## 第三章 · 分辨率与团层（Stage 11–15，2026-10-12）
+
+把"测度（匿名）/ 窗口（个体）"推广成**分辨率连续谱**：团 = 身份敏感交互的连通闭包，
+被观测/被认识者保持个体分辨率，否则随注意度衰减溶回统计。契约 `docs/cluster-contract.md`。
+
+### Stage 11 · 契约与骨架
+`app/core/measure/cluster.py`：`Cluster`/`InterfaceEdge`/`TickContext`、三缝
+（`ClusterKind`/`ResolutionPolicy`/`RhoMetric`）、`FamilyKind`、`IdentityMassRho`、
+`WaterlinePolicy`、`KINDS` 注册表、`ClusterStore`。`docs/cluster-contract.md` 固化。
+
+### Stage 12 · 闭环运转（A）
+1. **成团周期化**：`_reconcile` 每 `form_interval` 对浮层连通分量建团（此前一次性→生产里 0 团）；
+2. **waterline 改口径**：`theta_base` 基线 + leaf 数预算（此前纯负载反馈被 ample budget 拉到 0→永不冷却）；
+3. **窗口回填**：`coarsen` 缩水后补足到 capacity。
+   - **coarse 团 = mini `MeanFieldEngine`** → 族内遗产池天然限团内（"富族恒富"零成本成立）。
+   - 生产实测（cap=300）：成团/冷却/回收闭环运转，store 稳定 5–8 团，窗口/人口稳定。
+
+### Stage 13 · 观察者接入（B）
+SSE `data` 增 `resolution`（θ/预算/ρ/团条目）与 `notables`；`GET /api/v1/resolution`、
+`GET/POST /api/v1/attention`（`person_id`→其团）、`GET /api/v1/life/<id>`；团结构进快照
+（window payload 改对象、兼容旧 list）。
+
+### Stage 14 · 边界 · 守恒 · 继承（C）
+1. **有界闭合**：`_reconcile` 抽入一跳浮层亲属、跨团边记 `interface`；`max_members` 防渗流；
+2. **分辨率守恒审计**：`bench.audit_ledger --clusters`（关全局流、团流限质量保持集）恒等误差 **0.0000%**；
+3. **继承溢出 C1c**：`transitions.inheritance` 拆为 `inject_inherited(+overflow)/distribute_pool`；
+   `family_inheritance` 把 `overflow_fraction` 份额注入全局池；
+4. **族级继承验证**：`bench.cluster_inheritance` 人均留存 family/global ≈ **181×**（peers=120）。
+
+### Stage 15 · 拓扑与内生（D）
+1. **自动合并/分裂**：`_merge_coupled`（分量内合并 ≤ `max_members`）、`_split_fragmented`（断连切分）；
+2. **L1 社会凝视**：`_endogenous_attention`（被非成员以**强关系**认识的程度 / `endogenous_scale`），
+   与衰减后的外生注意度取 max。校准：cap=300/scale=12、cap=1000/scale=40 → 少数自维持、多数冷却。
+
+### 确定性修复（负结果根因）
+个体引擎 `events.py:move_temp_set` 迭代**对象 set** → 顺序随对象哈希漂移 → 结果不可复现，
+使 `test_measure_full_wealth_tail_with_inheritance`（KS 门槛）约 1/4 偶发越界。改为**保序去重**
+（`list(dict.fromkeys(...))`）后确定性（ks 恒定 0.03392）。
+
+### 核心结论（第三章）
+> 把身份守恒做成**有界、观察依赖、由注意力供养的配额**：少数被注视者保持个体分辨率与生命轨迹，
+> 其余随冷却溶回统计；团可聚可散、可抽入可回收，且全程守恒可审计——世界的默认态是匿名。

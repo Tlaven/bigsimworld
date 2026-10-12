@@ -85,12 +85,72 @@ def run_audit(n, steps, seed=42, max_error_frac=1e-3):
     return result
 
 
+def run_cluster_audit(n=2000, steps=3000, capacity=300, seed=42, max_error=1e-6):
+    """窗口 + 团 的分辨率守恒审计。
+
+    关闭全局测度流算子，并把 coarse 团的流算子限制为**质量保持**集合
+    （aging/income/marriage/inheritance；去掉 birth/death），于是唯一改变总量的
+    是窗口个体引擎的出生/死亡：
+
+        measure + Σ_coarse size + len(window) == 初始 + 窗口出生 − 窗口死亡
+
+    分辨率操作（materialize / coarsen / dissolve / merge / refill）必须逐一守恒。
+    """
+    from app.core.measure.cluster import KINDS
+    from app.core.measure.window import WindowEngine
+
+    space = StateSpace()
+    random.seed(seed)
+    mf = MeanFieldEngine(space=space, characters=make_characters(n, seed=seed), flows=())
+    engine = WindowEngine(mf, capacity=capacity, window=capacity, resolution=True)
+
+    saved = KINDS["family"].flows
+    KINDS["family"].flows = (T.aging, T.income, T.marriage)  # 质量保持（继承在 step_coarse 内处理）
+    try:
+        def total():
+            return (mf.measure.total() + engine.resolution.store.size()
+                    + len(engine.window.characters))
+
+        initial = total()
+        for _ in range(steps):
+            engine.step()
+        final = total()
+        expected = initial + engine.window.stats["births"] - engine.window.stats["deaths"]
+        error = final - expected
+        error_frac = error / final if final else 0.0
+        result = {
+            "initial": initial, "final": final, "expected": expected,
+            "window_births": engine.window.stats["births"],
+            "window_deaths": engine.window.stats["deaths"],
+            "error": error, "error_frac": error_frac,
+            "rho": engine.resolution.store.rho(),
+            "clusters": len(engine.resolution.store.clusters),
+        }
+        if abs(error_frac) > max_error:
+            raise RuntimeError(f"cluster mass leak: {error_frac:+.4%} (audit={result})")
+        return result
+    finally:
+        KINDS["family"].flows = saved
+
+
 def main():
     parser = argparse.ArgumentParser(description="Wealth conservation audit for mean-field engine")
     parser.add_argument("--n", type=int, default=5000)
     parser.add_argument("--steps", type=int, default=8000)
     parser.add_argument("--seed", type=int, default=42)
+    parser.add_argument("--clusters", action="store_true", help="改跑 窗口+团 的分辨率守恒审计")
+    parser.add_argument("--capacity", type=int, default=300)
     args = parser.parse_args()
+
+    if args.clusters:
+        result = run_cluster_audit(n=args.n, steps=args.steps, capacity=args.capacity, seed=args.seed)
+        print(f"initial = {result['initial']:.6e}")
+        print(f"window births/deaths = {result['window_births']:.0f}/{result['window_deaths']:.0f}")
+        print(f"expected= {result['expected']:.6e}")
+        print(f"final   = {result['final']:.6e}")
+        print(f"clusters = {result['clusters']}   rho = {result['rho']:.3f}")
+        print(f"identity error = {result['error']:+.3e}  ({result['error_frac']:+.4%})")
+        return
 
     result = run_audit(args.n, args.steps, args.seed)
     print(f"initial = {result['initial']:.6e}")

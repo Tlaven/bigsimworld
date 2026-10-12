@@ -58,8 +58,9 @@ python -m bench.run_scaling --engine legacy --sizes 1000 2000 5000 10000 20000 -
 
 | 文档 | 内容 |
 | --- | --- |
-| `docs/engineering-spec.md` | **规范**：模型语义、速率表、守恒律、SSE/控制 API 契约 |
-| `docs/history.md` | 工程日志：两阶段演进的全部数字、负结果与教训 |
+| `docs/engineering-spec.md` | **规范**：模型语义、速率表、守恒律、SSE/控制 API 契约、分辨率与团层 |
+| `docs/cluster-contract.md` | 分辨率/团层契约：数据模型、扩展缝、通用算子、不变量 |
+| `docs/history.md` | 工程日志：个体→测度→分辨率三阶段演进的全部数字、负结果与教训 |
 | `bench/README.md` | 基准工具用法与当前权威数字 |
 | `web/README.md` | 前端（页面/SSE 契约/环境变量） |
 

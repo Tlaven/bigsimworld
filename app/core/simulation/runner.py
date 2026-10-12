@@ -26,6 +26,7 @@ class SimulationRunner:
         self.db_queues = None
         self.survey_manager = None
         self.simulation_thread = None
+        self.step_budget = 0.5  # 分辨率水位线的负载目标（秒；实测 compute 时间）
 
         if mode == "measure":
             from app.core.generation.human import generate_characters
@@ -39,7 +40,11 @@ class SimulationRunner:
             else:
                 measure_engine = MeanFieldEngine(
                     characters=generate_characters(population), flows=FULL_FLOWS)
-                self.engine = WindowEngine(measure_engine, capacity=capacity, window=capacity)
+                self.engine = WindowEngine(measure_engine, capacity=capacity,
+                                           window=capacity, resolution=True)
+            if getattr(self.engine, "resolution", None) is not None:
+                # D2/L1 社会凝视：随窗口规模缩放（大窗口边更多，阈值同向放大）
+                self.engine.resolution.endogenous_scale = max(6.0, capacity / 25.0)
         else:
             self.db_queues = init_db_queues()  # 初始化队列
             self.engine = SimulationEngine(self.db_queues)  # 初始化模拟引擎
@@ -66,6 +71,7 @@ class SimulationRunner:
     def step(self):
         if self.mode == "measure":
             self.engine.step()
+            self._feedback_resolution()
             py_cache["survey_data"] = measure_survey(
                 self.engine.measure_engine.measure, self.engine.measure_engine.space)
         else:
@@ -74,6 +80,14 @@ class SimulationRunner:
             self.engine.step()
 
         self.publish_step()
+
+    def _feedback_resolution(self):
+        """把上一 tick 的实测负载反馈给分辨率调度（水位线 θ）。"""
+        if not hasattr(self.engine, "feedback"):
+            return
+        load = py_cache.get("simulation_step/s")
+        if load:
+            self.engine.feedback(load[-1], self.step_budget)
 
     # ------------------------------------------------------------------ 发布
 
@@ -95,7 +109,39 @@ class SimulationRunner:
         if survey:
             payload['age'] = survey['age']
             payload['wealth'] = survey['wealth']
+        resolution = self.resolution_summary()
+        if resolution is not None:
+            payload['resolution'] = resolution
+        notables = self.notables(12)
+        if notables:
+            payload['notables'] = notables
         sse_manager.publish(payload, type='data')
+
+    # ------------------------------------------------------------------ 分辨率 / 注意度
+
+    def resolution_summary(self):
+        engine = getattr(self, "engine", None)
+        return engine.resolution_summary() if hasattr(engine, "resolution_summary") else None
+
+    def set_cluster_attention(self, cluster_id, value):
+        engine = getattr(self, "engine", None)
+        if not hasattr(engine, "set_cluster_attention"):
+            return False
+        return engine.set_cluster_attention(cluster_id, value)
+
+    def set_person_attention(self, person_id, value):
+        engine = getattr(self, "engine", None)
+        if not hasattr(engine, "set_person_attention"):
+            return None
+        return engine.set_person_attention(person_id, value)
+
+    def notables(self, k=12):
+        engine = getattr(self, "engine", None)
+        return engine.notables(k) if hasattr(engine, "notables") else []
+
+    def life_log(self, person_id):
+        engine = getattr(self, "engine", None)
+        return engine.life_log(person_id) if hasattr(engine, "life_log") else None
 
     def population(self):
         if self.mode == "measure":
@@ -161,7 +207,7 @@ class SimulationRunner:
 
         try:
             measure = self.engine.measure_engine.measure
-            window = [character.__dict__ for character in self.engine.window.characters.values()]
-            save_snapshot(measure_to_payload(measure), self.engine.simulation_time, window)
+            save_snapshot(measure_to_payload(measure), self.engine.simulation_time,
+                          self.engine.snapshot_payload())
         except Exception as exc:  # 快照失败绝不阻塞停止流程
             print(f"Snapshot save skipped: {exc}")

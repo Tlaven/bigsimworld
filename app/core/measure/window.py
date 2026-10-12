@@ -8,6 +8,7 @@ materialize / dematerialize 交换成员并保持守恒。
 """
 
 import random
+from collections import deque
 
 from app.core.generation.human import generate_character
 from app.core.person.character import Character
@@ -30,6 +31,13 @@ class IndividualWindow:
         self.simulation_time = 0
 
         self.stats = {"births": 0, "deaths": 0, "materialized": 0, "dematerialized": 0}
+
+        # 受保护 id 提供者（团成员不参与容量逐出）；None 时退回原行为。
+        self.protected_provider = None
+
+        # 个体生命轨迹（有界）：id -> deque[(tick, age, wealth, n_friend, n_spouse)]
+        self.life_log = {}
+        self.life_log_len = 300
 
     # ------------------------------------------------------- model 接口
 
@@ -64,6 +72,10 @@ class IndividualWindow:
         character = self._make_character(character_dict)
         self.stats["births"] += 1
         return character
+
+    def attach(self, character_dict):
+        """直接注入一个真个体（不计数出生、不动测度）；供团物化等使用。"""
+        return self._make_character(dict(character_dict))
 
     def remove_character(self, character_id, character):
         self.characters.pop(character_id, None)
@@ -124,6 +136,18 @@ class IndividualWindow:
                 weights.pop(chosen)
         return made
 
+    def detach(self, character_id):
+        """解除该个体全部关系、清广场格、移出窗口；**不**折算回测度。
+
+        供团收编等使用（收编把成员折进团的聚合态，而非测度）。
+        """
+        character = self.characters.pop(character_id, None)
+        if character is None:
+            return None
+        self._sever_relationships(character)
+        self._strip_plaza(character)
+        return character
+
     def dematerialize(self, character_id):
         """把窗口个体折算回测度（窗口 -1，测度 +1）。
 
@@ -131,11 +155,9 @@ class IndividualWindow:
         （双方移除 + relation_record 记档；**不**触发死亡结算——子女不继承），
         并把本人从广场格清掉，然后才把 (age,gender,财富,婚配) 折算回测度。
         """
-        character = self.characters.pop(character_id, None)
+        character = self.detach(character_id)
         if character is None:
             return False
-        self._sever_relationships(character)
-        self._strip_plaza(character)
         marital = 1 if character.relationships["spouse"] else 0
         index = self.space.encode(
             character.age, 0 if character.gender == "male" else 1,
@@ -182,10 +204,17 @@ class IndividualWindow:
                 + len(rels.get("familiarity", []))
                 + len(rels.get("acquaintance", [])))
 
-    def enforce_capacity(self):
-        """超容量时按"最小嵌入优先"退场（Family 连续性：已婚者最后离场）。"""
+    def enforce_capacity(self, protected=None):
+        """超容量时按"最小嵌入优先"退场（Family 连续性：已婚者最后离场）。
+
+        `protected`：不参与逐出的 id（团成员由其分辨率管理器管辖）。
+        """
+        protected = set(protected or ())
         while len(self.characters) > self.capacity:
-            victim = min(self.characters, key=lambda cid: self._embedding(self.characters[cid]))
+            candidates = [cid for cid in self.characters if cid not in protected]
+            if not candidates:
+                break
+            victim = min(candidates, key=lambda cid: self._embedding(self.characters[cid]))
             self.dematerialize(victim)
 
     # ------------------------------------------------------------ 演化
@@ -197,22 +226,56 @@ class IndividualWindow:
         self.UTC = f"{year}-{month}-{day}"
         for character in list(self.characters.values()):
             character.step()
+            self._log_life(character, tick)
         PeopleEvents(self.event_plaza)
-        self.enforce_capacity()
+        protected = self.protected_provider() if self.protected_provider else None
+        self.enforce_capacity(protected)
+        if self.life_log:
+            self.life_log = {cid: log for cid, log in self.life_log.items() if cid in self.characters}
+
+    def _log_life(self, character, tick):
+        log = self.life_log.get(character.id)
+        if log is None:
+            log = deque(maxlen=self.life_log_len)
+            self.life_log[character.id] = log
+        log.append((tick, character.age, character.wealth,
+                    len(character.relationships["friend"]), len(character.relationships["spouse"])))
 
 
 class WindowEngine:
     """测度引擎 + 真个体窗口：总体统计演化，窗口内是带关系图的真角色。"""
 
-    def __init__(self, measure_engine, capacity=1000, window=0):
+    def __init__(self, measure_engine, capacity=1000, window=0, resolution=False,
+                 endogenous_scale=None):
         self.measure_engine = measure_engine
         self.window = IndividualWindow(measure_engine.measure, capacity=capacity)
         self.simulation_time = measure_engine.simulation_time
+        self.endogenous_scale = endogenous_scale  # L1 社会凝视（None=关）
+        self.resolution = None
+        if resolution:
+            self._enable_resolution()
         if window:
             self.window.materialize_sample(window)
 
+    def _enable_resolution(self):
+        if self.resolution is None:
+            from app.core.measure.cluster import ResolutionManager
+            self.resolution = ResolutionManager(self.window, budget_leaves=self.window.capacity,
+                                                endogenous_scale=self.endogenous_scale)
+            self.window.protected_provider = self.resolution.protected_ids  # 团成员不参与逐出
+        return self.resolution
+
+    def _refill(self):
+        """从测度补位，维持窗口可见人口（coarsen 让窗口缩水时回填）。"""
+        missing = self.window.capacity - len(self.window.characters)
+        if missing > 0:
+            self.window.materialize_sample(missing)
+
     def population(self):
-        return self.window.population()
+        total = self.window.population()
+        if self.resolution is not None:
+            total += self.resolution.store.size()
+        return total
 
     @property
     def UTC(self):
@@ -229,16 +292,92 @@ class WindowEngine:
         self.measure_engine.step()
         self.simulation_time = self.measure_engine.simulation_time
         self.window.step(self.simulation_time)
+        if self.resolution is not None:
+            from app.core.measure.cluster import TickContext
+            ctx = TickContext(tick=self.simulation_time,
+                              measure=self.measure_engine.measure, rng=random)
+            self.resolution.step(ctx)
+            self._refill()
+
+    def feedback(self, cost, budget):
+        """把实测负载反馈给分辨率调度（水位线 θ）。"""
+        if self.resolution is not None:
+            self.resolution.feedback(cost, budget)
+
+    # ------------------------------------------------------------ 观察者接口
+
+    def resolution_summary(self):
+        return self.resolution.summary() if self.resolution is not None else None
+
+    def set_cluster_attention(self, cluster_id, value):
+        if self.resolution is None or cluster_id not in self.resolution.store.clusters:
+            return False
+        self.resolution.set_attention(cluster_id, value)
+        return True
+
+    def set_person_attention(self, person_id, value):
+        """person id → 其所属团 → 置注意度；返回团 id（无团则 None）。"""
+        if self.resolution is None:
+            return None
+        cluster_id = self.resolution.cluster_of(person_id)
+        if cluster_id is None:
+            return None
+        self.resolution.set_attention(cluster_id, value)
+        return cluster_id
+
+    def notables(self, k=12):
+        """按团注意力排序的 resolved 个体（具名 + 团 id/注意力）。"""
+        if self.resolution is None:
+            return []
+        attention = self.resolution.attention
+        ranked = sorted(self.resolution.store.clusters.values(),
+                        key=lambda c: attention.get(c.id, 0.0), reverse=True)
+        out = []
+        for cluster in ranked:
+            if cluster.level != 1:
+                continue
+            for mid in cluster.member_ids:
+                character = self.window.characters.get(mid)
+                if character is None:
+                    continue
+                item = character.__publish_dict__
+                item["cluster_id"] = cluster.id
+                item["attention"] = round(attention.get(cluster.id, 0.0), 3)
+                out.append(item)
+                if len(out) >= k:
+                    return out
+        return out
+
+    def life_log(self, person_id):
+        """某人的生命轨迹（tick/age/wealth/friends/spouses）；无则 None。"""
+        log = self.window.life_log.get(person_id)
+        if log is None:
+            return None
+        return [{"tick": t, "age": a, "wealth": w, "friends": f, "spouses": s}
+                for (t, a, w, f, s) in log]
 
     # ------------------------------------------------------------ 快照恢复
 
+    def snapshot_payload(self):
+        """窗口快照 payload：字符 + （若开分辨率）团/注意力/水位。
+
+        顶层是对象；旧版是字符 list，`restore` 两者都认。
+        """
+        payload = {
+            "characters": [character.__dict__ for character in self.window.characters.values()],
+            "resolution": self.resolution is not None,
+        }
+        if self.resolution is not None:
+            payload.update(self.resolution.to_payload())
+        return payload
+
     @classmethod
     def restore(cls, snapshot, capacity=1000):
-        """从 models.snapshot 的 payload 重建整个世界：测度 + 真个体窗口。
+        """从 models.snapshot 的 payload 重建整个世界：测度 + 真个体窗口 + 团。
 
         save_snapshot 存的测度**不含**窗口个体（窗口与之守恒互斥），
         窗口 payload 存的是真 Character 全量状态（含 id/关系图 id），
-        因此恢复后 population == 存档时 population。
+        因此恢复后 population == 存档时 population。旧版 list payload 仍兼容。
         """
         from app.core.measure.engine import MeanFieldEngine
         from app.core.measure.measure import measure_from_payload
@@ -250,7 +389,14 @@ class WindowEngine:
         measure_engine.simulation_time = snapshot["simulation_time"]
 
         engine = cls(measure_engine, capacity=capacity, window=0)
-        engine.window.load_characters(snapshot.get("window") or [])
+        window_payload = snapshot.get("window")
+        if isinstance(window_payload, dict):
+            engine.window.load_characters(window_payload.get("characters") or [])
+            if window_payload.get("resolution"):
+                engine._enable_resolution()
+                engine.resolution.load_payload(window_payload, space)
+        else:
+            engine.window.load_characters(window_payload or [])
         return engine
 
 

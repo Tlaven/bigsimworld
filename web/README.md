@@ -27,11 +27,19 @@ pnpm build    # 产物在 dist/
 | `/world-overview` | 世界时间、总人口、连接状态、单步耗时曲线（默认跳转） |
 | `/distribution-statistics` | 年龄 / 财富分布（来自测度层 survey） |
 | `/role-information` | 物化窗口内的真个体（姓名/性别/年龄/财富/好友/婚配） |
+| `/resolution` | 显名者 / 团 / 注意度（θ/预算/ρ）+ 个体生命轨迹；pin/放掉 |
 
 ## SSE 契约
 
 - 事件类型：`data`（每 tick 推送）、`initial_data`（连接建立后补发分布）。
 - `data` payload：`time`（世界时间）、`population`、`simulation_load`（每步引擎耗时，秒）、
   `people`（具名个体：`{id,name,gender,age,wealth,relationships{friend,spouse,parent,child}}`）、
-  `age` / `wealth`（分布 `[labels, counts]`）。
+  `age` / `wealth`（分布 `[labels, counts]`）、`resolution`（`theta_base`/`budget_leaves`/`rho`/`cluster_count`/`resolved_count`/`clusters[]`）、
+  `notables`（resolved 个体：`{id,name,age,wealth,cluster_id,attention}`）。
 - 断线自动重连（指数退避，上限 10s）；页面关闭时 `sendBeacon` 退订。
+
+## 分辨率/注意度接口
+
+- `GET /api/v1/resolution`：分辨率摘要。
+- `GET/POST /api/v1/attention`：`POST {person_id|cluster_id, value}` 置注意度（pin=1 / 放掉=0）。
+- `GET /api/v1/life/<person_id>`：个体生命轨迹 `[{tick,age,wealth,friends,spouses}]`。

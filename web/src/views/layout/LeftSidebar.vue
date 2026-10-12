@@ -24,6 +24,12 @@
         prepend-icon="mdi-account-group"
         link
       />
+      <v-list-item
+        :to="{ name: 'ResolutionView' }"
+        title="显名与注意"
+        prepend-icon="mdi-eye"
+        link
+      />
     </v-list>
   </v-navigation-drawer>
 </template>
