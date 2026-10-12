@@ -1,47 +1,29 @@
 <template>
-  <v-navigation-drawer :width="150" app permanent>
+  <v-navigation-drawer :width="160" app permanent>
     <!-- 应用标题部分 -->
-    <v-list-item title="My Application" subtitle="Vuetify"></v-list-item>
+    <v-list-item title="SimuWorld" subtitle="大世界仿真"></v-list-item>
     <v-divider></v-divider>
 
-    <!-- 列表项 -->
+    <!-- 导航（Vuetify 3：prepend-icon） -->
     <v-list>
-      <v-list-item link :to="{ name: 'Home' }" title="List Item 1">
-        <v-list-item-icon>
-          <v-icon>mdi-home</v-icon> <!-- Use icons as needed -->
-        </v-list-item-icon>
-      </v-list-item>
-
-      <v-list-item link :to="{ name: 'ResourceManagement' }" title="模拟资源管理">
-        <v-list-item-icon>
-          <v-icon>mdi-account</v-icon>
-        </v-list-item-icon>
-      </v-list-item>
-
-      <v-list-item link :to="{ name: 'DistributionStatistics' }" title="模拟分布统计">
-        <v-list-item-icon>
-          <v-icon>mdi-chart-bar</v-icon>
-        </v-list-item-icon>
-        </v-list-item>
-
-      <v-list-item link :to="{ name: 'RoleInformation' }" title="角色信息">
-        <v-list-item-icon>
-          <v-icon>mdi-account-group</v-icon>
-        </v-list-item-icon>
-      </v-list-item>
-
+      <v-list-item
+        :to="{ name: 'WorldOverview' }"
+        title="世界总览"
+        prepend-icon="mdi-earth"
+        link
+      />
+      <v-list-item
+        :to="{ name: 'DistributionStatistics' }"
+        title="分布统计"
+        prepend-icon="mdi-chart-bar"
+        link
+      />
+      <v-list-item
+        :to="{ name: 'RoleInformation' }"
+        title="角色信息"
+        prepend-icon="mdi-account-group"
+        link
+      />
     </v-list>
   </v-navigation-drawer>
 </template>
-
-<script setup>
-import { ref } from 'vue';
-import { useRouter } from 'vue-router';
-
-// Optionally, you can define active states or other functionalities here
-const router = useRouter();
-</script>
-
-<style scoped>
-/* Add any necessary styles here */
-</style>

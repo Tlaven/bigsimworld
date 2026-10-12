@@ -1,10 +1,10 @@
 <template>
   <div class="app-layout">
     <AppBar />
-    <div class="content-container">
+    <div class="content">
       <LeftSidebar />
       <div class="main-content">
-        <router-view /> <!-- 用于显示路由内容 -->
+        <router-view /> <!-- 子路由内容 -->
       </div>
       <RightDrawer />
     </div>
@@ -19,29 +19,19 @@ import RightDrawer from './RightDrawer.vue';
 
 <style scoped>
 .app-layout {
-  display: flex;
-  flex-direction: column;
   height: 100vh;
 }
 
-.content-container {
+.content {
   display: flex;
-  flex: 1;
+  height: calc(100vh - 40px); /* 减去 AppBar 高度 */
 }
 
+/* 左右两列由 v-navigation-drawer 自行定位（Vuetify 布局系统给 v-main 自动留白），
+   这里只负责中间主内容区域的滚动 */
 .main-content {
   flex: 1;
   padding: 10px;
-  margin-right: 220px; /* 留出右抽屉的空间，调整为 RightDrawer 的宽度 */
-  overflow-y: auto; /* 允许垂直滚动 */
-}
-
-/* 添加适当的样式以确保左侧和右侧组件的宽度 */
-.left-sidebar {
-  width: 250px; /* 根据需要调整宽度 */
-}
-
-.right-drawer {
-  width: 250px; /* 根据需要调整宽度 */
+  overflow-y: auto;
 }
 </style>

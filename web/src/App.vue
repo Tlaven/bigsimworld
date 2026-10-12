@@ -5,7 +5,3 @@
     </v-main>
   </v-app>
 </template>
-
-<script setup>
-import AppLayout from './views/layout/AppLayout.vue'
-</script>

@@ -47,7 +47,7 @@ const wealthOption = (data) => ({
   grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
   xAxis: { type: 'category', data: data[0] },
   yAxis: { type: 'value' },
-  series: [{ name: 'Population', type: 'bar', data: data[1], itemStyle: { color: '#66bb6a' }, smooth: true }],
+  series: [{ name: 'Population', type: 'bar', data: data[1], itemStyle: { color: '#66bb6a' } }],
 });
 
 // 用 setOption(..., true) 原地更新，避免重复 init 泄漏实例

@@ -21,11 +21,11 @@
           </tr>
         </thead>
         <tbody>
-          <tr v-for="person in people" :key="person.atr[0]">
-            <td>{{ person.atr[1] }}</td>
-            <td>{{ person.atr[2] === 'male' ? '男' : '女' }}</td>
-            <td>{{ person.atr[3] }}</td>
-            <td>{{ Math.round(person.atr[4]) }}</td>
+          <tr v-for="person in people" :key="person.id">
+            <td>{{ person.name }}</td>
+            <td>{{ person.gender === 'male' ? '男' : '女' }}</td>
+            <td>{{ person.age }}</td>
+            <td>{{ Math.round(person.wealth) }}</td>
             <td>{{ friends(person) }}</td>
             <td>{{ spouse(person) }}</td>
           </tr>
@@ -40,11 +40,12 @@ import { computed, inject } from 'vue';
 
 defineProps({ maxHeight: { type: String, default: '50vh' } });
 
-// sseData.people 结构：[id, name, gender, age, wealth] + relationships[4] = [friend, spouse, parent, child]
+// sseData.people：{id, name, gender, age, wealth, relationships{friend,spouse,parent,child}}
+// relationships 每组为 [id, name] 对的数组
 const sseData = inject('sseData');
 const people = computed(() => sseData.value?.people || []);
 const time = computed(() => sseData.value?.time || '');
 
-const friends = (person) => (person.relationships?.[0] || []).length;
-const spouse = (person) => ((person.relationships?.[1] || []).length ? '已婚' : '单身');
+const friends = (person) => (person.relationships?.friend || []).length;
+const spouse = (person) => ((person.relationships?.spouse || []).length ? '已婚' : '单身');
 </script>

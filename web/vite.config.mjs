@@ -41,10 +41,15 @@ export default defineConfig({
     rollupOptions: {
       output: {
         manualChunks(id) {
-          // 根据模块名称手动分块
-          if (id.includes('node_modules')) {
-            return id.split('node_modules/')[1].split('/')[0].toString();
-          }
+          // 根据模块名称手动分块（兼容 pnpm 的 .pnpm 路径：取最后一段 node_modules）
+          if (!id.includes('node_modules')) return undefined;
+          const tail = id.split('node_modules/').at(-1);
+          const segs = tail.split('/');
+          const pkg = segs[0].startsWith('@') ? segs.slice(0, 2).join('/') : segs[0];
+          if (pkg === 'echarts') return 'echarts';
+          if (pkg === 'vuetify') return 'vuetify';
+          if (['vue', 'vue-router', '@vue', 'vuetify-plugin-vuetify'].some((p) => pkg.startsWith(p))) return 'vue-vendor';
+          return 'vendor';
         },
       },
     },
