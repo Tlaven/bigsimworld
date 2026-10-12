@@ -31,12 +31,16 @@ def save_snapshot(measure_payload, simulation_time, window=None):
 
 
 def load_latest():
-    with crud.get_session() as session:
-        row = session.query(Snapshot).order_by(Snapshot.id.desc()).first()
-        if row is None:
-            return None
-        return {
-            "simulation_time": row.simulation_time,
-            "measure": row.measure,
-            "window": row.window,
-        }
+    """读最新快照；表不存在或为空时返回 None（调用方走新建世界）。"""
+    try:
+        with crud.get_session() as session:
+            row = session.query(Snapshot).order_by(Snapshot.id.desc()).first()
+            if row is None:
+                return None
+            return {
+                "simulation_time": row.simulation_time,
+                "measure": row.measure,
+                "window": row.window,
+            }
+    except Exception:
+        return None

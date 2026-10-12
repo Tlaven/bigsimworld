@@ -42,6 +42,23 @@ class IndividualWindow:
         self.characters[cid] = character
         return character
 
+    def load_characters(self, character_dicts):
+        """从快照的窗口 payload 直接注入真个体（保留原 id 与关系图）。"""
+        self.characters = {}
+        self.max_id = 0
+        for character_dict in character_dicts:
+            character_dict = dict(character_dict)
+            cid = character_dict.get("id")
+            if cid is None:
+                cid = self.max_id + 1
+                character_dict["id"] = cid
+            self.max_id = max(self.max_id, cid)
+            self.characters[cid] = Character(self, **character_dict)
+            self.characters[cid].cell = cid % self.n_cells
+        # 先建齐全部个体，再把关系 id 解析为对象
+        for character in self.characters.values():
+            character.init_relationships()
+
     def create_character(self, character_dict):
         """新生儿（由 ChildbirthEvent 调用）。"""
         character = self._make_character(character_dict)
@@ -157,5 +174,28 @@ class WindowEngine:
         self.measure_engine.step()
         self.simulation_time = self.measure_engine.simulation_time
         self.window.step(self.simulation_time)
+
+    # ------------------------------------------------------------ 快照恢复
+
+    @classmethod
+    def restore(cls, snapshot, capacity=1000):
+        """从 models.snapshot 的 payload 重建整个世界：测度 + 真个体窗口。
+
+        save_snapshot 存的测度**不含**窗口个体（窗口与之守恒互斥），
+        窗口 payload 存的是真 Character 全量状态（含 id/关系图 id），
+        因此恢复后 population == 存档时 population。
+        """
+        from app.core.measure.engine import MeanFieldEngine
+        from app.core.measure.measure import measure_from_payload
+        from app.core.measure.space import StateSpace
+
+        space = StateSpace()
+        measure = measure_from_payload(snapshot["measure"], space)
+        measure_engine = MeanFieldEngine(space=space, measure=measure)
+        measure_engine.simulation_time = snapshot["simulation_time"]
+
+        engine = cls(measure_engine, capacity=capacity, window=0)
+        engine.window.load_characters(snapshot.get("window") or [])
+        return engine
 
 

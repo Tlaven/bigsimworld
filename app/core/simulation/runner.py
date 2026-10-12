@@ -16,9 +16,11 @@ class SimulationRunner:
     start 清除停止标志后重建工作线程，引擎状态原地保留。
     """
 
-    def __init__(self, app, mode="individual", capacity=1000, population=5000):
+    def __init__(self, app, mode="individual", capacity=1000, population=5000,
+                 resume=False):
         self.app = app
         self.mode = mode
+        self.resume = resume
         self.stop_event = Event()  # 用于停止模拟线程的事件
         self.processing_db = None
         self.db_queues = None
@@ -31,13 +33,34 @@ class SimulationRunner:
             from app.core.measure.transitions import FULL_FLOWS
             from app.core.measure.window import WindowEngine
 
-            measure_engine = MeanFieldEngine(
-                characters=generate_characters(population), flows=FULL_FLOWS)
-            self.engine = WindowEngine(measure_engine, capacity=capacity, window=capacity)
+            engine = self._try_restore(capacity)
+            if engine is not None:
+                self.engine = engine
+            else:
+                measure_engine = MeanFieldEngine(
+                    characters=generate_characters(population), flows=FULL_FLOWS)
+                self.engine = WindowEngine(measure_engine, capacity=capacity, window=capacity)
         else:
             self.db_queues = init_db_queues()  # 初始化队列
             self.engine = SimulationEngine(self.db_queues)  # 初始化模拟引擎
             self.survey_manager = SurveyManager(self.engine)  # 初始化问卷管理器
+
+    def _try_restore(self, capacity):
+        """resume 时从最新快照恢复世界；无快照/无表/非 measure 模式返回 None（走新建）。"""
+        if not self.resume or self.mode != "measure":
+            return None
+        from app.models.snapshot import load_latest
+
+        snapshot = load_latest()
+        if snapshot is None:
+            return None
+
+        from app.core.measure.window import WindowEngine
+
+        engine = WindowEngine.restore(snapshot, capacity=capacity)
+        print(f"Restored world from snapshot at t={engine.simulation_time} "
+              f"(population={engine.population()}).")
+        return engine
 
     @time_limit(1, record_name="simulation_step/s")  # 这里设置的时间限制尽量大于 1 秒，防止线程无法正常结束
     def step(self):
