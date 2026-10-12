@@ -30,7 +30,7 @@ cd web && pnpm install && pnpm dev   # http://localhost:3000
 `SIM_POPULATION`（初始人口，默认 5000）、`SIM_RESUME=1`（从最新快照续跑世界；
 `simulation/stop` 会自动落档，重启即续）。
 另有：`REDIS_URL`（SSE 依赖，默认 `redis://localhost:6379/0`）、`SIM_DB_PATH`（SQLite 路径，
-默认 `db.sqlite3`）、`CORS_ORIGINS`（允许来源，默认 `*`）。
+默认 `db.sqlite3`）、`CORS_ORIGINS`（允许来源，默认 `*`）、`SIM_SEED`（整局随机种子，设了即复现）。
 
 ## Web 接口
 
