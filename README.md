@@ -1,67 +1,61 @@
+# SimuWorld —— 可承载近乎无限人口的社会仿真
 
+个体的完整生命周期（结识 → 熟络 → 结友 → 婚配 → 生育 → 死亡 → 继承），
+通过"**测度引擎 + 真个体窗口**"的分层架构在**成本与人口 N 无关**的前提下推到千万级。
 
-character -> individual_event -> event_plaza -> people_event -> simulation_engine
+```
+个体引擎（高保真参照，SIM_MODE=individual）
+        ↑ 收敛验证（bench/：指纹 + 年龄L1/基尼/分位对比）
+测度引擎（状态空间上的稀疏计数分布，每 tick 施加流算子，成本 = O(占用桶数)）
+        ↕ 守恒同步（materialize / dematerialize，Σ测度 + len(窗口) 守恒）
+物化窗口（≤ capacity 个带真实关系图的 Character）
+        ↓
+观测（SSE 实时推送）/ 持久化（快照）/ 控制（/api/v1/simulation start|stop|status）
+```
 
-## 运行演示（均值场 + 真个体窗口）
-
-三种模式：
-- `individual`：逐个体引擎（原始高保真模型）。
-- `measure`：均值场（分布为主体，成本与人口无关，可顶千万级）+ 真个体窗口。
-- 默认 `measure`。
+## 快速开始
 
 ```bash
-# 1) 启动 Redis（Flask-SSE 需要）
+# 1) Redis（SSE 依赖）
 redis-server
 
-# 2) 后端（默认 measure 模式；SIM_MODE=individual 可切换）
-python run.py
+# 2) 后端（默认 measure 模式：均值场 + 真个体窗口）
+python run.py            # http://localhost:5000
 
 # 3) 前端
-cd web && npm run dev
+cd web && pnpm install && pnpm dev   # http://localhost:3000
 ```
 
-前端右侧抽屉与"角色信息"页会实时展示窗口内的**真个体**（姓名/性别/年龄/财富/好友/婚配），
-数据经 SSE（`data` 事件，`payload.people`）推送。
+环境变量：`SIM_MODE`（measure|individual）、`SIM_CAPACITY`（窗口大小，默认 1000）、
+`SIM_POPULATION`（初始人口，默认 5000）。
 
-性能：`python -m bench.convergence --window --sizes 10000 1000000 --capacity 1000 --steps 3000`
+## Web 接口
 
+| 路由 | 说明 |
+| --- | --- |
+| `GET  /api/v1/simulation` | 运行状态（running/mode/simulation_time/population） |
+| `POST /api/v1/simulation/start` | 启动仿真（引擎状态原地保留，可反复启停） |
+| `POST /api/v1/simulation/stop` | 停止仿真（measure 模式自动落一份测度快照） |
+| `GET  /api/v1/get-client-id` | 建 SSE 订阅 |
+| `POST /api/v1/notify-connection` | connect 补发初始数据 / keepalive 保活 |
+| `GET  /stream?channel=<id>` | SSE：`data` 每 tick 推送（time/population/simulation_load/people/age/wealth）、`initial_data` |
 
-event_plaza: dict[str, list[character]]
-event_plaza = {
-    "acquaintance": [obj1, obj2, obj3],
+前端页面：`/world-overview`（默认，总览+负载曲线）、`/distribution-statistics`（年龄/财富分布）、
+`/role-information`（窗口内真个体）。
 
-}
+## 基准与验证（bench/）
 
+```bash
+python -m bench.convergence --window --sizes 10000 1000000 --capacity 1000 --steps 3000
+python -m bench.convergence --full-compare --sizes 2000 5000 10000 --steps 4000
+python -m bench.run_scaling --engine legacy --sizes 1000 2000 5000 10000 20000 --steps 30 --warmup 5
 ```
-SimuWorld
-├─ app
-│  ├─ api
-│  │  └─ v1
-│  ├─ core
-│  │  ├─ generation
-│  │  │  ├─ human.py
-│  │  │  ├─ name.py
-│  │  │  └─ __init__.py
-│  │  ├─ person
-│  │  │  ├─ character.py
-│  │  │  ├─ events.py
-│  │  │  └─ __init.py
-│  │  ├─ probability
-│  │  │  ├─ func.py
-│  │  │  └─ __init__.py
-│  │  └─ simulation
-│  │     ├─ engine.py
-│  │     ├─ events.py
-│  │     ├─ later.py
-│  │     └─ __init__.py
-│  ├─ models
-│  │  ├─ crud.py
-│  │  ├─ table.py
-│  │  └─ __init__.py
-│  ├─ schemas
-│  ├─ services
-│  ├─ utils
-│  └─ __init__.py
-├─ README.md
-├─ run.py
-└─ web
+
+详见 `bench/README.md`：逐阶段实测记录（DES 1.1–1.2×、局部化 5%、测度引擎人口 1000× 而单步恒定 ~2.5ms）。
+
+## 测试
+
+```bash
+python -m pytest -q
+cd web && pnpm build
+```
