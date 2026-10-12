@@ -54,9 +54,18 @@ python -m bench.run_scaling --engine legacy --sizes 1000 2000 5000 10000 20000 -
 
 详见 `bench/README.md`：逐阶段实测记录（DES 1.1–1.2×、局部化 5%、测度引擎人口 1000× 而单步恒定 ~2.5ms）。
 
+## 文档地图
+
+| 文档 | 内容 |
+| --- | --- |
+| `docs/engineering-spec.md` | **规范**：模型语义、速率表、守恒律、SSE/控制 API 契约 |
+| `docs/history.md` | 工程日志：两阶段演进的全部数字、负结果与教训 |
+| `bench/README.md` | 基准工具用法与当前权威数字 |
+| `web/README.md` | 前端（页面/SSE 契约/环境变量） |
+
 ## 测试
 
 ```bash
-python -m pytest -q
-cd web && pnpm build
+python -m pytest -q      # 58 条：等价性/收敛门槛/守恒/契约
+cd web && pnpm build     # 前端构建
 ```
