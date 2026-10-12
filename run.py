@@ -11,6 +11,7 @@ if __name__ == '__main__':
     capacity = int(os.environ.get("SIM_CAPACITY", "1000"))
     population = int(os.environ.get("SIM_POPULATION", "5000"))
     background = SimulationRunner(app, mode=mode, capacity=capacity, population=population)
+    app.extensions['sim_runner'] = background  # 供 /api/v1/simulation 控制路由使用
     background.start()
     app.run()
     background.stop()

@@ -35,8 +35,8 @@ class SSEManager:
             print(f"Error publishing data to client {client_id}: {e}")
 
     def send_initial_data(self, client_id):
-        """发送初始数据给特定客户端"""
-        data = py_cache.get("survey_data")
+        """发送初始数据给特定客户�?"""
+        data = py_cache.get("survey_data") or {'status': 'connected'}  # 首步未跑完时给兜底
         self.publish(data, type='initial_data', client_id=client_id)
 
     def send_keepalive(self, client_id):

@@ -38,7 +38,7 @@ class Character:
 
         
         self.publish_keys = ["id", "name", "gender", "age", "wealth"]
-        self.publish_relationship_keys = ["friend", "spouse","parent", "child"]
+        self.publish_relationship_keys = ["friend", "spouse", "parent", "child"]
 
         # init 一些需要的类
         self.events = IndividualEvents(self.model, self)
@@ -80,6 +80,11 @@ class Character:
     
     @property
     def __publish_dict__(self):
-        output_dict = {"atr": [getattr(self, key) for key in self.publish_keys]}
-        output_dict["relationships"] = [[(character.id, character.name) for character in self.relationships[key] if isinstance(character, Character)] for key in  self.publish_relationship_keys]
+        """前端契约：具名字段 + 具名关系组（关系项为 [id, name] 对）。"""
+        output_dict = {key: getattr(self, key) for key in self.publish_keys}
+        output_dict["relationships"] = {
+            key: [[character.id, character.name] for character in self.relationships[key]
+                  if isinstance(character, Character)]
+            for key in self.publish_relationship_keys
+        }
         return output_dict
