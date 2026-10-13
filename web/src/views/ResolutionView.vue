@@ -3,7 +3,8 @@
     <h1 class="text-h5 mb-2">显名与注意（分辨率层）</h1>
     <p class="text-body-2 text-medium-emphasis">
       少数被"注视"的家团/个体保持高分辨率（独立演算 + 生命轨迹），其余随注意力衰减溶回匿名统计。
-      θ 为基线水位（低于即粗化），ρ 为已遗忘的近似量。
+      θ 为基线水位（低于即粗化），ρ 为已遗忘的近似量。标「显要」者为**财富高位分位**的个体，
+      由系统自动保护——不逐出、不粗化。
     </p>
 
     <v-row dense class="mb-2">
@@ -32,13 +33,18 @@
               </thead>
               <tbody>
                 <tr v-for="person in notables" :key="person.id" style="cursor: pointer" @click="select(person)">
-                  <td>{{ person.name }}</td>
+                  <td>
+                    {{ person.name }}
+                    <v-chip v-if="person.notable" size="x-small" color="amber-darken-2" class="ml-1">显要</v-chip>
+                  </td>
                   <td>{{ person.age }}</td>
                   <td>{{ Math.round(person.wealth) }}</td>
                   <td>{{ person.attention }}</td>
                   <td>
-                    <v-btn size="x-small" variant="text" @click.stop="pin(person)">关注</v-btn>
-                    <v-btn size="x-small" variant="text" @click.stop="unpin(person)">放掉</v-btn>
+                    <template v-if="person.cluster_id !== null && person.cluster_id !== undefined">
+                      <v-btn size="x-small" variant="text" @click.stop="pin(person)">关注</v-btn>
+                      <v-btn size="x-small" variant="text" @click.stop="unpin(person)">放掉</v-btn>
+                    </template>
                   </td>
                 </tr>
               </tbody>
@@ -109,6 +115,7 @@ const cards = computed(() => {
     { label: '团数', value: data.cluster_count ?? '--' },
     { label: '个体数', value: data.resolved_count ?? '--' },
     { label: 'ρ（已遗忘）', value: data.rho ?? '--' },
+    { label: '显要阈值', value: data.notability?.threshold ?? '--' },
   ];
 });
 

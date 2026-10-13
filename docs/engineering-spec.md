@@ -114,7 +114,7 @@ SIM_MODE=measure ──────────┤
 
 ## 7. 验收与回归
 
-- `pytest`（98 条）：个体 DES 逐位一致、测度收敛门槛（gini<0.02、KS<0.06、age_l1<0.06）、窗口守恒/断链、财富守恒门禁（`bench.audit_ledger.run_audit`）、分辨率算子守恒门禁（`run_resolution_probe`）、可复现性（`SIM_SEED`）、快照往返、控制路由、bench 构建冒烟。
+- `pytest`（102 条）：个体 DES 逐位一致、测度收敛门槛（gini<0.02、KS<0.06、age_l1<0.06）、窗口守恒/断链、财富守恒门禁（`bench.audit_ledger.run_audit`）、分辨率算子守恒门禁（`run_resolution_probe`）、显要保护（不逐出/不粗化）、可复现性（`SIM_SEED`）、快照往返、控制路由、bench 构建冒烟。
 - 任何算子改动：`bench.convergence --full-compare` + `bench.audit_ledger`（门：identity 误差 <0.1%）+ `bench.audit_ledger --resolution`（分辨率算子逐次守恒）+ `bench.diagnose_tail`（区分系统性偏差与 p100 噪声）。
 - `docs/history.md` 记录结论；`bench/results/` 存证据。
 
@@ -151,6 +151,8 @@ SIM_MODE=measure ──────────┤
 **coarse 团** = mini `MeanFieldEngine`（`FamilyKind.flows` = FULL_FLOWS 去掉 `inheritance`）；继承由 `step_coarse` 手动调 `family_inheritance`（含 `overflow_fraction`：族内继承中改注入全局池的比例，0 = 完全内化 ="富族恒富"）。
 
 **注意力**：外生 `set_attention(cid, v)`（观察者 pin，`a ← γa` 衰减）；内生 `_endogenous_attention`（被窗口内非成员的**强关系**认识程度 / `endogenous_scale`）；取 `max`。`WaterlinePolicy`：`a ≥ theta_base` 且 leaf 预算足够 → resolved；`feedback` 按负载调预算。
+
+**显要（notability）**：判据 `WealthNotability`——个体财富 ≥ 全人口财富分布的**高位分位阈值**（阈值由全局测度确定性推出，可解释、可复现："此人财富高于全人口 top q"）。显要者**绝不逐出**（计入 `protected_ids`）且其所在团**无视预算保持 resolved**——关键时刻人物不会被并入粗团而失去特殊性。分位 `SIM_NOTABLE_FRACTION`（默认 `0.01`，`off` 关闭）；判据可插拔（替换 `ResolutionManager.notability`）；默认关闭，生产由 runner 开启。`resolution_summary` 的 `notability` 给出 `metric/fraction/threshold/notable_count`。
 
 **成团与边界**（`_reconcile`，每 `form_interval`）：剪离场成员→抽入一跳浮层亲属→跨团边记 `interface`→未入团浮层按连通分量建团；`_merge_coupled`（分量内合并后 ≤ `max_members` 的团并一）；`_split_fragmented`（团内断连则切分）；`_recycle`（无注意 coarse 团 `dissolve` 回全局，防饱和）。
 

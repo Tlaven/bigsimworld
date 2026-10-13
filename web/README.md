@@ -35,7 +35,8 @@ pnpm build    # 产物在 dist/
 - `data` payload：`time`（世界时间）、`population`、`simulation_load`（每步引擎耗时，秒）、
   `people`（具名个体：`{id,name,gender,age,wealth,relationships{friend,spouse,parent,child}}`）、
   `age` / `wealth`（分布 `[labels, counts]`）、`resolution`（`theta_base`/`budget_leaves`/`rho`/`cluster_count`/`resolved_count`/`clusters[]`）、
-  `notables`（resolved 个体：`{id,name,age,wealth,cluster_id,attention}`）。
+  `notables`（显名者：`{id,name,age,wealth,cluster_id,attention,notable}`；`notable=true` 为
+  财富高位分位、被系统保护的显要个体，`cluster_id` 为 null 表示未入团）。
 - 断线自动重连（指数退避，上限 10s）；页面关闭时 `sendBeacon` 退订。
 
 ## 分辨率/注意度接口

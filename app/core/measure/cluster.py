@@ -117,6 +117,36 @@ class IdentityMassRho:
         return 0.0
 
 
+class WealthNotability:
+    """默认显要判据：个体财富落在**全人口财富分布的高位分位**之上。
+
+    可审计：阈值由全局测度分布确定性推出（可复现、可解释——"此人财富高于全人口 top q"）；
+    ``fraction`` 越小越"极端"（0.01 = top 1%）。策略可插拔：替换本对象即换判据。
+    """
+
+    name = "wealth"
+
+    def threshold(self, measure, space, fraction):
+        """全人口财富降序累计到 ``fraction`` 人口处的桶中心；空分布返回 None。"""
+        counts = measure.counts
+        by_wealth = {}
+        for index in measure.occupied:
+            wealth = space.decode(index)[2]
+            by_wealth[wealth] = by_wealth.get(wealth, 0.0) + counts[index]
+        if not by_wealth:
+            return None
+        target = max(1.0, sum(by_wealth.values()) * max(float(fraction), 0.0))
+        acc = 0.0
+        for wealth in sorted(by_wealth, reverse=True):
+            acc += by_wealth[wealth]
+            if acc >= target:
+                return space.wealth_value(wealth)
+        return space.wealth_value(min(by_wealth))
+
+    def is_notable(self, character, threshold):
+        return threshold is not None and getattr(character, "wealth", 0.0) >= threshold
+
+
 class FamilyKind:
     """MVP 唯一 kind：以 parent/child/spouse 为身份敏感边的家族团。
 
@@ -445,9 +475,10 @@ class ResolutionManager:
     def __init__(self, window, measure=None, policy=None, gamma=0.99,
                  form_kind="family", min_size=2, max_members=12, max_clusters=64,
                  initial_attention=0.8, form_interval=30, budget_leaves=None, dissolve_floor=0.1,
-                 endogenous_scale=None):
+                 endogenous_scale=None, notability=None, notable_fraction=None):
         self.window = window
         self.measure = measure or window.measure
+        self.space = window.space
         self.store = ClusterStore(self.measure, window)
         self.policy = policy or WaterlinePolicy(budget_leaves=budget_leaves)
         self.gamma = gamma
@@ -459,9 +490,15 @@ class ResolutionManager:
         self.form_interval = form_interval
         self.dissolve_floor = dissolve_floor
         self.endogenous_scale = endogenous_scale  # L1 社会凝视：None=关
+        self.notability = notability               # 显要判据：None=关（策略可插拔）
+        self.notable_fraction = None if notable_fraction is None else float(notable_fraction)
+        if self.notability is None and self.notable_fraction is not None:
+            self.notability = WealthNotability()
+        self.notable_threshold = None
         self.attention = {}
         self._formed = False
         self._next_form = 0
+        self._refresh_notability()
 
     # ------------------------------------------------------------ 受保护成员
 
@@ -470,7 +507,33 @@ class ResolutionManager:
         for cluster in self.store.clusters.values():
             if cluster.level == 1:
                 ids |= cluster.member_ids
+        ids |= self.notable_ids()          # 显要者绝不逐出（即使未入团）
         return ids
+
+    # ------------------------------------------------------------ 显要（notability）
+
+    def set_notable_fraction(self, fraction) -> None:
+        """设置显要分位（``None`` = 关闭）并立即重算阈值。生产由 runner 经 env 开启。"""
+        self.notable_fraction = None if fraction is None else float(fraction)
+        if self.notable_fraction is not None and self.notability is None:
+            self.notability = WealthNotability()
+        self._refresh_notability()
+
+    def _refresh_notability(self) -> None:
+        """从全局测度分布重算显要阈值（每 ``form_interval`` 一次即可）。"""
+        if self.notability is None or self.notable_fraction is None:
+            self.notable_threshold = None
+            return
+        self.notable_threshold = self.notability.threshold(
+            self.measure, self.space, self.notable_fraction)
+
+    def notable_ids(self) -> set:
+        """当前窗口内被判为"显要"的个体 id（自身世界影响 = 财富高位分位）。"""
+        threshold = self.notable_threshold
+        if threshold is None:
+            return set()
+        return {cid for cid, character in self.window.characters.items()
+                if self.notability.is_notable(character, threshold)}
 
     # ------------------------------------------------------------ 观察者接口
 
@@ -503,6 +566,13 @@ class ResolutionManager:
             "rho": round(self.store.rho(), 3),
             "cluster_count": len(self.store.clusters),
             "resolved_count": sum(1 for c in self.store.clusters.values() if c.level == 1),
+            "notability": {
+                "metric": getattr(self.notability, "name", None),
+                "fraction": self.notable_fraction,
+                "threshold": (round(self.notable_threshold, 1)
+                              if self.notable_threshold is not None else None),
+                "notable_count": len(self.notable_ids()),
+            },
             "clusters": entries,
         }
 
@@ -565,7 +635,14 @@ class ResolutionManager:
         if self.endogenous_scale:
             for cid, value in self._endogenous_attention().items():
                 self.attention[cid] = max(self.attention.get(cid, 0.0), value)  # L1 社会凝视
+        notable = self.notable_ids()
+        for cid, cluster in self.store.clusters.items():
+            if cluster.level == 1 and cluster.member_ids & notable:
+                self.attention[cid] = max(self.attention.get(cid, 0.0), 1.0)  # 显要：注意力地板
         targets = self.policy.allocate(list(self.store.clusters.values()), self.attention)
+        for cid, cluster in self.store.clusters.items():
+            if cluster.level == 1 and cluster.member_ids & notable:
+                targets[cid] = 1            # 显要所在团无视预算，绝不粗化
         for cid, level in targets.items():
             cluster = self.store.clusters.get(cid)
             if cluster is None:
@@ -665,6 +742,7 @@ class ResolutionManager:
         self._merge_coupled()
         self._split_fragmented()
         self._formed = True
+        self._refresh_notability()
 
     def _window_components(self):
         """窗口全体按身份敏感边的连通分量；返回 (分量列表, person→团 owner)。"""

@@ -1,4 +1,5 @@
 from threading import Thread, Event
+import os
 import random
 
 from app.core.simulation.engine import SimulationEngine
@@ -54,6 +55,10 @@ class SimulationRunner:
             if getattr(self.engine, "resolution", None) is not None:
                 # D2/L1 社会凝视：随窗口规模缩放（大窗口边更多，阈值同向放大）
                 self.engine.resolution.endogenous_scale = max(6.0, capacity / 25.0)
+                # 显要保护：财富高位分位者不逐出、不粗化（SIM_NOTABLE_FRACTION=off 关闭）
+                fraction = os.environ.get("SIM_NOTABLE_FRACTION", "0.01").strip().lower()
+                if fraction not in ("off", "none", ""):
+                    self.engine.resolution.set_notable_fraction(float(fraction))
         else:
             self.db_queues = init_db_queues()  # 初始化队列
             self.engine = SimulationEngine(self.db_queues)  # 初始化模拟引擎

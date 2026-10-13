@@ -326,27 +326,42 @@ class WindowEngine:
         return cluster_id
 
     def notables(self, k=12):
-        """按团注意力排序的 resolved 个体（具名 + 团 id/注意力）。"""
+        """显名者：**显要个体**（自身世界影响 = 财富高位分位）优先 + 其余被注视的 resolved 个体。
+
+        每个条目附 ``notable`` 标志与 ``cluster_id``/``attention``（未入团者为 None/0）。
+        显要者由分辨率层保护（不逐出、不粗化），故即使无人注视也持续具名。
+        """
         if self.resolution is None:
             return []
-        attention = self.resolution.attention
-        ranked = sorted(self.resolution.store.clusters.values(),
-                        key=lambda c: attention.get(c.id, 0.0), reverse=True)
-        out = []
-        for cluster in ranked:
+        mgr = self.resolution
+        attention = mgr.attention
+        notable_ids = mgr.notable_ids()
+
+        def entry(character, cluster_id):
+            item = character.__publish_dict__
+            item["cluster_id"] = cluster_id
+            item["attention"] = round(attention.get(cluster_id, 0.0), 3)
+            item["notable"] = character.id in notable_ids
+            return item
+
+        entries = {}
+        for cid in notable_ids:                        # 显要者（含未入团的浮层个体）
+            character = self.window.characters.get(cid)
+            if character is not None:
+                entries[cid] = entry(character, mgr.cluster_of(cid))
+        for cluster in sorted(mgr.store.clusters.values(),
+                              key=lambda c: attention.get(c.id, 0.0), reverse=True):
             if cluster.level != 1:
                 continue
-            for mid in cluster.member_ids:
-                character = self.window.characters.get(mid)
-                if character is None:
+            for mid in cluster.member_ids:             # 其余被注视的 resolved 成员
+                if mid in entries:
                     continue
-                item = character.__publish_dict__
-                item["cluster_id"] = cluster.id
-                item["attention"] = round(attention.get(cluster.id, 0.0), 3)
-                out.append(item)
-                if len(out) >= k:
-                    return out
-        return out
+                character = self.window.characters.get(mid)
+                if character is not None:
+                    entries[mid] = entry(character, cluster.id)
+        ranked = sorted(entries.values(),
+                        key=lambda e: (not e["notable"], -e["wealth"], -e["attention"], e["id"]))
+        return ranked[:k]
 
     def life_log(self, person_id):
         """某人的生命轨迹（tick/age/wealth/friends/spouses）；无则 None。"""

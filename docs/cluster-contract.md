@@ -37,6 +37,7 @@ class Cluster:
 | 5 | 注意力 → 分辨率 | `ResolutionPolicy.allocate` | 水位线 `θ` | 其他调度器 |
 | 6 | ρ 度量 | `RhoMetric` | 身份质量 `Σ(1+degree)` | 分布散度 |
 | 7 | 边界边 | `InterfaceEdge` + 处理 | 记录；婚配抽入 / 继承溢出 | 各类边自定 |
+| 8 | 显要判据 | `Notability`（`threshold` + `is_notable`） | `WealthNotability`（财富高位分位） | 影响力 / 关系枢纽 / 复合 |
 
 ### 缝 1 · `ClusterKind`
 
@@ -115,6 +116,7 @@ register(FamilyKind())   # MVP 唯一实现
 - `Σ measure.counts + Σ_coarse size + len(window.characters) == 初始 + 出生 − 死亡`
 - 分辨率切换**计数中性**（只移动，不产生 / 销毁）：`materialize` 只从计数 ≥ 1.0 的桶析出整人（分数残量留在团内）；`coarsen` 须并入团内残留。**身份不守恒**（重采样新代表）。
 - `rho ≥ 0`，coarsen 单调增，merge 可减；无悬空边（`other_ref` 必须可解析）。
+- 显要者（notability）**不逐出**，其所在团**不粗化**——关键个体不失去特殊性。
 
 ## 7. 扩展约定（防限死）
 

@@ -31,7 +31,8 @@ cd web && pnpm install && pnpm dev   # http://localhost:3000
 `simulation/stop` 会自动落档，重启即续）。
 另有：`REDIS_URL`（SSE 依赖，默认 `redis://localhost:6379/0`）、`SIM_DB_PATH`（SQLite 路径，
 默认 `db.sqlite3`）、`CORS_ORIGINS`（允许来源，默认 `*`）、`SIM_SEED`（整数；设了即进入
-**确定性模式**——固定整局随机并关闭墙钟负载反馈，同种子必然同发展）。
+**确定性模式**——固定整局随机并关闭墙钟负载反馈，同种子必然同发展）、`SIM_NOTABLE_FRACTION`
+（显要分位，默认 `0.01` = 财富 top 1% 的个体被自动保护——不逐出、不粗化；`off` 关闭）。
 
 ## Web 接口
 
