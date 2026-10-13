@@ -5,7 +5,7 @@ function baseUrl() {
   return import.meta.env.VITE_API_BASE_URL || '';
 }
 
-// 置注意度：pin（value=1）或放掉（value=0）。personId 会映射到其所属团。
+// 置注意度：pin（value=1）或放掉（value=0）。personId 会映射到其所属共演单元。
 export async function setAttention({ personId, clusterId, value = 1.0 }) {
   const body = { value };
   if (clusterId != null) body.cluster_id = clusterId;

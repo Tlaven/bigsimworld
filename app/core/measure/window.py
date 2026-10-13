@@ -32,7 +32,7 @@ class IndividualWindow:
 
         self.stats = {"births": 0, "deaths": 0, "materialized": 0, "dematerialized": 0}
 
-        # 受保护 id 提供者（团成员不参与容量逐出）；None 时退回原行为。
+        # 受保护 id 提供者（共演单元成员不参与容量逐出）；None 时退回原行为。
         self.protected_provider = None
 
         # 个体生命轨迹（有界）：id -> deque[(tick, age, wealth, n_friend, n_spouse)]
@@ -74,7 +74,7 @@ class IndividualWindow:
         return character
 
     def attach(self, character_dict):
-        """直接注入一个真个体（不计数出生、不动测度）；供团物化等使用。"""
+        """直接注入一个真个体（不计数出生、不动测度）；供共演单元物化等使用。"""
         return self._make_character(dict(character_dict))
 
     def remove_character(self, character_id, character):
@@ -139,7 +139,7 @@ class IndividualWindow:
     def detach(self, character_id):
         """解除该个体全部关系、清广场格、移出窗口；**不**折算回测度。
 
-        供团收编等使用（收编把成员折进团的聚合态，而非测度）。
+        供共演单元收编等使用（收编把成员折进共演单元的聚合态，而非测度）。
         """
         character = self.characters.pop(character_id, None)
         if character is None:
@@ -207,7 +207,7 @@ class IndividualWindow:
     def enforce_capacity(self, protected=None):
         """超容量时按"最小嵌入优先"退场（Family 连续性：已婚者最后离场）。
 
-        `protected`：不参与逐出的 id（团成员由其分辨率管理器管辖）。
+        `protected`：不参与逐出的 id（共演单元成员由其分辨率管理器管辖）。
         """
         protected = set(protected or ())
         while len(self.characters) > self.capacity:
@@ -262,7 +262,7 @@ class WindowEngine:
             from app.core.measure.cluster import ResolutionManager
             self.resolution = ResolutionManager(self.window, budget_leaves=self.window.capacity,
                                                 endogenous_scale=self.endogenous_scale)
-            self.window.protected_provider = self.resolution.protected_ids  # 团成员不参与逐出
+            self.window.protected_provider = self.resolution.protected_ids  # 共演单元成员不参与逐出
         return self.resolution
 
     def _refill(self):
@@ -316,7 +316,7 @@ class WindowEngine:
         return True
 
     def set_person_attention(self, person_id, value):
-        """person id → 其所属团 → 置注意度；返回团 id（无团则 None）。"""
+        """person id → 其所属共演单元 → 置注意度；返回共演单元 id（无共演单元则 None）。"""
         if self.resolution is None:
             return None
         cluster_id = self.resolution.cluster_of(person_id)
@@ -328,7 +328,7 @@ class WindowEngine:
     def notables(self, k=12):
         """显名者：**显要个体**（自身世界影响 = 财富高位分位）优先 + 其余被注视的 resolved 个体。
 
-        每个条目附 ``notable`` 标志与 ``cluster_id``/``attention``（未入团者为 None/0）。
+        每个条目附 ``notable`` 标志与 ``cluster_id``/``attention``（未纳入共演单元者为 None/0）。
         显要者由分辨率层保护（不逐出、不粗化），故即使无人注视也持续具名。
         """
         if self.resolution is None:
@@ -345,7 +345,7 @@ class WindowEngine:
             return item
 
         entries = {}
-        for cid in notable_ids:                        # 显要者（含未入团的浮层个体）
+        for cid in notable_ids:                        # 显要者（含未纳入共演单元的浮层个体）
             character = self.window.characters.get(cid)
             if character is not None:
                 entries[cid] = entry(character, mgr.cluster_of(cid))
@@ -374,7 +374,7 @@ class WindowEngine:
     # ------------------------------------------------------------ 快照恢复
 
     def snapshot_payload(self):
-        """窗口快照 payload：字符 + （若开分辨率）团/注意力/水位。
+        """窗口快照 payload：字符 + （若开分辨率）共演单元/注意力/水位。
 
         顶层是对象；旧版是字符 list，`restore` 两者都认。
         """
@@ -388,7 +388,7 @@ class WindowEngine:
 
     @classmethod
     def restore(cls, snapshot, capacity=1000):
-        """从 models.snapshot 的 payload 重建整个世界：测度 + 真个体窗口 + 团。
+        """从 models.snapshot 的 payload 重建整个世界：测度 + 真个体窗口 + 共演单元。
 
         save_snapshot 存的测度**不含**窗口个体（窗口与之守恒互斥），
         窗口 payload 存的是真 Character 全量状态（含 id/关系图 id），

@@ -27,7 +27,7 @@ pnpm build    # 产物在 dist/
 | `/world-overview` | 世界时间、总人口、连接状态、单步耗时曲线（默认跳转） |
 | `/distribution-statistics` | 年龄 / 财富分布（来自测度层 survey） |
 | `/role-information` | 物化窗口内的真个体（姓名/性别/年龄/财富/好友/婚配） |
-| `/resolution` | 显名者 / 团 / 注意度（θ/预算/ρ）+ 个体生命轨迹；pin/放掉 |
+| `/resolution` | 显名者 / 共演单元 / 注意度（θ/预算/ρ）+ 个体生命轨迹；pin/放掉 |
 
 ## SSE 契约
 
@@ -36,7 +36,7 @@ pnpm build    # 产物在 dist/
   `people`（具名个体：`{id,name,gender,age,wealth,relationships{friend,spouse,parent,child}}`）、
   `age` / `wealth`（分布 `[labels, counts]`）、`resolution`（`theta_base`/`budget_leaves`/`rho`/`cluster_count`/`resolved_count`/`clusters[]`）、
   `notables`（显名者：`{id,name,age,wealth,cluster_id,attention,notable}`；`notable=true` 为
-  财富高位分位、被系统保护的显要个体，`cluster_id` 为 null 表示未入团）。
+  财富高位分位、被系统保护的显要个体，`cluster_id` 为 null 表示未纳入共演单元）。
 - 断线自动重连（指数退避，上限 10s）；页面关闭时 `sendBeacon` 退订。
 
 ## 分辨率/注意度接口

@@ -65,7 +65,7 @@ def death(measure, tick):
 def inject_inherited(measure, overflow=0.0, global_measure=None):
     """把 ``recent_deaths`` 的 10% 遗产按 gap 窗口注入 ``yearly_inherited`` 池。
 
-    ``overflow`` 份额（[0,1]）改注入 ``global_measure`` 的池——用于"子女已离团"
+    ``overflow`` 份额（[0,1]）改注入 ``global_measure`` 的池——用于"子女已离开共演单元"
     的溢出（C1c）；``overflow=0`` 且 ``global_measure=None`` 时与原行为一致。
     """
     space = measure.space

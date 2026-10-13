@@ -126,18 +126,18 @@ SIM_MODE=measure ──────────┤
 4. individual 模式成本 O(N)（高保真参照的本位），与测度层的 N 无关性并存；
 5. SSE/缓存依赖本机 Redis；测度快照表共享 `db.sqlite3`。
 
-## 9. 分辨率与团层（Cluster / Resolution）
+## 9. 分辨率与共演单元层（Cluster / Resolution）
 
 契约细节见 `docs/cluster-contract.md`；实现 `app/core/measure/cluster.py`。
 
-**概念**：测度（匿名）与窗口（个体）是同一个"分辨率连续谱"的两端。**团 = 身份敏感交互（parent/child/spouse）的连通闭包**；分辨率 `level`：`0`=聚合（coarse），`1`=个体（resolved）。被观测/被认识者保持高分辨率，否则随注意力衰减溶回统计。
+**概念**：测度（匿名）与窗口（个体）是同一个"分辨率连续谱"的两端。**共演单元 = 身份敏感交互（parent/child/spouse）的连通闭包**；分辨率 `level`：`0`=聚合（coarse），`1`=个体（resolved）。被观测/被认识者保持高分辨率，否则随注意力衰减溶回统计。
 
 **数据模型**：`Cluster{id, kind, level, member_ids, state, interface, rho, parent_id}`；`ResolutionManager` 拥有 `ClusterStore` + 注意力场 + `WaterlinePolicy`。
 
 **算子**（`ClusterStore`）与守恒：`create/materialize/coarsen/merge/split/dissolve` 全部**计数中性**（只移动计数，不产生 / 销毁）：
 
-- `materialize` **只从计数 ≥ 1.0 的桶析出整人**，每个恰扣回 1.0；分数桶（<1 人份额，来自 coarse 的 `death/birth`）留在团内，物化上限随之收缩，随 `dissolve` 折回全局。若强行从分数桶取整人，`Measure.add` 会在 ≤0 时夹零——只扣分数、却生出一整个人（质量泄漏）。
-- `coarsen` 以窗口成员重建聚合态时，**必须并入团内残留**（物化后未析出的分数质量），否则再次粗化会丢质量。
+- `materialize` **只从计数 ≥ 1.0 的桶析出整人**，每个恰扣回 1.0；分数桶（<1 人份额，来自 coarse 的 `death/birth`）留在共演单元内，物化上限随之收缩，随 `dissolve` 折回全局。若强行从分数桶取整人，`Measure.add` 会在 ≤0 时夹零——只扣分数、却生出一整个人（质量泄漏）。
+- `coarsen` 以窗口成员重建聚合态时，**必须并入共演单元内残留**（物化后未析出的分数质量），否则再次粗化会丢质量。
 - **身份不守恒**：`coarsen → materialize` 是**重采样新代表**（人数守恒、身份不保）。
 
 守恒律扩为：
@@ -148,15 +148,15 @@ SIM_MODE=measure ──────────┤
 
 > 门禁：`bench.audit_ledger --resolution`（**生产口径**，coarse 流含 `death/birth`）对每个分辨率算子**逐次**断言上述守恒；`--clusters`（质量保持子集）验整体恒等式。二者互补——后者结构上盖不住分数桶 / 残留泄漏。
 
-**coarse 团** = mini `MeanFieldEngine`（`FamilyKind.flows` = FULL_FLOWS 去掉 `inheritance`）；继承由 `step_coarse` 手动调 `family_inheritance`（含 `overflow_fraction`：族内继承中改注入全局池的比例，0 = 完全内化 ="富族恒富"）。
+**coarse 共演单元** = mini `MeanFieldEngine`（`FamilyKind.flows` = FULL_FLOWS 去掉 `inheritance`）；继承由 `step_coarse` 手动调 `family_inheritance`（含 `overflow_fraction`：族内继承中改注入全局池的比例，0 = 完全内化 ="富族恒富"）。
 
 **注意力**：外生 `set_attention(cid, v)`（观察者 pin，`a ← γa` 衰减）；内生 `_endogenous_attention`（被窗口内非成员的**强关系**认识程度 / `endogenous_scale`）；取 `max`。`WaterlinePolicy`：`a ≥ theta_base` 且 leaf 预算足够 → resolved；`feedback` 按负载调预算。
 
-**显要（notability）**：判据 `WealthNotability`——个体财富 ≥ 全人口财富分布的**高位分位阈值**（阈值由全局测度确定性推出，可解释、可复现："此人财富高于全人口 top q"）。显要者**绝不逐出**（计入 `protected_ids`）且其所在团**无视预算保持 resolved**——关键时刻人物不会被并入粗团而失去特殊性。分位 `SIM_NOTABLE_FRACTION`（默认 `0.01`，`off` 关闭）；判据可插拔（替换 `ResolutionManager.notability`）；默认关闭，生产由 runner 开启。`resolution_summary` 的 `notability` 给出 `metric/fraction/threshold/notable_count`。
+**显要（notability）**：判据 `WealthNotability`——个体财富 ≥ 全人口财富分布的**高位分位阈值**（阈值由全局测度确定性推出，可解释、可复现："此人财富高于全人口 top q"）。显要者**绝不逐出**（计入 `protected_ids`）且其所在共演单元**无视预算保持 resolved**——关键时刻人物不会被并入粗化的共演单元而失去特殊性。分位 `SIM_NOTABLE_FRACTION`（默认 `0.01`，`off` 关闭）；判据可插拔（替换 `ResolutionManager.notability`）；默认关闭，生产由 runner 开启。`resolution_summary` 的 `notability` 给出 `metric/fraction/threshold/notable_count`。
 
-**成团与边界**（`_reconcile`，每 `form_interval`）：剪离场成员→抽入一跳浮层亲属→跨团边记 `interface`→未入团浮层按连通分量建团；`_merge_coupled`（分量内合并后 ≤ `max_members` 的团并一）；`_split_fragmented`（团内断连则切分）；`_recycle`（无注意 coarse 团 `dissolve` 回全局，防饱和）。
+**共演单元的组建与边界**（`_reconcile`，每 `form_interval`）：剪离场成员→抽入一跳浮层亲属→跨共演单元边记 `interface`→未纳入共演单元的浮层按连通分量建立共演单元；`_merge_coupled`（分量内合并后 ≤ `max_members` 的共演单元并一）；`_split_fragmented`（共演单元内断连则切分）；`_recycle`（无注意 coarse 共演单元 `dissolve` 回全局，防饱和）。
 
-**接口**：`GET /api/v1/resolution`；`GET/POST /api/v1/attention`（`cluster_id` 或 `person_id`）；`GET /api/v1/life/<person_id>`（个体生命轨迹）。SSE `data` 增 `resolution`（θ/预算/ρ/团条目）与 `notables`（resolved 个体）。
+**接口**：`GET /api/v1/resolution`；`GET/POST /api/v1/attention`（`cluster_id` 或 `person_id`）；`GET /api/v1/life/<person_id>`（个体生命轨迹）。SSE `data` 增 `resolution`（θ/预算/ρ/共演单元条目）与 `notables`（resolved 个体）。
 
 **参数**：`min_size=2, max_members=12, max_clusters=64, form_interval=30, gamma=0.99, initial_attention=0.8, dissolve_floor=0.1, endogenous_scale`（runner=`max(6, capacity/25)`）, `budget_leaves=capacity, theta_base=0.5`。
 
@@ -164,4 +164,4 @@ SIM_MODE=measure ──────────┤
 
 **已验**：`bench.audit_ledger --clusters` 恒等误差 **0.0000%**；`bench.cluster_inheritance` 族内 vs 全局人均留存 ~181×（peers=120）。
 
-**已知边界（本层）**：resolved 团的婚配/出生仍族内闭合（跨团婚配只**记录** `interface`，未在 coarse 模型消费，除 `overflow_fraction`）；`life_log` 只保留窗口内当前个体。
+**已知边界（本层）**：resolved 共演单元的婚配/出生仍族内闭合（跨共演单元婚配只**记录** `interface`，未在 coarse 模型消费，除 `overflow_fraction`）；`life_log` 只保留窗口内当前个体。

@@ -1,4 +1,4 @@
-"""团（Cluster）与分辨率：Phase 0 实现。
+"""共演单元（Cluster）与分辨率：Phase 0 实现。
 
 契约见 `docs/cluster-contract.md`。本文件定义数据模型、扩展缝与通用算子：
 机制通用、策略可插拔——kind / 调度 / ρ / 合并分裂切法均经注册表或参数注入。
@@ -6,9 +6,9 @@
 MVP：唯一 kind = family（以 parent/child/spouse 为身份敏感边），两档分辨率
 （0 = 聚合, 1 = 个体），水位线调度，身份质量 ρ，自动合并/分裂策略留空。
 
-coarse 团的聚合态 = 一个 **mini `MeanFieldEngine`**（同一 StateSpace + FULL_FLOWS）：
-族内遗产池天然作用域在团内，复用 `transitions` 全部算子，无需新机制。
-（MVP 近似：族内也会发生婚配/生育；跨团边留待 interface。）
+coarse 共演单元的聚合态 = 一个 **mini `MeanFieldEngine`**（同一 StateSpace + FULL_FLOWS）：
+族内遗产池天然作用域在共演单元内，复用 `transitions` 全部算子，无需新机制。
+（MVP 近似：族内也会发生婚配/生育；跨共演单元边留待 interface。）
 
 守恒律：`Σ measure.counts + Σ_coarse size + len(window.characters) == 初始 + 出生 − 死亡`
 （分辨率切换恒等守恒：计数只移动，不产生/销毁）。
@@ -31,7 +31,7 @@ from app.core.measure.transitions import inheritance as _mf_inheritance
 
 @dataclass
 class InterfaceEdge:
-    """跨团的身份敏感边（未内化的对外作用）。"""
+    """跨共演单元的身份敏感边（未内化的对外作用）。"""
 
     kind: str
     other_ref: tuple
@@ -65,7 +65,7 @@ class TickContext:
 # ---------------------------------------------------------------- 扩展缝
 
 class ClusterKind(Protocol):
-    """团的种类：定义成员边界、聚合态与聚合演化。"""
+    """共演单元的种类：定义成员边界、聚合态与聚合演化。"""
 
     name: str
 
@@ -79,10 +79,10 @@ class ClusterKind(Protocol):
         """由聚合态初始化 coarse 状态（一个 open dict）。"""
 
     def step_coarse(self, state: dict, ctx: TickContext) -> None:
-        """coarse 团每 tick 的批量演化（原地修改 state）。"""
+        """coarse 共演单元每 tick 的批量演化（原地修改 state）。"""
 
     def cost(self, level: int, size: float) -> float:
-        """该团在给定分辨率下的预算成本。"""
+        """该共演单元在给定分辨率下的预算成本。"""
 
 
 class ResolutionPolicy(Protocol):
@@ -148,7 +148,7 @@ class WealthNotability:
 
 
 class FamilyKind:
-    """MVP 唯一 kind：以 parent/child/spouse 为身份敏感边的家族团。
+    """MVP 唯一 kind：以 parent/child/spouse 为身份敏感边的家族共演单元。
 
     聚合态 = mini `MeanFieldEngine`；继承由 ``step_coarse`` 手动处理（含溢出口），
     其余流算子复用 `transitions`。``overflow_fraction``：族内继承中改注入全局池
@@ -193,7 +193,7 @@ class WaterlinePolicy:
     """MVP 调度：**基线 θ + leaf 数预算**。
 
     - `theta_base`（基线，固定）：注意力 < 基线即粗化——内在冷却，保证不刷新必降温；
-    - `budget_leaves`（叶子预算）：最多保留多少叶子；按注意力降序分配，超预算的低注意团降档；
+    - `budget_leaves`（叶子预算）：最多保留多少叶子；按注意力降序分配，超预算的低注意共演单元降档；
     - `feedback`（负载反馈）：实测超预算则收紧叶子预算、有余量则放宽（区间 [1, max_leaves]）。
     """
 
@@ -258,7 +258,7 @@ register(FamilyKind())
 # ---------------------------------------------------------------- Store
 
 class ClusterStore:
-    """团容器与通用算子（策略无关）。成员为 resolved 时计入 window，不重复计数。"""
+    """共演单元容器与通用算子（策略无关）。成员为 resolved 时计入 window，不重复计数。"""
 
     def __init__(self, measure: object, window: object, rho_metric: RhoMetric | None = None):
         self.measure = measure
@@ -267,9 +267,9 @@ class ClusterStore:
         self.rho_metric = rho_metric or IdentityMassRho()
         self.clusters: dict = {}
         self._next_id = 0
-        self.dissolved_rho = 0.0  # 已回收团的累计 ρ（回收不抹掉遗忘代价）
+        self.dissolved_rho = 0.0  # 已回收共演单元的累计 ρ（回收不抹掉遗忘代价）
 
-    # ------------------------------------------------------------ 建团
+    # ------------------------------------------------------------ 建立共演单元
 
     def create(self, kind: str, member_ids: set) -> Cluster:
         self._next_id += 1
@@ -305,7 +305,7 @@ class ClusterStore:
     def materialize(self, cid: int, n: int | None = None) -> int:
         """聚合 → 若干新叶子（经 window 建真个体，新代表而非原人）。返回实际析出数。
 
-        只从**计数 ≥ 1.0** 的桶析出整人（分数残量留在团内），故质量恒等守恒：每个析出
+        只从**计数 ≥ 1.0** 的桶析出整人（分数残量留在共演单元内），故质量恒等守恒：每个析出
         恰扣回 1.0。**身份不守恒**（物化是重采样新代表，见 docs/engineering-spec.md §9）。
         """
         cluster = self.clusters[cid]
@@ -339,7 +339,7 @@ class ClusterStore:
 
         分数桶（< 1 人份额，来自 coarse 流 ``death``/``birth`` 的分数流入出）**不可**
         物化整人：``Measure.add`` 在结果 ≤0 时把桶夹零，强行取会**只扣分数、却生出一个
-        完整的人**，造成质量泄漏。这类残量留在团内（物化上限随之收缩），随 ``dissolve``
+        完整的人**，造成质量泄漏。这类残量留在共演单元内（物化上限随之收缩），随 ``dissolve``
         折回全局测度——计数恒等守恒。无 ≥1.0 的桶时返回 None。
         """
         eligible = [index for index in mini.occupied if mini.counts[index] >= 1.0]
@@ -359,7 +359,7 @@ class ClusterStore:
     # ------------------------------------------------------------ 合并 / 分裂
 
     def merge(self, a: int, b: int) -> int:
-        """两团并一。resolved+resolved 保留成员（免费）；否则先粗化再并 mini。"""
+        """两共演单元并一。resolved+resolved 保留成员（免费）；否则先粗化再并 mini。"""
         ca, cb = self.clusters[a], self.clusters[b]
         if ca.level == 1 and cb.level == 1:
             ca.member_ids |= cb.member_ids
@@ -378,10 +378,10 @@ class ClusterStore:
         return a
 
     def split(self, cid: int, groups: list) -> list:
-        """按给定 groups 切分（切法由策略注入）。MVP 只支持 resolved 团。"""
+        """按给定 groups 切分（切法由策略注入）。MVP 只支持 resolved 共演单元。"""
         cluster = self.clusters[cid]
         if cluster.level != 1:
-            raise NotImplementedError("MVP 只支持 resolved 团的切分")
+            raise NotImplementedError("MVP 只支持 resolved 共演单元的切分")
         del self.clusters[cid]
         new_ids = []
         share = cluster.rho / max(len(groups), 1)
@@ -406,9 +406,9 @@ class ClusterStore:
         return float(self.dissolved_rho + sum(c.rho for c in self.clusters.values()))
 
     def dissolve(self, cid: int) -> bool:
-        """把 **coarse** 团折回全局测度：释放槽位、质量守恒、ρ 记入累计。
+        """把 **coarse** 共演单元折回全局测度：释放槽位、质量守恒、ρ 记入累计。
 
-        （resolved 团不直接溶解——成员还在窗口；策略应先粗化或跳过。）
+        （resolved 共演单元不直接溶解——成员还在窗口；策略应先粗化或跳过。）
         """
         cluster = self.clusters.get(cid)
         if cluster is None or cluster.level != 0:
@@ -464,12 +464,12 @@ class ClusterStore:
 # ---------------------------------------------------------------- 分辨率管理
 
 class ResolutionManager:
-    """把团存储 + 注意力 + 水位线调度 + 预算反馈绑成一个每 tick 的闭环。
+    """把共演单元存储 + 注意力 + 水位线调度 + 预算反馈绑成一个每 tick 的闭环。
 
-    成团 = 每 `form_interval` tick，对**尚未入团的浮层个体**做 parent/child/spouse
-    连通分量（>= min_size 建一团）；分辨率由水位线决定；注意力随时间衰减
-    （不刷新则团自动粗化）；观察者 `set_attention` 可钉住（高注意力）或放掉（低）。
-    注意度按 **团 id** 记，故团在 coarsen/materialize 间保持身份、注意力不丢。
+    形成共演单元 = 每 `form_interval` tick，对**尚未纳入共演单元的浮层个体**做 parent/child/spouse
+    连通分量（>= min_size 建一共演单元）；分辨率由水位线决定；注意力随时间衰减
+    （不刷新则共演单元自动粗化）；观察者 `set_attention` 可钉住（高注意力）或放掉（低）。
+    注意度按 **共演单元 id** 记，故共演单元在 coarsen/materialize 间保持身份、注意力不丢。
     """
 
     def __init__(self, window, measure=None, policy=None, gamma=0.99,
@@ -507,7 +507,7 @@ class ResolutionManager:
         for cluster in self.store.clusters.values():
             if cluster.level == 1:
                 ids |= cluster.member_ids
-        ids |= self.notable_ids()          # 显要者绝不逐出（即使未入团）
+        ids |= self.notable_ids()          # 显要者绝不逐出（即使未纳入共演单元）
         return ids
 
     # ------------------------------------------------------------ 显要（notability）
@@ -541,14 +541,14 @@ class ResolutionManager:
         self.attention[cluster_id] = float(value)
 
     def cluster_of(self, person_id: int):
-        """person id → 其所属团 id（resolved 团成员）；无则 None。"""
+        """person id → 其所属共演单元 id（resolved 共演单元成员）；无则 None。"""
         for cluster in self.store.clusters.values():
             if cluster.level == 1 and person_id in cluster.member_ids:
                 return cluster.id
         return None
 
     def summary(self, max_entries: int = 64) -> dict:
-        """观测面摘要（有界）：水位/预算/ρ/团数 + 团条目。"""
+        """观测面摘要（有界）：水位/预算/ρ/共演单元数 + 共演单元条目。"""
         entries = []
         for cluster in list(self.store.clusters.values())[:max_entries]:
             size = len(cluster.member_ids) if cluster.level == 1 else round(cluster.state.get("size", 0.0), 3)
@@ -581,7 +581,7 @@ class ResolutionManager:
             self.policy.feedback(cost, budget)
 
     def _endogenous_attention(self) -> dict:
-        """L1 社会凝视：团被窗口内**非成员**认识的程度（外部入边数）→ [0,1] 注意力。
+        """L1 社会凝视：共演单元被窗口内**非成员**认识的程度（外部入边数）→ [0,1] 注意力。
 
         被认识者自身得以维系（无需外部观察者）；无人问津者自然降温。
         """
@@ -642,7 +642,7 @@ class ResolutionManager:
         targets = self.policy.allocate(list(self.store.clusters.values()), self.attention)
         for cid, cluster in self.store.clusters.items():
             if cluster.level == 1 and cluster.member_ids & notable:
-                targets[cid] = 1            # 显要所在团无视预算，绝不粗化
+                targets[cid] = 1            # 显要所在共演单元无视预算，绝不粗化
         for cid, level in targets.items():
             cluster = self.store.clusters.get(cid)
             if cluster is None:
@@ -654,7 +654,7 @@ class ResolutionManager:
         self._recycle()
 
     def _recycle(self) -> None:
-        """回收：长期无注意的 coarse 团折回全局测度，释放槽位（防团数饱和）。"""
+        """回收：长期无注意的 coarse 共演单元折回全局测度，释放槽位（防共演单元数饱和）。"""
         if self.dissolve_floor is None:
             return
         for cid in list(self.store.clusters):
@@ -664,15 +664,15 @@ class ResolutionManager:
                     self.attention.pop(cid, None)
 
     def _reconcile(self) -> None:
-        """边界维护（C1）：抽入浮层亲属、记录跨团接口边；另为浮层家庭新建团。
+        """边界维护（C1）：抽入浮层亲属、记录跨共演单元接口边；另为浮层家庭新建共演单元。
 
-        有界：单团成员上限 ``max_members``；**不自动合并团**（合并属 D1）；
-        跨团身份敏感边记入 ``cluster.interface``（供 coarse 模型/C2 使用）。
+        有界：单个共演单元成员上限 ``max_members``；**不自动合并共演单元**（合并属 D1）；
+        跨共演单元身份敏感边记入 ``cluster.interface``（供 coarse 模型/C2 使用）。
         """
         chars = self.window.characters
         window_ids = set(chars)
 
-        # 1) 剪掉离场成员 / 删除空团
+        # 1) 剪掉离场成员 / 删除空共演单元
         for cid in list(self.store.clusters):
             cluster = self.store.clusters[cid]
             if cluster.level != 1:
@@ -688,7 +688,7 @@ class ResolutionManager:
                 for mid in cluster.member_ids:
                     owner[mid] = cid
 
-        # 2) 已入团的：抽入一跳浮层亲属；跨团的记接口边
+        # 2) 已纳入共演单元的：抽入一跳浮层亲属；跨共演单元的记接口边
         for cid in list(self.store.clusters):
             cluster = self.store.clusters.get(cid)
             if cluster is None or cluster.level != 1:
@@ -704,12 +704,12 @@ class ResolutionManager:
                             continue
                         other_cid = owner.get(oid)
                         if other_cid is not None and other_cid != cid:
-                            self._record_interface(cluster, oid, key)   # 跨团（合并留 D1）
+                            self._record_interface(cluster, oid, key)   # 跨共演单元（合并留 D1）
                         elif len(cluster.member_ids) < self.max_members:
                             cluster.member_ids.add(oid)                 # 抽入浮层
                             owner[oid] = cid
 
-        # 3) 未入团的浮层：连通分量（有界）新建团
+        # 3) 未纳入共演单元的浮层：连通分量（有界）新建共演单元
         unassigned = [cid for cid in chars if cid not in owner]
         root = {cid: cid for cid in unassigned}
 
@@ -745,7 +745,7 @@ class ResolutionManager:
         self._refresh_notability()
 
     def _window_components(self):
-        """窗口全体按身份敏感边的连通分量；返回 (分量列表, person→团 owner)。"""
+        """窗口全体按身份敏感边的连通分量；返回 (分量列表, person→共演单元 owner)。"""
         chars = self.window.characters
         root = {cid: cid for cid in chars}
 
@@ -775,7 +775,7 @@ class ResolutionManager:
         return list(components.values()), owner
 
     def _merge_coupled(self) -> None:
-        """D1 合并：同一连通分量内、合并后不超过 ``max_members`` 的多个团并一（治愈 ρ）。"""
+        """D1 合并：同一连通分量内、合并后不超过 ``max_members`` 的多个共演单元并一（治愈 ρ）。"""
         components, owner = self._window_components()
         for members in components:
             touched = []
@@ -796,10 +796,10 @@ class ResolutionManager:
                     self.attention[base] = max(self.attention.get(base, 0.0),
                                                self.attention.get(other, 0.0))
                     self.attention.pop(other, None)
-            self.store.clusters[base].interface = []  # 原跨团边已内化，待下轮重记
+            self.store.clusters[base].interface = []  # 原跨共演单元边已内化，待下轮重记
 
     def _split_fragmented(self) -> None:
-        """D1 分裂：团内身份图断连时，按最小连通分量切开（>= min_size 才独立成团）。"""
+        """D1 分裂：共演单元内身份图断连时，按最小连通分量切开（>= min_size 才独立形成共演单元）。"""
         chars = self.window.characters
         for cid in list(self.store.clusters):
             cluster = self.store.clusters[cid]
@@ -836,7 +836,7 @@ class ResolutionManager:
                 self.attention[child.id] = self.attention.get(cid, self.initial_attention)
 
     def _record_interface(self, cluster, other_id, kind="link", cap=32) -> None:
-        """记录跨团身份敏感边（去重 + 封顶）。"""
+        """记录跨共演单元身份敏感边（去重 + 封顶）。"""
         ref = ("character", other_id)
         for edge in cluster.interface:
             if edge.other_ref == ref:

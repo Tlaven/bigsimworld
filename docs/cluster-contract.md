@@ -1,6 +1,6 @@
-# Phase 0 接口契约：团（Cluster）与分辨率
+# Phase 0 接口契约：共演单元（Cluster）与分辨率
 
-本文是**契约**：团的数据模型、七个扩展缝、通用算子与不变量。实现骨架见 `app/core/measure/cluster.py`。
+本文是**契约**：共演单元的数据模型、七个扩展缝、通用算子与不变量。实现骨架见 `app/core/measure/cluster.py`。
 
 > 原则：**机制通用、策略可插拔**。MVP 只给每个策略一个实现（单 kind、两档分辨率、水位线调度、身份质量 ρ），但接口从第一天留好，后续规则不得因 MVP 而被限死。
 
@@ -30,7 +30,7 @@ class Cluster:
 
 | # | 缝 | 接口 | MVP 实现 | 后续可换 |
 | --- | --- | --- | --- | --- |
-| 1 | 团的定义 | `ClusterKind` | `FamilyKind` | 世代团、公会、结识团… |
+| 1 | 共演单元的定义 | `ClusterKind` | `FamilyKind` | 世代共演单元、公会、结识共演单元… |
 | 2 | 分辨率阶梯 | `Cluster.level` + `ClusterKind.cost` | `{0,1}` | 加中间档 / 连续 |
 | 3 | 聚合演化 | `ClusterKind.step_coarse` | 复用 measure 流 + 族内继承池 | 各 kind 自定 |
 | 4 | 合并 / 分裂 | 通用算子 + 切法注入 | 算子实现，**自动策略留空** | 谱系切 / 规模切 / 注意力切 |
@@ -51,9 +51,9 @@ class ClusterKind(Protocol):
     def init_coarse(self, aggregate: object) -> dict: ...
         # 聚合态 → coarse 状态（一个 open dict）
     def step_coarse(self, state: dict, ctx: "TickContext") -> None: ...
-        # coarse 团每 tick 批量演化（原地改 state）
+        # coarse 共演单元每 tick 批量演化（原地改 state）
     def cost(self, level: int, size: float) -> float: ...
-        # 该团在给定分辨率下的预算成本
+        # 该共演单元在给定分辨率下的预算成本
 ```
 
 ### 缝 2 · `ResolutionPolicy`
@@ -85,9 +85,9 @@ class ClusterStore:
     def create(self, kind: str, member_ids: set[int]) -> Cluster: ...
     def materialize(self, cid: int, n: int) -> None: ...   # 聚合 → n 个新叶子（经 window）
     def coarsen(self, cid: int) -> None: ...               # 叶子 → 聚合（经 window 移出）
-    def merge(self, a: int, b: int) -> int: ...            # 两团并一（通用）
+    def merge(self, a: int, b: int) -> int: ...            # 两共演单元并一（通用）
     def split(self, cid: int, groups: list[set[int]]) -> list[int]: ...  # 按给定 groups 切
-    def size(self) -> float: ...      # Σ coarse 团成员数（resolved 计入 window，不重复）
+    def size(self) -> float: ...      # Σ coarse 共演单元成员数（resolved 计入 window，不重复）
     def rho(self) -> float: ...
 ```
 
@@ -114,9 +114,9 @@ register(FamilyKind())   # MVP 唯一实现
 ## 6. 不变量
 
 - `Σ measure.counts + Σ_coarse size + len(window.characters) == 初始 + 出生 − 死亡`
-- 分辨率切换**计数中性**（只移动，不产生 / 销毁）：`materialize` 只从计数 ≥ 1.0 的桶析出整人（分数残量留在团内）；`coarsen` 须并入团内残留。**身份不守恒**（重采样新代表）。
+- 分辨率切换**计数中性**（只移动，不产生 / 销毁）：`materialize` 只从计数 ≥ 1.0 的桶析出整人（分数残量留在共演单元内）；`coarsen` 须并入共演单元内残留。**身份不守恒**（重采样新代表）。
 - `rho ≥ 0`，coarsen 单调增，merge 可减；无悬空边（`other_ref` 必须可解析）。
-- 显要者（notability）**不逐出**，其所在团**不粗化**——关键个体不失去特殊性。
+- 显要者（notability）**不逐出**，其所在共演单元**不粗化**——关键个体不失去特殊性。
 
 ## 7. 扩展约定（防限死）
 

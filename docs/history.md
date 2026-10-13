@@ -248,9 +248,9 @@ occupied 稳定 ~1200（继承整数支付无碎片化）。规范 §8-1"财富�
 
 ---
 
-## 第三章 · 分辨率与团层（Stage 11–15，2026-10-12）
+## 第三章 · 分辨率与共演单元层（Stage 11–15，2026-10-12）
 
-把"测度（匿名）/ 窗口（个体）"推广成**分辨率连续谱**：团 = 身份敏感交互的连通闭包，
+把"测度（匿名）/ 窗口（个体）"推广成**分辨率连续谱**：共演单元 = 身份敏感交互的连通闭包，
 被观测/被认识者保持个体分辨率，否则随注意度衰减溶回统计。契约 `docs/cluster-contract.md`。
 
 ### Stage 11 · 契约与骨架
@@ -259,20 +259,20 @@ occupied 稳定 ~1200（继承整数支付无碎片化）。规范 §8-1"财富�
 `WaterlinePolicy`、`KINDS` 注册表、`ClusterStore`。`docs/cluster-contract.md` 固化。
 
 ### Stage 12 · 闭环运转（A）
-1. **成团周期化**：`_reconcile` 每 `form_interval` 对浮层连通分量建团（此前一次性→生产里 0 团）；
+1. **共演单元的周期化**：`_reconcile` 每 `form_interval` 对浮层连通分量建立共演单元（此前一次性→生产里 0 共演单元）；
 2. **waterline 改口径**：`theta_base` 基线 + leaf 数预算（此前纯负载反馈被 ample budget 拉到 0→永不冷却）；
 3. **窗口回填**：`coarsen` 缩水后补足到 capacity。
-   - **coarse 团 = mini `MeanFieldEngine`** → 族内遗产池天然限团内（"富族恒富"零成本成立）。
-   - 生产实测（cap=300）：成团/冷却/回收闭环运转，store 稳定 5–8 团，窗口/人口稳定。
+   - **coarse 共演单元 = mini `MeanFieldEngine`** → 族内遗产池天然限共演单元内（"富族恒富"零成本成立）。
+   - 生产实测（cap=300）：组建/冷却/回收闭环运转，store 稳定 5–8 共演单元，窗口/人口稳定。
 
 ### Stage 13 · 观察者接入（B）
-SSE `data` 增 `resolution`（θ/预算/ρ/团条目）与 `notables`；`GET /api/v1/resolution`、
-`GET/POST /api/v1/attention`（`person_id`→其团）、`GET /api/v1/life/<id>`；团结构进快照
+SSE `data` 增 `resolution`（θ/预算/ρ/共演单元条目）与 `notables`；`GET /api/v1/resolution`、
+`GET/POST /api/v1/attention`（`person_id`→其共演单元）、`GET /api/v1/life/<id>`；共演单元结构进快照
 （window payload 改对象、兼容旧 list）。
 
 ### Stage 14 · 边界 · 守恒 · 继承（C）
-1. **有界闭合**：`_reconcile` 抽入一跳浮层亲属、跨团边记 `interface`；`max_members` 防渗流；
-2. **分辨率守恒审计**：`bench.audit_ledger --clusters`（关全局流、团流限质量保持集）恒等误差 **0.0000%**；
+1. **有界闭合**：`_reconcile` 抽入一跳浮层亲属、跨共演单元边记 `interface`；`max_members` 防渗流；
+2. **分辨率守恒审计**：`bench.audit_ledger --clusters`（关全局流、共演单元流限质量保持集）恒等误差 **0.0000%**；
 3. **继承溢出 C1c**：`transitions.inheritance` 拆为 `inject_inherited(+overflow)/distribute_pool`；
    `family_inheritance` 把 `overflow_fraction` 份额注入全局池；
 4. **族级继承验证**：`bench.cluster_inheritance` 人均留存 family/global ≈ **181×**（peers=120）。
@@ -289,4 +289,4 @@ SSE `data` 增 `resolution`（θ/预算/ρ/团条目）与 `notables`；`GET /ap
 
 ### 核心结论（第三章）
 > 把身份守恒做成**有界、观察依赖、由注意力供养的配额**：少数被注视者保持个体分辨率与生命轨迹，
-> 其余随冷却溶回统计；团可聚可散、可抽入可回收，且全程守恒可审计——世界的默认态是匿名。
+> 其余随冷却溶回统计；共演单元可聚可散、可抽入可回收，且全程守恒可审计——世界的默认态是匿名。

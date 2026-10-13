@@ -16,7 +16,7 @@
 | `bench.convergence` | 指纹对比 `compare_fingerprint` + 基线导出 / 测度-个体对照 / 窗口 N 无关性 | 见下 |
 | `bench.diagnose_tail` | 财富分位偏差归因（KS vs p100 噪声、多种子） | `python -m bench.diagnose_tail --n 5000 --steps 8000 --seeds 1 7 42` |
 | `bench.audit_ledger` | 财富守恒审计（初始+收入+出生-蒸发 == 期末+池余） | `python -m bench.audit_ledger --n 5000 --steps 8000` |
-| `bench.audit_ledger --clusters` | 窗口+团 的**分辨率守恒**审计（materialize/coarsen/dissolve/refill 逐一守恒） | `python -m bench.audit_ledger --clusters --n 3000 --steps 2000` |
+| `bench.audit_ledger --clusters` | 窗口+共演单元 的**分辨率守恒**审计（materialize/coarsen/dissolve/refill 逐一守恒） | `python -m bench.audit_ledger --clusters --n 3000 --steps 2000` |
 | `bench.cluster_inheritance` | 族内池 vs 全局池的继承集中度（"富族恒富"） | `python -m bench.cluster_inheritance --peers 120` |
 
 结果写入 `bench/results/`；结果文件是**证据**，提交。
@@ -37,7 +37,7 @@ python -m bench.convergence --window --sizes 10000 100000 1000000 --capacity 100
 python -m bench.diagnose_tail --n 5000 --steps 8000 --seeds 1 7 42
 python -m bench.audit_ledger --n 5000 --steps 8000
 
-# 改动团/分辨率层之后都跑这条（材料/粗化/回收/回填必须逐一守恒）
+# 改动共演单元/分辨率层之后都跑这条（材料/粗化/回收/回填必须逐一守恒）
 python -m bench.audit_ledger --clusters --n 3000 --steps 2000 --capacity 300
 ```
 

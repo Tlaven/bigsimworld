@@ -2,8 +2,8 @@
   <v-container fluid>
     <h1 class="text-h5 mb-2">显名与注意（分辨率层）</h1>
     <p class="text-body-2 text-medium-emphasis">
-      少数被"注视"的家团/个体保持高分辨率（独立演算 + 生命轨迹），其余随注意力衰减溶回匿名统计。
-      θ 为基线水位（低于即粗化），ρ 为已遗忘的近似量。标「显要」者为**财富高位分位**的个体，
+      少数被"注视"的家族共演单元/个体保持高分辨率（独立演算 + 生命轨迹），其余随注意力衰减溶回匿名统计。
+      θ 为基线水位（低于即粗化），ρ 为已遗忘的近似量。标「显要」者为财富高位分位的个体，
       由系统自动保护——不逐出、不粗化。
     </p>
 
@@ -69,9 +69,9 @@
     <v-row dense class="mt-1">
       <v-col cols="12">
         <v-card>
-          <v-card-title class="text-subtitle-1">团（clusters）</v-card-title>
+          <v-card-title class="text-subtitle-1">共演单元（clusters）</v-card-title>
           <v-card-text style="max-height: 40vh; overflow-y: auto;">
-            <div v-if="!clusters.length" class="text-caption text-medium-emphasis">暂无团</div>
+            <div v-if="!clusters.length" class="text-caption text-medium-emphasis">暂无共演单元</div>
             <v-table v-else density="compact">
               <thead>
                 <tr><th>id</th><th>状态</th><th>规模</th><th>ρ</th><th>注意</th></tr>
@@ -112,7 +112,7 @@ const cards = computed(() => {
   return [
     { label: '基线水位 θ', value: data.theta_base ?? '--' },
     { label: '叶子预算', value: data.budget_leaves ?? '--' },
-    { label: '团数', value: data.cluster_count ?? '--' },
+    { label: '共演单元数', value: data.cluster_count ?? '--' },
     { label: '个体数', value: data.resolved_count ?? '--' },
     { label: 'ρ（已遗忘）', value: data.rho ?? '--' },
     { label: '显要阈值', value: data.notability?.threshold ?? '--' },

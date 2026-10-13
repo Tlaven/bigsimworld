@@ -1,4 +1,4 @@
-"""Phase 0：团（Cluster）与分辨率的守恒 / ρ 冒烟测试。"""
+"""Phase 0：共演单元（Cluster）与分辨率的守恒 / ρ 冒烟测试。"""
 
 import random
 
@@ -89,14 +89,14 @@ def test_waterline_and_decay():
 
 
 def test_coarse_steps_internally_with_inheritance_pool():
-    """coarse 团用 mini 引擎演化：只有团内引擎在动账，池作用域在团内。"""
+    """coarse 共演单元用 mini 引擎演化：只有共演单元内引擎在动账，池作用域在共演单元内。"""
     space, measure, window, made = _window(sample=50)
     store = ClusterStore(measure, window)
     cluster = store.create("family", set(list(window.characters)[:20]))
     store.coarsen(cluster.id)
     mini = cluster.state["engine"].measure
     assert mini.total() == 20.0
-    assert mini.yearly_inherited == {}  # 池初始为空且属于本团
+    assert mini.yearly_inherited == {}  # 池初始为空且属于本共演单元
 
     before = _total(measure, window, store)
     window_before = len(window.characters)
@@ -104,7 +104,7 @@ def test_coarse_steps_internally_with_inheritance_pool():
     for tick in range(1, 361):
         store.step_coarse(TickContext(tick=tick, measure=measure, rng=random))
 
-    # 只有团内引擎在动账：总量变化 == mini 引擎净变化（出生 − 死亡）
+    # 只有共演单元内引擎在动账：总量变化 == mini 引擎净变化（出生 − 死亡）
     assert abs(_total(measure, window, store) - before - (mini.total() - 20.0)) < 1e-6
     assert len(window.characters) == window_before
     assert abs(measure.total() - measure_before) < 1e-9
@@ -131,7 +131,7 @@ def test_resolution_pin_holds_and_decay_coarsens():
     b.marry_event.happen(a)
 
     mgr = engine.resolution
-    engine.step()  # 首 tick 触发成团
+    engine.step()  # 首 tick 触发形成共演单元
     assert mgr._formed
     cluster = next(c for c in mgr.store.clusters.values() if a.id in c.member_ids)
     assert cluster.level == 1
@@ -179,7 +179,7 @@ def test_cluster_snapshot_roundtrip():
     engine.step()
     mgr = engine.resolution
     cluster = next(c for c in mgr.store.clusters.values() if a.id in c.member_ids)
-    mgr.store.coarsen(cluster.id)          # 粗化：团聚合态须持久化
+    mgr.store.coarsen(cluster.id)          # 粗化：共演单元聚合态须持久化
     mgr.set_attention(cluster.id, 0.7)
 
     save_snapshot(measure_to_payload(engine.measure_engine.measure),
@@ -195,7 +195,7 @@ def test_cluster_snapshot_roundtrip():
 
 
 def test_formation_is_recurring():
-    """成团是周期性的（非一次性）：先后两桩婚姻各成一团。"""
+    """形成共演单元是周期性的（非一次性）：先后两桩婚姻各自形成一个共演单元。"""
     engine = _engine_with_resolution(capacity=200, window=200)
     mgr = engine.resolution
     mgr.form_interval = 1
@@ -216,7 +216,7 @@ def test_formation_is_recurring():
 
 
 def test_budget_forces_coarsen():
-    """leaf 数预算只够一个团 → 低注意团被粗化、高注意团保留。"""
+    """leaf 数预算只够一个共演单元 → 低注意共演单元被粗化、高注意共演单元保留。"""
     engine = _engine_with_resolution(capacity=200, window=200)
     mgr = engine.resolution
     mgr.form_interval = 1
@@ -230,7 +230,7 @@ def test_budget_forces_coarsen():
     ids = list(mgr.store.clusters)
     mgr.set_attention(ids[0], 1.0)
     mgr.set_attention(ids[1], 0.6)
-    mgr.policy.budget_leaves = 2   # 只保留一个 size-2 团
+    mgr.policy.budget_leaves = 2   # 只保留一个 size-2 共演单元
     engine.step()
 
     levels = {c.level for c in mgr.store.clusters.values()}
@@ -286,7 +286,7 @@ def test_recycle_frees_slot():
 
 
 def test_boundary_closure_pulls_in_floating_kin():
-    """C1：团成员的浮层亲属（如新生子）被抽入团。"""
+    """C1：共演单元成员的浮层亲属（如新生子）被抽入共演单元。"""
     engine = _engine_with_resolution(capacity=200, window=200)
     mgr = engine.resolution
     mgr.form_interval = 1
@@ -305,7 +305,7 @@ def test_boundary_closure_pulls_in_floating_kin():
 
 
 def test_merge_coupled_clusters():
-    """D1：同一连通分量内的小团会合并（治愈 ρ）。"""
+    """D1：同一连通分量内的小共演单元会合并（治愈 ρ）。"""
     engine = _engine_with_resolution(capacity=200, window=200)
     mgr = engine.resolution
     mgr.form_interval = 1
@@ -327,11 +327,11 @@ def test_merge_coupled_clusters():
 
 
 def test_interface_when_merge_exceeds_cap():
-    """D1：合并会超上限时，跨团边只记接口、不合并。"""
+    """D1：合并会超上限时，跨共演单元边只记接口、不合并。"""
     engine = _engine_with_resolution(capacity=200, window=200)
     mgr = engine.resolution
     mgr.form_interval = 1
-    mgr.max_members = 2  # 两个 size-2 团合并(4) 会超限
+    mgr.max_members = 2  # 两个 size-2 共演单元合并(4) 会超限
     chars = list(engine.window.characters.values())
     a, b, c, d = chars[0], chars[1], chars[2], chars[3]
     a.marry_event.happen(b)
@@ -352,7 +352,7 @@ def test_interface_when_merge_exceeds_cap():
 
 
 def test_cluster_size_is_bounded():
-    """C1：边界闭合有界——任何团不超过 max_members（防渗流）。"""
+    """C1：边界闭合有界——任何共演单元不超过 max_members（防渗流）。"""
     engine = _engine_with_resolution(capacity=200, window=200)
     mgr = engine.resolution
     mgr.form_interval = 1
@@ -411,7 +411,7 @@ def test_endogenous_attention_reflects_visibility():
 
 
 def test_endogenous_keeps_visible_cluster_alive():
-    """D2：被广泛认识的家团靠社会凝视维持更高注意力（无需外部观察者）。"""
+    """D2：被广泛认识的家族共演单元靠社会凝视维持更高注意力（无需外部观察者）。"""
     engine = _engine_with_resolution(capacity=200, window=200)
     mgr = engine.resolution
     mgr.form_interval = 1

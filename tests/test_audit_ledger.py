@@ -11,6 +11,6 @@ def test_wealth_conservation_identity_small():
 
 
 def test_cluster_mass_conservation_small():
-    # 窗口+团 的分辨率操作（materialize/coarsen/dissolve/refill）必须逐一守恒
+    # 窗口+共演单元 的分辨率操作（materialize/coarsen/dissolve/refill）必须逐一守恒
     result = run_cluster_audit(n=800, steps=600, capacity=120, seed=3, max_error=1e-6)
     assert result["error_frac"] == 0.0 or abs(result["error_frac"]) < 1e-6

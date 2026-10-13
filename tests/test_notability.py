@@ -1,8 +1,8 @@
 """显要（notability）：判据 = 财富高位分位（可审计）；显要者受保护（不逐出、不粗化）。
 
-设计意图（与产品目标一致）：世界中出现"对世界影响极大"的个体时，不能把他并入粗团而
+设计意图（与产品目标一致）：世界中出现"对世界影响极大"的个体时，不能把他并入粗化的共演单元而
 失去特殊性；同时微观窗口要让人感到"确实存在大量独立单位"。故对显要者：①绝不逐出，
-②其所在团保持 resolved（无视预算）。判据与保护策略均可插拔。
+②其所在共演单元保持 resolved（无视预算）。判据与保护策略均可插拔。
 """
 
 from app.core.measure.cluster import WealthNotability
@@ -52,7 +52,7 @@ def test_notability_disabled_by_default():
 
 
 def test_notables_lists_floating_notable():
-    """未入团的浮层显要个体也必须出现在 notables 里（否则"看不见"）。"""
+    """未纳入共演单元的浮层显要个体也必须出现在 notables 里（否则"看不见"）。"""
     engine = _engine(capacity=100, window=100, seed=5)
     mgr = engine.resolution
     mgr.set_notable_fraction(0.5)
@@ -69,7 +69,7 @@ def test_notables_lists_floating_notable():
 
 
 def test_notable_cluster_survives_tight_budget():
-    """极端收紧预算 + 撤走注意力：普通团被粗化，显要团仍 resolved 且个体不被逐出。"""
+    """极端收紧预算 + 撤走注意力：普通共演单元被粗化，显要共演单元仍 resolved 且个体不被逐出。"""
     engine = _engine(capacity=200, window=200, seed=2)
     mgr = engine.resolution
     mgr.form_interval = 1
@@ -90,5 +90,5 @@ def test_notable_cluster_survives_tight_budget():
         engine.step()
 
     live = mgr.store.clusters.get(cid)
-    assert live is not None and live.level == 1     # 显要团未被粗化
+    assert live is not None and live.level == 1     # 显要共演单元未被粗化
     assert a.id in engine.window.characters         # 显要个体未被逐出

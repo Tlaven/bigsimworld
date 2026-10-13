@@ -86,9 +86,9 @@ def run_audit(n, steps, seed=42, max_error_frac=1e-3):
 
 
 def run_cluster_audit(n=2000, steps=3000, capacity=300, seed=42, max_error=1e-6):
-    """窗口 + 团 的分辨率守恒审计。
+    """窗口 + 共演单元 的分辨率守恒审计。
 
-    关闭全局测度流算子，并把 coarse 团的流算子限制为**质量保持**集合
+    关闭全局测度流算子，并把 coarse 共演单元的流算子限制为**质量保持**集合
     （aging/income/marriage/inheritance；去掉 birth/death），于是唯一改变总量的
     是窗口个体引擎的出生/死亡：
 
@@ -201,7 +201,7 @@ def main():
     parser.add_argument("--n", type=int, default=5000)
     parser.add_argument("--steps", type=int, default=8000)
     parser.add_argument("--seed", type=int, default=42)
-    parser.add_argument("--clusters", action="store_true", help="改跑 窗口+团 的分辨率守恒审计")
+    parser.add_argument("--clusters", action="store_true", help="改跑 窗口+共演单元 的分辨率守恒审计")
     parser.add_argument("--resolution", action="store_true", help="改跑分辨率算子守恒探针（生产口径）")
     parser.add_argument("--capacity", type=int, default=300)
     args = parser.parse_args()

@@ -65,7 +65,7 @@ def test_coarsen_keeps_materialize_residue():
     made = store.materialize(7)            # 至多 3 个整人；0.4 残留
     assert made >= 1
     assert abs(_mass(mf, engine) - before) < 1e-9      # 物化守恒
-    assert store.clusters[7].state.get("engine") is not None   # 残留仍在团内
+    assert store.clusters[7].state.get("engine") is not None   # 残留仍在共演单元内
     store.coarsen(7)                       # 再粗化：残留必须折回
     assert abs(_mass(mf, engine) - before) < 1e-9
 
