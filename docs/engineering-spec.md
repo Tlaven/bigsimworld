@@ -114,8 +114,8 @@ SIM_MODE=measure ──────────┤
 
 ## 7. 验收与回归
 
-- `pytest`（92 条）：个体 DES 逐位一致、测度收敛门槛（gini<0.02、KS<0.06、age_l1<0.06）、窗口守恒/断链、财富守恒门禁（`bench.audit_ledger.run_audit`）、快照往返、控制路由、bench 构建冒烟。
-- 任何算子改动：`bench.convergence --full-compare` + `bench.audit_ledger`（门：identity 误差 <0.1%）+ `bench.diagnose_tail`（区分系统性偏差与 p100 噪声）。
+- `pytest`（98 条）：个体 DES 逐位一致、测度收敛门槛（gini<0.02、KS<0.06、age_l1<0.06）、窗口守恒/断链、财富守恒门禁（`bench.audit_ledger.run_audit`）、分辨率算子守恒门禁（`run_resolution_probe`）、可复现性（`SIM_SEED`）、快照往返、控制路由、bench 构建冒烟。
+- 任何算子改动：`bench.convergence --full-compare` + `bench.audit_ledger`（门：identity 误差 <0.1%）+ `bench.audit_ledger --resolution`（分辨率算子逐次守恒）+ `bench.diagnose_tail`（区分系统性偏差与 p100 噪声）。
 - `docs/history.md` 记录结论；`bench/results/` 存证据。
 
 ## 8. 已知边界
@@ -134,11 +134,19 @@ SIM_MODE=measure ──────────┤
 
 **数据模型**：`Cluster{id, kind, level, member_ids, state, interface, rho, parent_id}`；`ResolutionManager` 拥有 `ClusterStore` + 注意力场 + `WaterlinePolicy`。
 
-**算子**（`ClusterStore`）与守恒：`create/materialize/coarsen/merge/split/dissolve` 全部**质量中性**（计数只在 measure / coarse / window 间移动）。守恒律扩为：
+**算子**（`ClusterStore`）与守恒：`create/materialize/coarsen/merge/split/dissolve` 全部**计数中性**（只移动计数，不产生 / 销毁）：
+
+- `materialize` **只从计数 ≥ 1.0 的桶析出整人**，每个恰扣回 1.0；分数桶（<1 人份额，来自 coarse 的 `death/birth`）留在团内，物化上限随之收缩，随 `dissolve` 折回全局。若强行从分数桶取整人，`Measure.add` 会在 ≤0 时夹零——只扣分数、却生出一整个人（质量泄漏）。
+- `coarsen` 以窗口成员重建聚合态时，**必须并入团内残留**（物化后未析出的分数质量），否则再次粗化会丢质量。
+- **身份不守恒**：`coarsen → materialize` 是**重采样新代表**（人数守恒、身份不保）。
+
+守恒律扩为：
 
 ```
 Σ measure.counts + Σ_coarse size + len(window.characters) == 初始 + 出生 − 死亡
 ```
+
+> 门禁：`bench.audit_ledger --resolution`（**生产口径**，coarse 流含 `death/birth`）对每个分辨率算子**逐次**断言上述守恒；`--clusters`（质量保持子集）验整体恒等式。二者互补——后者结构上盖不住分数桶 / 残留泄漏。
 
 **coarse 团** = mini `MeanFieldEngine`（`FamilyKind.flows` = FULL_FLOWS 去掉 `inheritance`）；继承由 `step_coarse` 手动调 `family_inheritance`（含 `overflow_fraction`：族内继承中改注入全局池的比例，0 = 完全内化 ="富族恒富"）。
 

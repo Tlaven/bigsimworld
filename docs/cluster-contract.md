@@ -113,7 +113,7 @@ register(FamilyKind())   # MVP 唯一实现
 ## 6. 不变量
 
 - `Σ measure.counts + Σ_coarse size + len(window.characters) == 初始 + 出生 − 死亡`
-- 分辨率切换**恒等守恒**（计数只移动，不产生 / 销毁）。
+- 分辨率切换**计数中性**（只移动，不产生 / 销毁）：`materialize` 只从计数 ≥ 1.0 的桶析出整人（分数残量留在团内）；`coarsen` 须并入团内残留。**身份不守恒**（重采样新代表）。
 - `rho ≥ 0`，coarsen 单调增，merge 可减；无悬空边（`other_ref` 必须可解析）。
 
 ## 7. 扩展约定（防限死）

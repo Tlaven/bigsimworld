@@ -258,6 +258,13 @@ class ClusterStore:
         members = {mid: self.window.characters[mid]
                    for mid in cluster.member_ids if mid in self.window.characters}
         aggregate = kind.aggregate(members, self.space)
+        # 物化后残留的 coarse 质量（未析出的分数残量）必须一并折回：否则再次粗化会以
+        # 窗口成员重建聚合态，把这部分残留丢掉（守恒漏洞）。
+        leftover = (cluster.state or {}).get("engine")
+        if leftover is not None:
+            mini = leftover.measure
+            for index in list(mini.occupied):
+                aggregate.add(index, mini.counts[index])
         cluster.rho += self.rho_metric.on_coarsen(cluster.kind, members)
         for mid in list(members):
             self.window.detach(mid)
@@ -266,7 +273,11 @@ class ClusterStore:
         cluster.level = 0
 
     def materialize(self, cid: int, n: int | None = None) -> int:
-        """聚合 → 若干新叶子（经 window 建真个体，新代表而非原人）。返回实际析出数。"""
+        """聚合 → 若干新叶子（经 window 建真个体，新代表而非原人）。返回实际析出数。
+
+        只从**计数 ≥ 1.0** 的桶析出整人（分数残量留在团内），故质量恒等守恒：每个析出
+        恰扣回 1.0。**身份不守恒**（物化是重采样新代表，见 docs/engineering-spec.md §9）。
+        """
         cluster = self.clusters[cid]
         if cluster.level >= 1:
             return 0
@@ -294,16 +305,26 @@ class ClusterStore:
         return made
 
     def _sample_cell(self, mini):
-        total = mini.total()
-        if total < 1.0 or not mini.occupied:
+        """按计数加权抽取一个**可整人取出**的桶（计数 ≥ 1.0）。
+
+        分数桶（< 1 人份额，来自 coarse 流 ``death``/``birth`` 的分数流入出）**不可**
+        物化整人：``Measure.add`` 在结果 ≤0 时把桶夹零，强行取会**只扣分数、却生出一个
+        完整的人**，造成质量泄漏。这类残量留在团内（物化上限随之收缩），随 ``dissolve``
+        折回全局测度——计数恒等守恒。无 ≥1.0 的桶时返回 None。
+        """
+        eligible = [index for index in mini.occupied if mini.counts[index] >= 1.0]
+        if not eligible:
             return None
+        total = 0.0
+        for index in eligible:
+            total += mini.counts[index]
         r = random.random() * total
         acc = 0.0
-        for index in mini.occupied:
+        for index in eligible:
             acc += mini.counts[index]
             if acc >= r:
                 return index
-        return next(iter(mini.occupied))
+        return eligible[-1]
 
     # ------------------------------------------------------------ 合并 / 分裂
 

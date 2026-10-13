@@ -133,14 +133,85 @@ def run_cluster_audit(n=2000, steps=3000, capacity=300, seed=42, max_error=1e-6)
         KINDS["family"].flows = saved
 
 
+def run_resolution_probe(n=1500, steps=2500, capacity=250, seed=5, tol=1e-6):
+    """分辨率算子守恒探针（**生产口径**：coarse 流含 death/birth）。
+
+    与 ``run_cluster_audit`` 互补：后者把 coarse 流限成质量保持集合以简化恒等式，
+    因而**结构上**看不到"分数桶物化"泄漏；本探针在真实流算子下对每个分辨率算子
+    （materialize / coarsen / merge / dissolve / materialize_sample）逐次断言：
+    它们不产生/销毁个体、只移动计数 ⟹ 每次调用前后
+    ``global_measure + Σ_coarse + window`` 必须不变（浮点容差内）。
+
+    为覆盖"粗化 → coarse 演化出分数桶 → 再物化"这条路径，周期性地在 0.3（粗化但不回收）
+    与 1.0（再物化）之间切换注意力。返回 ``{calls, worst_op, worst_dev}``；泄漏即抛错。
+    """
+    from app.core.measure.window import WindowEngine
+
+    space = StateSpace()
+    random.seed(seed)
+    mf = MeanFieldEngine(space=space, characters=make_characters(n, seed=seed))
+    engine = WindowEngine(mf, capacity=capacity, window=capacity, resolution=True)
+    engine.resolution.endogenous_scale = None   # 由探针显式驱动注意力
+    window = engine.window
+    store = engine.resolution.store
+
+    def total():
+        return mf.measure.total() + store.size() + len(window.characters)
+
+    worst = {"calls": 0, "worst_op": None, "worst_dev": 0.0}
+
+    def instrument(obj, name):
+        original = getattr(obj, name)
+
+        def checked(*args, **kwargs):
+            before = total()
+            result = original(*args, **kwargs)
+            dev = total() - before
+            worst["calls"] += 1
+            if abs(dev) > abs(worst["worst_dev"]):
+                worst["worst_op"], worst["worst_dev"] = name, dev
+            if abs(dev) > tol:
+                raise RuntimeError(f"resolution op '{name}' leaked {dev:+.6g} mass")
+            return result
+
+        setattr(obj, name, checked)
+
+    targets = [(store, "materialize"), (store, "coarsen"), (store, "merge"),
+               (store, "dissolve"), (window, "materialize_sample"), (window, "materialize")]
+    saved = [(obj, name, getattr(obj, name)) for obj, name in targets]
+    try:
+        for obj, name in targets:
+            instrument(obj, name)
+        for step in range(steps):
+            engine.step()
+            if step % 40 == 0:                     # 驱动 粗化 ⇄ 再物化 循环
+                level = 0.3 if (step // 40) % 2 == 0 else 1.0
+                for cid in list(store.clusters):
+                    engine.resolution.set_attention(cid, level)
+    finally:
+        for obj, name, original in saved:
+            setattr(obj, name, original)
+    if worst["calls"] == 0:
+        raise RuntimeError("resolution probe exercised no operations")
+    return worst
+
+
 def main():
     parser = argparse.ArgumentParser(description="Wealth conservation audit for mean-field engine")
     parser.add_argument("--n", type=int, default=5000)
     parser.add_argument("--steps", type=int, default=8000)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--clusters", action="store_true", help="改跑 窗口+团 的分辨率守恒审计")
+    parser.add_argument("--resolution", action="store_true", help="改跑分辨率算子守恒探针（生产口径）")
     parser.add_argument("--capacity", type=int, default=300)
     args = parser.parse_args()
+
+    if args.resolution:
+        result = run_resolution_probe(n=args.n, steps=args.steps, capacity=args.capacity, seed=args.seed)
+        print(f"resolution ops checked = {result['calls']}")
+        print(f"worst = {result['worst_op']}   dev = {result['worst_dev']:+.3e}")
+        print("identity error = 0 (每个算子逐次守恒)")
+        return
 
     if args.clusters:
         result = run_cluster_audit(n=args.n, steps=args.steps, capacity=args.capacity, seed=args.seed)
