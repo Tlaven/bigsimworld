@@ -150,6 +150,8 @@ SIM_MODE=measure ──────────┤
 
 **参数**：`min_size=2, max_members=12, max_clusters=64, form_interval=30, gamma=0.99, initial_attention=0.8, dissolve_floor=0.1, endogenous_scale`（runner=`max(6, capacity/25)`）, `budget_leaves=capacity, theta_base=0.5`。
 
+**确定性 vs 自适应（`SIM_SEED`）**：默认每 tick 按**实测墙钟负载** `feedback` 调 `budget_leaves`，在本机预算内尽量多留显名者——代价是"规则"依赖机器速度，**同种子不可复现**。设 `SIM_SEED` 即进入**确定性模式**：固定随机种子并跳过负载反馈（`budget_leaves` 恒定 = capacity），换取"同种子 + 同口径（mode/capacity/population）⟹ 同发展"。二者互斥，取舍由运行者定：要复现/回放就设种子，要按机器吃满预算就不设。注意 `SIM_RESUME=1` 以快照为准，不参与种子重演。
+
 **已验**：`bench.audit_ledger --clusters` 恒等误差 **0.0000%**；`bench.cluster_inheritance` 族内 vs 全局人均留存 ~181×（peers=120）。
 
 **已知边界（本层）**：resolved 团的婚配/出生仍族内闭合（跨团婚配只**记录** `interface`，未在 coarse 模型消费，除 `overflow_fraction`）；`life_log` 只保留窗口内当前个体。
