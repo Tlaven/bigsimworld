@@ -95,6 +95,9 @@ SIM_MODE=measure ──────────┤
 | `SIM_CAPACITY` | 1000 | 窗口真个体上限 |
 | `SIM_POPULATION` | 5000 | 初始人口（measure） |
 | `SIM_RESUME` | 0 | `1` = 启动时从最新快照恢复 |
+| `SIM_SEED` | — | 整数；设了即**确定性模式**——固定随机种子并禁用墙钟负载反馈，同种子必然同发展 |
+
+（另：`REDIS_URL`、`SIM_DB_PATH`、`CORS_ORIGINS` 见 `app/__init__.py` / `app/models/table.py`。）
 
 **SSE**（`/stream?channel=<client_id>`）：
 - 事件 `data`（每 tick）：`{time(世界时间 y-m-d), population, simulation_load(秒), people: [{id,name,gender,age,wealth,relationships:{friend,spouse,parent,child:[[id,name]…]}}], age: [labels,counts], wealth: [labels,counts]}`

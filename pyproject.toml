@@ -6,3 +6,13 @@ target-version = "py312"
 # 风格约束刻意不选——工程日志/规范才是本仓库的质量基线，风格不应挡住测量与实验。
 [tool.ruff.lint]
 select = ["E9", "F63", "F7", "F82"]
+
+[tool.coverage.run]
+source = ["app"]
+
+[tool.coverage.report]
+fail_under = 80
+show_missing = true
+exclude_lines = [
+    "if __name__ == .__main__.:",
+]

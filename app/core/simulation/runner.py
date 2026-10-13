@@ -1,4 +1,5 @@
 from threading import Thread, Event
+import random
 
 from app.core.simulation.engine import SimulationEngine
 from app.core.statistics.surveys import SurveyManager
@@ -20,10 +21,15 @@ class SimulationRunner:
     """
 
     def __init__(self, app, mode="individual", capacity=1000, population=5000,
-                 resume=False):
+                 resume=False, seed=None):
         self.app = app
         self.mode = mode
         self.resume = resume
+        self.seed = seed
+        # 确定性模式：给了种子就固定整局随机，并禁用墙钟负载反馈（否则同种子不可复现）。
+        self.deterministic = seed is not None
+        if seed is not None:
+            random.seed(seed)
         self.stop_event = Event()  # 用于停止模拟线程的事件
         self.processing_db = None
         self.db_queues = None
@@ -85,8 +91,12 @@ class SimulationRunner:
         self.publish_step()
 
     def _feedback_resolution(self):
-        """把上一 tick 的实测负载反馈给分辨率调度（水位线 θ）。"""
-        if not hasattr(self.engine, "feedback"):
+        """把上一 tick 的实测负载反馈给分辨率调度（水位线 θ）。
+
+        确定性模式（设了 SIM_SEED）下**跳过**：负载来自真实墙钟，无法复现，
+        会通过调整叶子预算改变随机消耗，从而破坏"同种子 → 同发展"。
+        """
+        if self.deterministic or not hasattr(self.engine, "feedback"):
             return
         load = py_cache.get("simulation_step/s")
         if load:

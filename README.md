@@ -30,7 +30,8 @@ cd web && pnpm install && pnpm dev   # http://localhost:3000
 `SIM_POPULATION`（初始人口，默认 5000）、`SIM_RESUME=1`（从最新快照续跑世界；
 `simulation/stop` 会自动落档，重启即续）。
 另有：`REDIS_URL`（SSE 依赖，默认 `redis://localhost:6379/0`）、`SIM_DB_PATH`（SQLite 路径，
-默认 `db.sqlite3`）、`CORS_ORIGINS`（允许来源，默认 `*`）、`SIM_SEED`（整局随机种子，设了即复现）。
+默认 `db.sqlite3`）、`CORS_ORIGINS`（允许来源，默认 `*`）、`SIM_SEED`（整数；设了即进入
+**确定性模式**——固定整局随机并关闭墙钟负载反馈，同种子必然同发展）。
 
 ## Web 接口
 
@@ -70,6 +71,7 @@ python -m bench.run_scaling --engine legacy --sizes 1000 2000 5000 10000 20000 -
 
 ```bash
 python -m pytest -q                   # 等价性/收敛门槛/守恒/契约
+python -m coverage run -m pytest -q && python -m coverage report   # 含 80% 覆盖率门槛（fail_under）
 ruff check . --exclude web            # 运行时缺陷级别检查（风格约束刻意不设）
 cd web && pnpm build                  # 前端构建
 ```

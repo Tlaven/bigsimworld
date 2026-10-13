@@ -4,3 +4,4 @@
 psutil==6.0.0
 pytest==9.0.3
 ruff==0.9.10
+coverage==7.6.10
