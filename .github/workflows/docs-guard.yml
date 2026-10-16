@@ -1,0 +1,19 @@
+name: docs-guard
+
+# 文档结构门禁（PR）：① 改了代码但 docs/ 与 L1 记忆文件都没动 → 挡；② docs/ 死链 / 未填占位符 / N2 缺「验收」→ 挡。
+# 机器只查结构性；语义一致性靠 teach-back 验证者 + 人 review（见 AGENTS.md「铁律」）。
+on:
+  pull_request:
+
+jobs:
+  docs-guard:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0        # check-docs-sync 需要历史与 base ref
+      - name: docs sync (code changed but docs/L1 untouched?)
+        run: bash scripts/check-docs-sync.sh "origin/${{ github.base_ref }}" --strict
+      - name: doc refs (dead links / placeholders / N2 missing verification)
+        run: bash scripts/check-doc-refs.sh --strict

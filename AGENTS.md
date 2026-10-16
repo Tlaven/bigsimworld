@@ -20,7 +20,7 @@
 
 ## 开放问题（未决）
 
-- [ ] `[工具]` `scripts/` 两个检查器当前**手动跑**、未接 CI / pre-commit；是否接入？（默认不接）
+（当前无未决项。`scripts/` 已接入 CI：`.github/workflows/docs-guard.yml`——PR 时跑 `check-docs-sync --strict` + `check-doc-refs --strict`。）
 
 ## 常用命令
 
@@ -127,7 +127,7 @@ powershell -File scripts/check-doc-refs.ps1
 - **建新模块**：从 `docs-templates/module-doc.md` 生成 `docs/modules/<name>.md`，先填三段式（标 novelty 档），再写代码 `[机器]`
 - **改代码前（每次改动）**：载入相关 L2/L3；若该模块含 **N2** → 先跑 teach-back（派独立 agent，见 `docs-templates/teach-back-verifier-prompt.md`），通过才动 `[验证者]`
 - **做决策**：按 E4 判要不要记 ADR；要记就当场写 `[验证者]`
-- **收尾**：本仓库已拷入 `scripts/`——跑 `scripts/check-docs-sync`（代码动过但文档没动）与 `scripts/check-doc-refs`（死链 / 占位符 / N2 缺验收）。当前**手动**（未接 pre-commit / CI）`[机器]`
+- **收尾**：`scripts/` 已接入 CI（[`.github/workflows/docs-guard.yml`](.github/workflows/docs-guard.yml)，PR 跑 `check-docs-sync --strict` + `check-doc-refs --strict`）；本地可手动跑同名 `.ps1` / `.sh` `[机器]`
 
 ### 铁律
 
