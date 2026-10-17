@@ -587,7 +587,9 @@ class _ProbeRule:
 @pytest.fixture
 def probe_rules(monkeypatch):
     rules = {"probe_r2c": _ProbeRule("probe_r2c", "r2c"),
-             "probe_c2r": _ProbeRule("probe_c2r", "c2r")}
+             "probe_c2r": _ProbeRule("probe_c2r", "c2r"),
+             # N2-5：成对析出也要进长跑循环（否则该路径的守恒断言是空的）
+             "probe_pair": _ProbeRule("probe_pair", "r2c", every=7, match=Match(marital=1))}
     for name, rule in rules.items():
         monkeypatch.setitem(RULES, name, rule)      # monkeypatch 自动还原 ⇒ 不影响其它测试
     return rules
@@ -599,6 +601,10 @@ def _long_run_engine(seed=11):
     mgr = engine.resolution
     mgr.gamma = 1.0                              # 关衰减：预置簇不会自行冷却消失
     cluster, _cell = _coarse_cluster(engine, members=8, count=200.0)
+    # N2-5：另放一个**已婚**桶（`count ≥ 2.0`），让成对析出在长跑里真的被执行到
+    mini = _mini(cluster)
+    mini.add(engine.window.space.encode(30, 0, 10, 1), 60.0)
+    cluster.state["size"] = mini.total()          # 注入后必须刷新（`store.size()` 读它）
     mgr.attention[cluster.id] = 0.2              # < theta_base（不物化）、>= dissolve_floor（不回收）
     return engine, cluster
 
@@ -642,6 +648,10 @@ def test_channel_ops_are_mass_neutral_in_long_run(probe_rules):
     made = sum(1 for r in channel.ledger if r.status == "ok")
     statuses = {r.status for r in channel.ledger}
     assert made > 0, "探针规则没跑出任何绑定 ⇒ 这个测试是空的"
+    assert any(r.status == "ok" and r.spouse_id is not None for r in channel.ledger), \
+        "成对析出（N2-5）没有在长跑里被执行到 ⇒ 该路径的逐次守恒断言是空的"
+    assert any(r.status == "unbound" and r.spouse_id for r in channel.ledger), \
+        "成对析出的 `unbind` 没有在长跑里被执行到"
     assert worst["calls"] > 0
     assert abs(worst["dev"]) < 1e-6
     assert {"ok", "unbound"} <= statuses

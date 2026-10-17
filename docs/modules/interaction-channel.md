@@ -391,6 +391,8 @@ class ChannelRecord:
 `test_unspecified_marital_never_extracts_a_married_bucket`（缺省谓词不得单人析出已婚桶）、
 `test_quota_gate_is_amount_aware`（已析出 1 后成对意图被丢弃 ⇒ 守住不变量 7）、
 `test_paired_unbind_severs_both_edges_and_folds_back_both`、`test_paired_bind_rolls_back_both_when_link_fails`；
+**长跑**（接进真实 `ResolutionManager.step` 循环）：`test_channel_ops_are_mass_neutral_in_long_run` 里含一条 `Match(marital=1)` 探针规则
+⇒ 成对析出与其 `unbind` **在真实循环里逐次操作守恒**，且测试**断言该路径确实被执行到**（否则断言是空的）；
 `python -m bench.audit_ledger --resolution --n 3000 --steps 2000 --capacity 300` → 逐算子 `identity error = 0`（**惰性不变**：无规则时该路径不执行）。
 **mutation 检验**（证测试有效）：把闸改回"按 1 判定" ⇒ `test_quota_gate_is_amount_aware` 变红（实测析出 **3** > cap 2）；
 去掉缺省排除 ⇒ `test_unspecified_marital_never_extracts_a_married_bucket` 变红。
