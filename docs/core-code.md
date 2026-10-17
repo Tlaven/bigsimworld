@@ -119,7 +119,7 @@
 - 同一段池、接收桶 `count=3` ⇒ `k = floor(2500 / 3000) = 0` ⇒ **全部留池**（宁可迟一年，也不超付）。
 - 触顶：接收桶在 `wealth_bins−1`（上限）、`count=1`、池 `2500` ⇒ **不支付、池不变**（`k` 照算，但位移不可能 ⇒ 份额留池）。
 
-**验收**:`python -m bench.audit_ledger --n 5000 --steps 8000` → `identity error < 0.1%`（量化噪声级；2026-10-17 本机实测 ≈0.001%）；
+**验收**:`python -m bench.audit_ledger --n 5000 --steps 8000` → `identity error < 0.1%`（量化噪声级；2026-10-17 本机实测**绝对 ≈1e-05、相对 ≈1e-14**）；
 `python -m pytest tests/test_measure_transitions.py tests/test_audit_ledger.py tests/test_measure_convergence.py -q` → 全绿（含**强制触顶**的质量守恒守卫 + 恒等式 + 尾部门槛 `wealth_ks < 0.06`）。
 
 **陷阱**
@@ -127,6 +127,7 @@
 - **禁止** per-bucket 欠账（Stage 7：+1.39e8 注水）；**禁止**分数桶位移（Stage 3：碎片化）。
 - **支付顺序**：本算子遍历 `measure.occupied`（set），而 `ideal` 随已支付额缩小 ⇒ **谁收到钱依赖遍历序**（已实测：总量同为 1000 时，收款桶随顺序在 X / Y 之间改变）。int 哈希使同一操作序列下可复现，但对代码改动**脆弱**——要严格化就照通道 `extract` 的做法**显式按桶索引升序**。
 - 别把 `recent_deaths` 当"可跨 tick 的账本"——它是每 tick 覆盖的临时记录。
+- **审计的账法必须与算子同相位**：收入/出生按**流前后财富差分**计量。用"`step` 之前快照 × 1000"的解析式计量会引入相位误差（`income` 跑在同 tick 的 `aging` **之后**）——历史上它被误读成"模型守恒误差 0.06%"（见 [`history.md`](history.md) Stage 7「口径校正」编注）。
 - **审计的盲区**：触顶分支在真实世界不可达（占用桶最高 ~551/60000）⇒ `bench.audit_ledger` 的恒等误差照样好看。**"不可达分支"上的守恒只能靠强制构造的测试守**（见验收），别指望长跑审计。
 
 ### N2-4 · 分辨率算子的计数中性（整人析出 / 残留并入）
