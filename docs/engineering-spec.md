@@ -152,6 +152,22 @@ SIM_MODE=measure ──────────┤
 
 > 门禁：`bench.audit_ledger --resolution`（**生产口径**，coarse 流含 `death/birth`）对每个分辨率算子**逐次**断言上述守恒；`--clusters`（质量保持子集）验整体恒等式。二者互补——后者结构上盖不住分数桶 / 残留泄漏。
 
+**质量侧 `transfer`（2026-10-17，[`adr-005`](decisions/adr-005-transfer-quality-side.md)）**：通道的第二个原子，**无身份**（不析出、不建边），只移动财富。
+粗侧财富的最小可动单位是 `count × 财富桶宽`，个体是精确浮点 ⇒ 差额由**每个粗侧的 `transfer_pool`** 承接：
+
+- **R→C**：个体精确借记 `A`，目标粗侧池 `+A`；不立即改分布。
+- **C→R**：个体精确收款 `A`；池不足时先做**向下整桶清算**（人数最少桶优先），再支付；超取留池。
+- **投递**：每 360 tick 把池按整桶送回分布（最穷桶优先），余量留池。
+- **生命周期**：`coarsen` / `merge` / `dissolve` 必须折叠池（含 `yearly_inherited`）；快照同时往返两个池。
+
+财富恒等式（transfer 口径）：
+
+```
+Σ 粗侧 count×桶中心 + Σ transfer_pool + Σ yearly_inherited + Σ 窗口个体 wealth
+```
+
+对 `transfer` / 清算 / 投递 / 池折叠**严格不变**（浮点噪声）。注意：`bind`/`unbind`/`dematerialize`/`coarsen` 的桶中心折算仍有 ≤ `w/2` 的量化差（已知边界，未在本期修）——全局 W 的严格性只在无分辨率折算的区间内成立。门禁：`python -m bench.audit_transfer`。
+
 **coarse 共演单元** = mini `MeanFieldEngine`（`FamilyKind.flows` = FULL_FLOWS 去掉 `inheritance`）；继承由 `step_coarse` 手动调 `family_inheritance`（含 `overflow_fraction`：族内继承中改注入全局池的比例，0 = 完全内化 ="富族恒富"）。
 
 **注意力**：外生 `set_attention(cid, v)`（观察者 pin，`a ← γa` 衰减）；内生 `_endogenous_attention`（被窗口内非成员的**强关系**认识程度 / `endogenous_scale`）；取 `max`。`WaterlinePolicy`：`a ≥ theta_base` 且 leaf 预算足够 → resolved；`feedback` 按负载调预算。
@@ -168,4 +184,4 @@ SIM_MODE=measure ──────────┤
 
 **已验**：`bench.audit_ledger --clusters` 恒等误差 **0.0000%**；`bench.cluster_inheritance` 族内 vs 全局人均留存 ~181×（peers=120）。
 
-**已知边界（本层）**：resolved 共演单元的婚配/出生仍族内闭合（跨共演单元婚配只**记录** `interface`，未在 coarse 模型消费，除 `overflow_fraction`）；`life_log` 只保留窗口内当前个体。
+**已知边界（本层）**：resolved 共演单元的婚配/出生仍族内闭合（跨共演单元婚配只**记录** `interface`，未在 coarse 模型消费，除 `overflow_fraction`）；`life_log` 只保留窗口内当前个体。`transfer` 只支持 R↔C（C↔C 与 resolved 簇支付未做），交互规则注册表仍为空；分辨率折算的财富量化差 ≤ `w/2` 未建符号残差池（ADR-005 方案 H）。

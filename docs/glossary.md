@@ -10,7 +10,7 @@
 |---|---|---|---|---|---|
 | 个体引擎 | 逐个体演化的高保真引擎，是语义真值（生产不跑它） | `SimulationEngine` / `EventEngine`；O(N) | `SIM_MODE=individual` | 不是测度层；不是"折衷" | — |
 | 测度层 / 测度引擎 | 状态空间上的稀疏计数分布 + 流算子，成本 = O(占用桶数)，承载无限人口 | `MeanFieldEngine` | `SIM_MODE=measure` | 不是"抽样近似"——是完整分布 | — |
-| 测度（Measure） | 年龄×性别×财富桶×婚配 的稀疏计数容器 | `counts`（稀疏）+ `occupied`（set） | `measure.total()` | 不含窗口内真个体 | — |
+| 测度（Measure） | 年龄×性别×财富桶×婚配 的稀疏计数容器，并携带两个**质量池** | `counts`（稀疏）+ `occupied`（set）+ `yearly_inherited` + `transfer_pool` | `measure.total()` / `measure.mass()` / `measure.wealth()` | 不含窗口内真个体 | — |
 | 状态空间（StateSpace） | 维度分桶 + 混合基数编码 | 财富**线性分桶**宽 1000、60000 桶、121 龄段 | `encode(age,gender,wealth,marital)` | 财富不是连续值，是桶索引 | — |
 | 物化窗口 | ≤ `capacity` 个带真实关系图的真个体，供观测 | `IndividualWindow` / `WindowEngine` | `SIM_CAPACITY=1000` | 不是旧"轻量个体"层（已删） | — |
 | materialize | 测度 −1 → 生成真 `Character`（要求该桶计数 ≥ 1.0） | | | | — |
@@ -35,7 +35,7 @@
 | 快照（snapshot） | `simulation_time` + 测度 + 窗口（含关系图 id）的持久化 | `snapshots` 表 | | | — |
 | 继承溢出（overflow_fraction） | 族内继承中改注入**全局池**的比例（0 = 完全内化 = "富族恒富"） | `float ∈ [0,1]` | | | — |
 | 交互通道（InteractionChannel） | 共演单元 ↔ 单位个体的**点对点、双向、可具名**交互路径 | `Intent` 队列 + `bind`/`unbind` + 账本 | `channel.run(ctx)` | 不是"经全局测度中转"的间接路径（`overflow_fraction`→测度→`materialize`） | — |
-| 意图（Intent） | 通道的唯一输入形态：`kind / origin / scope / match / payload`；`origin` = 发起者（角色或簇） | frozen dataclass | `Intent(kind="probe", origin=("character",3), scope=("cluster",7), match=…)` | 粗侧**不能**用 id 寻址（只能带 `Match`） | — |
+| 意图（Intent） | 通道的唯一输入形态：`op / kind / origin / scope / match / payload`；`origin` = 发起者（角色或簇），`op` 选定原子（`bind` 缺省 / `transfer`） | frozen dataclass | `Intent(op="transfer", kind="gift", origin=("character",3), scope=("cluster",7), payload={"amount":500})` | 粗侧**不能**用 id 寻址（只能带 `Match`）；`transfer` 的 `kind` 只是标签，不是边名 | — |
 | Match | 声明式可匹配性（`age`/`gender`/`wealth_bucket`/`marital`，**闭区间**；`marital` 是标量 0/1），编译为**桶索引谓词**，R↔C 两侧共用 | frozen dataclass + `compile(match, space, extraction=…)` | `Match(age=(28,35), gender=0)` | 不是任意闭包；引用不可重建维度必须抛错；`marital=1` ⇒ **成对析出** | — |
 | bind | **有身份**的绑定 = `extract` + `link`，先扣后加；**析出永远发生在 coarse 侧**；`Match(marital=1)` 时**成对**（取 2 人 + `link` 成配偶） | 通道原子 | 婚配 / 结友 | 不是 transfer（不产生身份） | — |
 | unbind | `bind` 的逆：`unlink`（断链）+ 把该角色折算回 coarse；成对绑定时**连配偶一起**（断两条边、两人各自折算） | 通道逆算子 | `unbind(new_id)` | 不是 `dematerialize`（后者折算回**全局测度**） | — |
@@ -45,7 +45,11 @@
 | 先扣后加律 | 会产生边的跨分辨率交互**必须先把质量从 coarse 侧移出**，否则重复计数 | 通道强制的提交协议 | `bind` 的 reserve→commit→rollback | 不是"守恒"（守恒只管人头，不管重复计数） | — |
 | 谓词式寻址 | 粗侧无 id ⇒ 意图只用 `Match` 声明可匹配性；id 只在 `extract` 之后存在 | `Match` 声明 | `Match(gender=0)` | 不是 id 式寻址（粗侧无 id，表达不出来） | — |
 | 可重建维度 | `extract` 之后能重建的桶维度；`{age, gender, wealth, marital}` | `RECONSTRUCTIBLE` | | `marital` **可寻址但只能成对析出**（N2-5）——单独析出会造假单身 | — |
-| transfer | **无身份**的质量移动（可交换、不产生边）——**本期不做**：其财富量化残差池需独立规格与独立不变量 | 质量侧原子（下期） | 继承 / 馈赠 / 族间再分配 | 不是 bind；也**不**受"人头守恒"约束 | — |
+| transfer | **无身份**的质量移动（可交换、不产生边）：R→C 精确借记入池；C→R 精确支付（池不够就整桶清算） | 质量侧原子；`op="transfer"`、`payload["amount"]` | 继承 / 馈赠 / 族内再分配 | 不是 bind；不占配额 / headroom / 宽限期；不改变人头 | — |
+| 通道池（transfer_pool） | 每个**粗侧**各自的量化残差/流动性池（全局测度 + 每个 coarse 簇各一个）；随生命周期折叠 | `Measure.transfer_pool: float ≥ 0` | C→R 支付、年度投递 | 不是全局单例（会跨族泄漏）；不是 `yearly_inherited`（继承专用） | 质量池 |
+| 量化残差 | 精确浮点金额与"整桶质量 `count×w`"之间无法对齐的差额；由通道池承接 | 清算超取 ≤ **被清算桶中最大 `count` × w**（"人数最少优先"只减少触及的桶，不保证最小桶最后命中） | `1@5 + 3@6`、付 6000 ⇒ 超取 2000 | 不是"误差"可以忽略——不接住就是造/毁财富；也不是"≤ 最小 count×w" | — |
+| 清算（liquidation） | C→R 池不够时，把粗侧分布**向下整桶**挪进池；人数最少桶优先、按源桶财富升序应用 | 通道内部步骤 | 池 0、付 500 ⇒ 取 `count=1` 桶 1 步（1000） | 不是分数桶位移（禁止）；不是"向未来预支" | — |
+| 投递（settle） | 每 360 tick 把通道池**向上整桶**送回分布；最穷桶优先、按目标桶财富降序应用；余量留池 | 通道内部步骤 | 池 2500 ⇒ 桶 1 上移 2 步 | 不是"花掉池"——池只减少实付量 | — |
 | 通道账本 | 每条通道操作的逐条记录（有界 deque），供观测与对账 | `deque(maxlen=…)` | 逐条核平 | 不是 `yearly_inherited`（那是继承段池） | — |
 | 交互规则（InteractionRule） | 第 9 缝：声明"发起什么意图 + 绑定后建什么边"；**本期为空注册表** | `Protocol` + `RULES` | `RULES = {}` | 不是通道（通道保证守恒/确定性，规则只管语义） | — |
 

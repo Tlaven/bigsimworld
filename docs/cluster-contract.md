@@ -116,6 +116,7 @@ register(FamilyKind())   # MVP 唯一实现
 
 - `Σ measure.counts + Σ_coarse size + len(window.characters) == 初始 + 出生 − 死亡`
 - 分辨率切换**计数中性**（只移动，不产生 / 销毁）：`materialize` 只从计数 ≥ 1.0 的桶析出整人（分数残量留在共演单元内）；`coarsen` 须并入共演单元内残留。**身份不守恒**（重采样新代表）。
+- **质量池随生命周期折叠**：`coarsen` / `merge` / `dissolve` / `split` 除 `counts` 外必须折叠 `transfer_pool` 与 `yearly_inherited`（逐段相加）；`merge` 的 resolved+resolved 快路径与 `split` 尤其不能漏（它们会删掉持有 mini 的簇）。否则财富（以及分数计数残留）蒸发。快照须往返这两个池。财富口径见 `engineering-spec.md` §9 与 `adr-005`。
 - `rho ≥ 0`，coarsen 单调增，merge 可减；无悬空边（`other_ref` 必须可解析）。
 - 显要者（notability）**不逐出**，其所在共演单元**不粗化**——关键个体不失去特殊性。
 

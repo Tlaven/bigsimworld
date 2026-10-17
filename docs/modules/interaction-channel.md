@@ -2,8 +2,9 @@
 
 > 本文档定位：做**跨分辨率直接交互**模块工作时加载，可独立喂给 AI。
 > 三段式：[是什么] / [为什么] / [不变量]。模板来源 [`docs-templates/module-doc.md`](../../docs-templates/module-doc.md)。
-> **本期范围：只做通道的身份侧（`bind`），不做交互规则，也不做质量侧（`transfer`）**——
-> 婚配 / 结友 / 继承的**语义**不在本模块；`transfer` 的**规格**见 §第二期。
+> **本期范围：通道的两个原子都已实现——身份侧 `bind`/`unbind`（N2-1/N2-4/N2-5）与质量侧 `transfer`（N2-6）**；
+> **交互规则仍不做**（`RULES` 为空）。婚配 / 结友 / 继承的**语义**不在本模块。
+> `transfer` 的决策与被拒方案见 [`adr-005`](../decisions/adr-005-transfer-quality-side.md)。
 
 ---
 
@@ -35,7 +36,7 @@
 | `link` | **边的唯一入口**：一次调用双向写 `relationships`（对称；非对称用 `reverse`）。**不记档**——`relation_record` 只由 `unlink(..., record=True)` 双向追加 | ✅（第 0 步已交付） |
 | `InteractionRule`（Protocol + `RULES` 注册表） | 规则缝：**只声明"发起什么意图"**；**建边由通道统一执行**（`link`），规则不碰边。签名（MVP）：`offers(context: ChannelContext) -> Iterable[Intent]` | ✅（空注册表） |
 | 通道账本（有界 `deque`，`maxlen=4096`） | 每条操作一条记录，供观测与对账 | ✅ |
-| **`transfer`（原子：无身份质量移动）** | 质量侧：继承 / 馈赠 / 族间再分配 | **下期**（见 §第二期） |
+| **`transfer`（原子：无身份质量移动）** | 质量侧：继承 / 馈赠 / 族内再分配（C↔C 本期不做） | ✅（N2-6） |
 
 ### 本期已交付（第 0 步基础设施，2026-10-17）
 
@@ -76,6 +77,23 @@
 **mutation 检验**（证"测试本身有效"）：把 `ClusterStore.extract` 的 `mini.add(chosen, -amount)` 改成 `…, 0.0`，
 `tests/test_channel.py` 中守恒 / 可逆 / 回滚三条**变红**——测试确实在守不变量。
 
+### 本期已交付（第 2 步：质量侧 `transfer`，2026-10-17）
+
+| # | 交付 | 位置 |
+|---|---|---|
+| 17 | `Intent.op`（`"bind"` 缺省 / `"transfer"`）+ `payload["amount"]` | `measure/channel.py` |
+| 18 | `Measure.transfer_pool`（**每个粗侧一个**）+ `mass()` / `wealth()` | `measure/measure.py` |
+| 19 | R→C：个体精确借记 → 目标池；C→R：池/清算 → 个体精确收款 | `measure/channel.py` |
+| 20 | 向下清算（人数最少桶优先、整桶）与年度投递（最穷桶优先、整桶） | `channel.py`、`transitions.py` |
+| 21 | 池随生命周期折叠：`coarsen` / `merge` / `dissolve`（**含 `yearly_inherited`**） | `measure/cluster.py`、`measure.py` |
+| 22 | 快照往返含 `transfer_pool` 与 `yearly_inherited` | `measure/measure.py` |
+| 23 | 财富审计：`bench.audit_transfer` + `tests/test_transfer.py` | `bench/`、`tests/` |
+
+**惰性不变**：`RULES` 仍为空 ⇒ 生产里没有任何 `transfer` 意图 ⇒ 新路径不执行，池恒 0；
+`pytest` 与 `bench.audit_ledger --resolution/--clusters` 数字不退化。
+**已知边界**：`unbind` / `dematerialize` / `coarsen` 把精确财富折回桶中心仍有 ≤ `w/2` 的量化差
+（ADR-005 方案 H 未做）——`transfer` 原子自身严格守恒，全局 W 只在无分辨率折算的区间内严格。
+
 ### 消歧与冻结面（2026-10-17，个体引擎简化）
 
 **消歧**（不删任何模型功能；收敛数字实测零漂移）：
@@ -97,17 +115,19 @@
 - `SimulationEngine` / `EventEngine` 两个 driver（通道从不接触它们）
 - DB 队列 / 统计问卷 / Web 发布链
 
-### 第二期（本期不做）：质量侧 `transfer`
+### 第二期（已落地）：质量侧 `transfer`
 
-`transfer`（无身份质量移动）**不是**身份操作，且有一个本期未解决的硬问题：
+`transfer`（无身份质量移动）**不是**身份操作。它有一个必须先解决的硬问题：
 
 > coarse 侧的财富只能以 **`count × 桶宽度`** 为最小单位整桶挪动（沿用"整数桶位移"纪律），
 > 而具名个体的 `wealth` 是精确浮点 ⇒ **两个方向的转移都必须有量化残差，且残差需要一个"通道池"承接**，
 > 否则财富会被凭空造出/销毁。这需要一条**独立的财富守恒不变量**（形如 `bench.audit_ledger` 的 `pool_residual`），
 > 与 `bind` 的人头守恒是两码事。
 
-因此 `transfer` 的规格（池的结构、方向语义、"金额 vs 桶步"的表达方式、财富账本不变量）留待第二期，
-**本期不实现、不声明**。已登记进 [`adr-003`](../decisions/adr-003-interaction-channel.md) 的「需要跟进的」。
+**决策（[`adr-005`](../decisions/adr-005-transfer-quality-side.md)）**：每个**粗侧**各持一个 `transfer_pool`；
+R→C 精确借记入池，C→R 精确支付（池不够就向下整桶清算），每 360 tick 把池按整桶投递回分布。
+步骤级规格 = **N2-6**。**池随共演单元生命周期折叠**（`coarsen`/`merge`/`dissolve`），否则财富会丢——
+这也是本次顺手修掉的既有漏洞（`yearly_inherited` 与快照此前同样不折叠）。
 
 ---
 
@@ -210,8 +230,8 @@ class Intent:
 
 ### 不变量（规则无关；`[强制]` = 有测试 / 检查器）
 
-1. **人头守恒** `[强制]`：通道的身份侧操作（`bind` / `unbind`）不改变 `Σmeasure + ΣCoarse + len(window)`。
-   （**财富**守恒是另一条账，属 `transfer`，见 §第二期——本条**不**声称管财富。）
+1. **人头守恒** `[强制]`：通道的身份侧操作（`bind` / `unbind`）不改变 `Σmeasure + ΣCoarse + len(window)`；
+   `transfer` 不改变人头（它只动财富）。**财富**守恒是另一条账（不变量 9）。
 2. **不重复计数律（先扣后加）** `[强制]`：任何 `bind` 产生的边，都存在一条**先于它**、且与之配对的 coarse 侧质量扣减。
 3. **无幽灵** `[强制]`：`bind` 后双方视图闭合；`unbind` 后关系**双向解除**。
    判据（"三查"）= ① 双方 `relationships` 互不含对方；② 双方 `relation_record` 对称记档；
@@ -228,6 +248,23 @@ class Intent:
    窗口不超 `capacity`。**按人计，且闸必须 `amount` 感知**（N2-1 第 4 步）——否则双人析出会越过上界。
    **取值**：`cap_per_cluster=2`、`cap_per_tick=8`（常数）。
 8. **可对账** `[强制]`：每条通道操作（含每次丢弃）在账本有且仅有一条记录；逐条可核平。
+9. **财富守恒（transfer 口径）** `[强制]`：
+   `W = Σ 全局测度 + Σ 每个簇 mini + Σ transfer_pool（全局与各 mini） + Σ yearly_inherited + Σ 窗口个体 wealth`
+   （每项都是 `count×桶中心`；**resolved 簇的 mini 残留也要算**）。
+   在 `transfer` / 清算 / 投递 / 池折叠下**严格不变**（浮点容差）。
+   **注意**：`bind`/`unbind`/`dematerialize`/`coarsen` 的桶中心折算仍有 ≤ `w/2` 的量化差
+   （ADR-005 方案 H，已知边界）——全局 W 的严格性只在"无分辨率折算"的区间内成立。
+10. **池非负** `[强制]`：任何时刻 `measure.transfer_pool ≥ 0`；不存在"预支"。
+    C→R 必须先保证"池 + 可清算量 ≥ 金额"才动分布；不足 ⇒ 整笔丢弃、**零副作用**。
+11. **方向守恒** `[强制]`：R→C 与 C→R 是同一个原子（`op="transfer"`，`payload["amount"]`），
+    唯一区别是发起者/对手方；两者都**不创建身份、不建边、不改窗口容量**。
+12. **池随生命周期折叠** `[强制]`：`coarsen` / `merge` / `dissolve` / `split` 必须同时折叠
+    `transfer_pool` 与 `yearly_inherited`（逐段相加），不得只折 `counts`。
+    `materialize` 保留 mini（分数残留 + 池）⇒ **resolved 簇也可能持池**；其池在 resolved 期间冻结
+    （不接 transfer，年度投递仍可把它送回该 mini 的残留分布）。`merge` 的 resolved+resolved 快路径
+    与 `split` 也必须先把被删簇的 mini 折走（否则人头与财富一起丢）。
+13. **配额豁免** `[强制]`：transfer **不**消耗 `cap_per_cluster` / `cap_per_tick` / 窗口 headroom，
+    也**不**登记 `recently_active`（它不产生需要保护的身份）。反过来说，配额闸只属于 `bind`。
 
 ### N2 步骤级说明
 
@@ -235,9 +272,12 @@ class Intent:
 
 1. **收集**：R 侧意图在 `window.step()` 之后由规则提供；C 侧意图在 `store.step_coarse()` 之后由规则提供。
    两路都经 **`channel.submit(intent)`** 进本 tick 队列。**本期 `RULES` 为空 ⇒ 两条路都不产生意图**（通道惰性）。
-2. **排序**：按 `(origin_side, origin_id, kind, scope_type, scope_id)` 升序（`origin_side`：`character`=0、`cluster`=1；
+2. **排序**：按 `(origin_side, origin_id, op, kind, scope_type, scope_id)` 升序（`origin_side`：`character`=0、`cluster`=1；
    `scope_type`：`cluster`=0、`window`=1）。字符串比大小即可（Python 元组比较），**唯一确定的处理序**。
-3. **去重**：同一 `(origin, kind, scope)` 只保留第一条。
+3. **去重**：同一 `(op, origin, kind, scope)` 只保留第一条（**含 `op`**——否则 bind 与 transfer 会互撞、
+   transfer 的 `amount` 会被静默吞掉）；被去重的意图各记一条 `dropped:duplicate`（不变量 8：
+   含丢弃在内**每条意图都有记录**）。同一 `(op, origin, kind, scope)` 同一 tick 只能发一次；
+   要发多笔请换 `kind`。
 4. **配额闸（`amount` 感知）** `[强制]`：设本次意图需要的析出量 `amount`（单人路径 = 1；婚配成对 = 2，见 N2-5）：
    `per_cluster + amount > cap_per_cluster` ⇒ 丢弃（记 `dropped:quota_cluster`）；
    `made_total + amount > cap_per_tick` ⇒ 丢弃（记 `dropped:quota_tick`）；
@@ -278,8 +318,11 @@ class Intent:
 @dataclass(frozen=True)
 class ChannelRecord:
     tick: int
-    status: str                 # "ok" | "dropped:quota_cluster" | "dropped:quota_tick" |
-                                # "dropped:window" | "dropped:stale" | "dropped:no_match" | "dropped:error"
+    status: str                 # "ok" | "unbound" | "dropped:duplicate" |
+                                # "dropped:quota_cluster" | "dropped:quota_tick" | "dropped:window" |
+                                # "dropped:stale" | "dropped:no_match" | "dropped:error" |
+                                # transfer 专用：dropped:bad_op | dropped:bad_amount | dropped:unsupported_match |
+                                #               dropped:insufficient_funds | dropped:illiquid
     kind: str
     origin: tuple
     scope: tuple
@@ -291,7 +334,10 @@ class ChannelRecord:
     spouse_id: int | None = None    # 仅 N2-5 双人析出：配偶 id（`new_id` 记 `a`）
     coarse_id: int | None = None    # 析出源簇（unbind 靠它决定折算回簇还是全局测度）
     spouse_cell: int | None = None  # 仅 N2-5 的 `unbind`：配偶的折算目标桶
-    note: str = ""                  # dropped:error 存异常摘要
+    op: str = "bind"                # "bind" | "transfer"（N2-6）
+    wealth_delta: float = 0.0       # transfer ok：以**窗口个体**为口径（付 = 负，收 = 正）；其余 0
+    pool_after: float = 0.0         # transfer ok：目标粗侧的 `transfer_pool` 余额；其余 0
+    note: str = ""                  # dropped:error 存异常摘要；transfer 可记 `liquidated:<mass>`
 ```
 
 **N2-4 · `unbind` 契约**
@@ -415,6 +461,167 @@ class ChannelRecord:
 - 析出者**从不进** `coarse_cluster.member_ids`（N2-1 第 7 步）；N2-4 第 3 步的 `discard` 是**幂等防御**，不是"曾经写进去过"。
 - 别把本规则推广成"所有 `marital=1` 的析出都成对"——`ClusterStore.materialize` / `_refill` 当前**有意**不遵守（范围声明）。
 
+**N2-6 · `transfer` 质量侧（每粗侧池 + 整桶清算/投递）**（2026-10-17 拍板并实现）
+
+**为什么**：见 §第二期与 [`adr-005`](../decisions/adr-005-transfer-quality-side.md)。一句话——
+粗侧财富的最小可动单位是 `count × w`，个体的 `wealth` 是精确浮点；差额必须由**每个粗侧各自的池**承接，
+否则要么凭空造/毁财富，要么跨族泄漏。`transfer` 是**无身份**原子：不 `extract`、不 `link`、不占窗口名额。
+
+规格经 **1 轮 teach-back**（独立验证者，判"有缺口但可补"；14 条缺口在实现前全部补完）——
+对账与"实现期回改"见 [`../reviews/2026-10-17-transfer-teachback.md`](../reviews/2026-10-17-transfer-teachback.md)。
+
+**对象**
+
+- `Intent.op = "transfer"`（缺省 `"bind"`）；`payload = {"amount": A}`；`kind` 只作标签（不是边名）。
+- `origin` / `scope` 与 `bind` 同构：
+  - **R→C**：`origin=("character", rid)`、`scope=("cluster", cid)`；
+  - **C→R**：`origin=("cluster", cid)`、`scope=("window",)` + `Match` 选**接收者**。
+- 粗侧池 = 该簇 `state["engine"].measure.transfer_pool`（**每个 Measure 一个**；全局测度也有，供 `dissolve` 汇入）。
+- `Measure.mass()` = `Σ count × 桶中心`；`Measure.wealth()` = `mass() + transfer_pool + Σ yearly_inherited`。
+  **可支付总额** = `mass() + transfer_pool`（`yearly_inherited` 是继承专用，不得挪用）；
+  **可清算量** = 其中 `wealth_bucket > 0` 的桶能向下整桶挪出的质量（bucket 0 不可清算）。
+  `可支付总额 ≥ A` 只保证"总额够"；若可清算量 + 池 < A，仍是 `illiquid`。
+
+**步骤级说明**
+
+1. **分派**：`op="bind"` 走 N2-1；`op="transfer"` 走本单元。未知 `op` ⇒ `dropped:bad_op`。
+2. **解析两侧**（复用 `_resolve_sides`）：目标簇必须 `level==0`；R→C 的发起者必须在窗口；
+   C→R 的接收者按 `Match` 过滤后取 `id` 最小者。任一解析不出 ⇒ `dropped:stale` / `dropped:no_match`。
+   - **R→C 不接受 `Match`**：`Match` 非空（`used_dimensions()` 非空）⇒ `dropped:unsupported_match`。
+   - **只支持 R↔C**：C↔C 与 resolved 簇 ⇒ `dropped:stale`（见「边界条件」）。
+3. **校验金额**：`A = payload["amount"]`，必须 `type(A) in (int, float)`（**排除 `bool`**）、
+   `math.isfinite(A)`、`A > 0`；否则 `dropped:bad_amount`。**不得抛错**（规则给的坏金额是运行期数据，不是契约违例）。
+4. **R→C**：`A > character.wealth + 1e-12` ⇒ `dropped:insufficient_funds`；
+   否则 `character.wealth -= A`、`mini.transfer_pool += A`。**不立即改分布**。
+   账本 `ok`：`op="transfer"`、`wealth_delta=-A`、`pool_after=mini.transfer_pool`。
+   不占配额、不占 headroom、不登记 `recently_active`。
+   `bind`/`materialize` 的析出者 `wealth = space.wealth_value(bucket)`（**桶中心**）⇒ 它们是精确的，
+   **不带**量化差；量化差只出现在 `unbind`/`dematerialize`/`coarsen` 的"精确财富 → 桶中心"方向。
+5. **C→R**：
+   1. **可支付性**：`total = mini.mass() + mini.transfer_pool`；`A > total + 1e-9` ⇒ `dropped:insufficient_funds`（零副作用）。
+   2. **缺口**：`shortfall = A - mini.transfer_pool`；`shortfall <= 1e-9` ⇒ 无需清算。
+   3. **清算计划**（**只算不改**）：候选 = `occupied` 中 `wealth_bucket > 0` 的桶，按
+      `(count, −wealth_bucket, index)` **升序**（**人数最少优先**；并列取更富的桶；再并列取索引小者）。
+      对每个桶：`unit = count × w`；`k = min(wealth_bucket, ceil(shortfall / unit − 1e-12))`；
+      `k > 0` 记入计划，`shortfall -= unit × k`；`shortfall <= 1e-9` 即停。
+      扫完仍 `shortfall > 1e-9` ⇒ `dropped:illiquid`（**零副作用**：计划尚未应用）。
+      **`k ≤ wealth_bucket` 是正确性前提，不是口味**：`_shift_age_wealth` 不检查下界，
+      `steps < 0` 越过桶 0 会把索引串到别的 age/gender 桶（测试必须守）。
+   4. **应用清算**：计划按**源桶财富升序**应用 `_shift_age_wealth(mini, space, [index], -k)`；
+      返回值 `paid < 0` 是**实际移出**的质量，`mini.transfer_pool += -paid`。
+      **不得**用 `count×k×w` 重算（触底/触顶分支可能不支付）。
+      **为什么升序**：源桶只可能被更高桶注入；先处理低桶可保证每个源桶在应用时仍是原始计数，不会级联重复扣减。
+   5. **支付**：**硬前提 `mini.transfer_pool ≥ A`**（计划必须保守：宁可多清算一步，也绝不欠付）。
+      满足后 `mini.transfer_pool -= A`、`character.wealth += A`；
+      账本 `ok`：`wealth_delta=+A`、`pool_after` 为支付后的池；`note` 记 `liquidated:<实际清算质量>`
+      （实际清算为 0 时省略 `note`）。**不得**用 `max(0, …)` 钳制——钳制会凭空造财富。
+6. **投递（settle）**：每 360 tick，对**全局测度 + 每个簇的 mini**（含 resolved 簇的残留）调
+   `deliver_transfer_pool(measure)`：
+   - **`pool <= 0` ⇒ 不动**（不要用 `pool < w`：`count < 1` 的桶一步只值 `count×w < w`）。
+   - **目标只取 `count ≥ 1.0` 的整人桶**（分数桶是残留质量，不在年度投递里被抬升；
+     它们的池等 `coarsen`/`dissolve` 或计数长到 ≥1 再处理）。
+   - 目标按**财富桶升序**（最穷优先）；对每桶
+     `k = min(wealth_bins − 1 − wealth_bucket, floor(plan_pool / (count × w)))`；`k > 0` 记入计划，
+     并从计划池扣 `count×k×w`。
+   - 计划按**目标桶财富降序**应用 `_shift_age_wealth(..., +k)`，按**实付量**扣池；
+     余量留池。**为什么降序**：与清算相反——目标是"向上"，先处理高桶才不会把低桶刚收到的质量再搬一次。
+   - 投递是再分配：最穷桶优先是 MVP 口味（ADR-005），不是守恒要求。
+   - **相位**：`ResolutionManager.step` 里 `store.step_coarse()`（含继承年清算）**之后**、通道 `run()` **之前**。
+     先年度结清、再做本 tick 意图；`mass + pool` 不因投递改变，所以这不是"提高支付能力"，
+     而是"避免池跨年累积、让分布先吃到钱"——代价是 C→R 更常走清算。
+7. **生命周期折叠**：`coarsen` 在建好 aggregate、折完计数残留后，把旧 mini 的 `transfer_pool` 与
+   `yearly_inherited` **逐段相加**到 aggregate；`merge` 把 b 折进 a（**resolved+resolved 快路径**也要折，
+   否则 b 的 mini 残留与池一起蒸发）；`dissolve` 折进全局测度；`split`（MVP 只切 resolved）把被删簇的
+   mini 残留与池**折进全局测度**（没有"分给哪个孩子"的策略，不做猜测）。
+   **只折 `counts` 会丢财富**——这是本次修掉的既有漏洞；快照 `measure_to_payload` / `measure_from_payload`
+   必须同时往返两个池；**旧档缺字段按 0 读**（这意味着 `SIM_RESUME=1` 从旧档恢复时 W 有断点，
+   登记为兼容边界，不是守恒失败）。
+8. **对账**：`W = 全局 measure + Σ 每个簇 mini + Σ 池 + Σ yearly_inherited + Σ 窗口 wealth`
+   （每项 `count×桶中心`）；
+   `transfer` / 清算 / 投递 / 折叠都是 W-中性。账本新增 `op` / `wealth_delta` / `pool_after`；
+   `run()` 报告新增 `transferred`（成功转移的金额绝对值之和）。丢弃 = 零副作用（分布、池、个体财富都不动）。
+
+**精确例子**
+
+- **R→C**：`R.wealth=3000`、`mini.transfer_pool=0`、`A=2500`
+  ⇒ `R.wealth=500`、池 `2500`；mini 的 `counts` 与 `mass()` **不变**；W 不变。
+- **C→R（池够）**：池 `2500`、`A=500` ⇒ 池 `2000`、`W.wealth += 500`；无桶位移。
+- **C→R（需清算）**：mini 有 `count=3 @ wealth=10`（mass `31500`）与 `count=1 @ wealth=5`（mass `5500`），池 `0`，`A=500`
+  ⇒ 候选先命中 `count=1 @ 5`：`unit=1000`、`k=1`；桶 `5→4`，池 `1000`，付 `500` 后池 `500`；
+  `count=1` 的居民整体从 5500 降到 4500（**超取 500** 留在池里）；W 不变。
+- **C→R（只剩 bucket 0）**：mini 只有 `count=4 @ wealth=0`（mass `2000`）、池 `0`、`A=500`
+  ⇒ 总额够，但没有可下移的桶 ⇒ `dropped:illiquid`；**零副作用**（这不是 `insufficient_funds`）。
+- **超取上界（反例，别记成"最小 count"）**：`count=1 @ 5` + `count=3 @ 6`、池 `0`、`A=6000`
+  ⇒ 计划 `{5: 5 步（5000）, 6: 1 步（3000）}`（先按 count 升序命中 5，缺口剩 1000，再命中 6）
+  ⇒ 实付 8000，**超取 2000**，池余 2000。**超取上界 = 被清算桶中 `count` 最大的那个 × `w`**
+  （此处 3×1000 > 1×1000），不是"最小 count × w"。
+- **清算的级联陷阱（升序才安全）**：沿用上例，若**降序**应用（先 `6→5`，桶 5 变 4 人，再移 5 步）
+  ⇒ 实付 `4×5×1000 + … = 20000`，是计划的 2.5 倍。**触发条件是"计划序 ≠ 财富序且低桶 count 更大"**，
+  不是"任何相邻桶"。
+- **投递**：池 `2500`；桶 `count=1 @ wealth=1` 与 `count=1 @ wealth=10`
+  ⇒ 计划：桶 1 取 `k=2`（`2000`）、池余 `500`；桶 10 的 `floor(500/1000)=0`；
+  按降序应用 ⇒ 桶 1 → 3；池 `500`；W 不变。
+- **投递的级联陷阱（降序才安全）**：池 `4500`；`count=3 @ 9` + `count=1 @ 10`
+  ⇒ 计划 `{9: 1 步（3000）, 10: 1 步（1000）}`。降序应用（先 `10→11`，再 `9→10`）⇒ 实付 4000、池 500；
+  若**升序**应用 ⇒ 桶 10 先变 4 人，再移 1 步实付 4000，池变 **负**（或按计划扣池则 W 凭空 +3000）。
+- **生命周期**：簇池 `700`、`yearly_inherited={5:300}`；`coarsen` 后 aggregate 同值；`dissolve` 后全局测度同值。
+- **resolved 簇的池**：`materialize` 后 mini 仍持池与分数残留 ⇒ 该簇 `level=1` 时池**冻结**
+  （不接 transfer）；`merge`/`split`/`coarsen` 必须把它折走。
+
+**边界条件**
+
+- `A == character.wealth` 合法（付到 0）；`A <= 0` / `NaN` / `inf` ⇒ `dropped:bad_amount`。
+- 总额够但无桶可下移（只有 bucket 0 / 全部触底）⇒ `dropped:illiquid`；总额不够 ⇒ `dropped:insufficient_funds`。
+- **分数桶可以参与清算**（它代表质量，不是人）；位移不改变计数，因而不违反人头守恒。
+  **年度投递只取 `count ≥ 1.0` 的整人桶**——分数残留不在投递里被抬升（否则"最穷优先"会退化成"最稀优先"，一个 `count=0.001` 的桶能吃掉整池并顶到上限）。
+- 投递触顶（`wealth_bucket + k > wealth_bins − 1`）⇒ 该桶少付/不付，**余量留池**（同 N2-3 的触顶纪律）；
+  上限余量 = `wealth_bins − 1 − wealth_bucket` 步。
+- `unbind` 与 `transfer` 无关：transfer 不产生 `new_id`，`unbind` 查不到它的记录 ⇒ 返回 `False`；
+  **别**为 transfer 造逆操作——它是"质量移动"，不是"绑定"。
+- C↔C（族间再分配）**本期不做**：`_resolve_sides` 对 `origin=cluster`/`scope=cluster` 返回 `None` ⇒ `dropped:stale`。
+- resolved 簇上的 transfer ⇒ `dropped:stale`（没有聚合态可动；成员的财富由成员自己持有）。
+
+**验收**
+
+- `python -m pytest tests/test_transfer.py -q` → 全绿，覆盖：
+  R→C/C→R 的**逐笔 W 恒等**、清算的**人数最少桶优先**、`illiquid` / `insufficient_funds` 的**零副作用**、
+  **超取上界夹具**（`1@5 + 3@6`，A=6000）、**清算升序夹具**（同上，降序会级联）、
+  **投递降序夹具**（`3@9 + 1@10`，池 4500，升序会使池变负）、**`k ≤ wealth_bucket` 越界守卫**、
+  分数桶不进年度投递、配额/headroom 豁免、`coarsen`/`merge`/`dissolve`/`split` 的池折叠（含 resolved 簇残留）、
+  快照往返（含旧档缺字段）、同序确定性、真实 `ResolutionManager.step` 循环里的逐次守恒。
+- `python -m bench.audit_transfer` → `identity error = 0`（脚本化：R→C → C→R → 清算 → 投递 → dissolve）。
+- **惰性**：`RULES == {}` 时 `pytest -q` 与 `bench.audit_ledger --resolution/--clusters` 数字不退化。
+- **mutation**（证测试有效）：① 去掉 R→C 的 `mini.transfer_pool += A` ⇒ W 断言变红；
+  ② 把**清算**的应用顺序改成降序 ⇒ `1@5 + 3@6` 用例变红；③ 把**投递**的应用顺序改成升序 ⇒
+  `3@9 + 1@10` 用例变红（池负）；④ `dissolve`/`split` 不折池 ⇒ 生命周期用例变红；
+  ⑤ 去掉清算的 `k ≤ wealth_bucket` 下界 ⇒ 越界串桶用例变红。
+
+**陷阱**
+
+1. **池不能做成全局单例**（ADR-005 方案 B）：会跨族泄漏，破坏"富族恒富"，也无法对账归属。
+2. **C→R 必须先规划、后改动**：计划不足时直接丢弃，**不能**先把分布改了再回滚（回滚顺序写错就会留下半截清算）。
+3. **清算/投递的应用方向相反**：清算按源桶**升序**、投递按目标桶**降序**；写反会级联重复扣/加（相邻桶用例专抓这个）。
+4. **按 `paid` 记账，不按公式重算**：`_shift_age_wealth` 在触底/触顶时不支付，重算会凭空造/毁质量（N2-3 的教训）。
+5. **别把 `yearly_inherited` 当可花费资金**：它是继承专用池；动用它会改变代际语义。
+6. **别让 transfer 走配额/headroom/宽限期**：它不析出、不建边；闸只属于 `bind`。
+7. **别用 `delta_mass` 记财富**：`delta_mass` 是人头口径；transfer 的字段是 `wealth_delta` / `pool_after`。
+8. **别在 `coarsen`/`merge`/`dissolve`/`split` 只折计数**：池会蒸发；`yearly_inherited` 与 `transfer_pool` 都要折。
+   `merge` 的 resolved+resolved 快路径与 `split` 是最容易漏的两处（它们会**删掉**持有 mini 的簇）。
+9. **池必须非负**：C→R 的支付前提是"池 + 可清算量 ≥ A"；不要允许"先欠着"，
+   也**不要**用 `max(0, pool - A)` 钳制（凭空造财富）。
+10. **排序不得依赖 `set`/`dict` 迭代序**：候选桶/目标桶都要显式排序（不变量 5）。
+11. **transfer 记录 `new_id` 必须为 `None`**：`unbind` 靠 `status=="ok" and new_id==…` 定位；
+    若 transfer 填了 `new_id`，会把质量移动误当成可逆绑定。
+12. **账本是有界 `deque`（4096）**：记录被挤出后 `unbind` 会返回 `False`（边成幽灵）——这是既有边界；
+    transfer 会加速挤出，规则侧要节制意图数量（或未来给 `bind` 记录单独索引）。
+13. **`dropped:*` 记录的 `pool_after` 无定义**：只有 `ok` 的 `pool_after`/`wealth_delta` 有意义；
+    观测面不要用丢弃记录读池。
+14. **headroom 预留只对能发 `bind` 的规则成立**：当前 `headroom_reserve` 按"`RULES` 非空"预留
+    `cap_per_tick`；若某规则只发 transfer，会白留名额。规则可声明 `emits_bind=False`（缺省 `True`）来避免。
+
+**范围声明**：本期只做 R↔C 的原子与结算；**C↔C、resolved 簇支付、交互规则**均不在内。
+规则若要发起 transfer，必须显式 `Intent(op="transfer", kind=..., payload={"amount": A})`。
+
 **N2-2 · 谓词式寻址与可重建维度守卫**
 
 1. `Match` 是**声明**（见决策 4 的字段表），**不是任意闭包**——闭包无法静态校验"是否引用不可重建维度"，
@@ -430,6 +637,7 @@ class ChannelRecord:
 1. 排序键固定为 N2-1 第 2 步；候选桶**按桶索引升序**后加权抽样；**不得依赖 dict / set 迭代序**
    （history Stage 15 的确定性 bug 即此类）。
 2. 配额三个量：`cap_per_cluster=2`、`cap_per_tick=8`（常数）、窗口 headroom = `capacity − len(window) − reserved`。
+   三个量**只约束 `bind`**（N2-6 第 4 步）；`headroom_reserve` 只在"存在声明 `emits_bind`（缺省 `True`）的规则"时预留。
 3. **宽限期 = 分辨率冻结**（MVP 归**通道机制**）：被 `bind` 触及的簇记入 `recently_active[cid] = tick`，
    在 `grace_ticks = 180` 内**不换档（不 `coarsen` 也不 `materialize`）、也不被 `_recycle` 回收**。
    - **不得用"把注意力抬到 `theta_base`"来实现**——那会让 `allocate` 反过来**物化**该簇
@@ -463,15 +671,23 @@ class ChannelRecord:
 - 第 7 / 8 步抛异常 ⇒ **逆序全撤**（见 N2-1 第 7–8 步），不留幽灵、不破坏人头守恒。
 - `unbind`：目标角色已不在窗口 ⇒ 返回 `False`，不抛错；`coarse_cluster` 已被回收 ⇒ 折算回全局测度；
   **跨 tick 调用合法**，但不保证逐桶复原（见 N2-4 与不变量 3）。
+- `transfer`：金额非法 ⇒ `dropped:bad_amount`；R→C 带 `Match` ⇒ `dropped:unsupported_match`；
+  总额不足 ⇒ `dropped:insufficient_funds`；总额够但只有不可下移的桶 ⇒ `dropped:illiquid`；
+  C↔C / resolved 簇 ⇒ `dropped:stale`。**所有丢弃都零副作用**（N2-6）。
 
 ### 性能预算
 - 不破坏"成本与 N 无关"：单簇单 tick 析出 ≤ `cap_per_cluster`（常数）⇒ 每 tick =
   O(簇数 × `cap_per_cluster` + 意图数 × `occupied`/`capacity` 扫描)。
+- `transfer`：R→C 为 O(1)；C→R 的清算计划 = O(`occupied` log `occupied`)；年度投递 = 对每个
+  Measure O(`occupied` log `occupied`)。均与人口 N、状态空间规模无关。
 - **禁止**按状态空间规模枚举（N2-2 第 2 步）。
 
 ### 错误处理
 - 谓词非法（引用不可重建维度）⇒ **拒绝（抛错）**，不是静默失配。
-- 其余失败（无匹配 / 无配额 / 过期 / 析出期异常）⇒ 丢弃 + 记账本原因，**不抛错**。
+- transfer 的坏输入（未知 `op` / 金额非正或非有限 / R→C 带 `Match`）⇒ **丢弃 + 记账**，**不抛错**
+  （规则给的是运行期数据；崩溃会打断整个 tick）。
+- 其余失败（无匹配 / 无配额 / 过期 / 析出期异常 / 金额不足 / 无流动性）⇒ 丢弃 + 记账本原因，**不抛错**；
+  **丢弃必须零副作用**（transfer 尤其：不能留下半截清算）。
 
 ### 陷阱
 1. **`bind` 不是纯函数**——它有副作用（改 coarse 分布 + 窗口容量），因此**不能**放进 `Character.step()` / `PeopleEvents`。
@@ -487,7 +703,8 @@ class ChannelRecord:
    `118`（= 人数）变为 `2143`（≈ 人数 × (1+平均度)，平均度 ≈ 17，与独立测出的度分布峰值 17–18 一致）。
 7. **广场的"亲属避让"未实现**：原检查读 `relatives`（恒空）⇒ 从未生效；删除后只保留同 id 保护。
    若要真正避让亲属，属**独立决策**（会改变个体引擎行为与已拟合常数）。
-8. **别把 `transfer` 顺手实现进来**——它的财富量化残差池需要独立规格与独立不变量（见 §第二期）。
+8. **`transfer` 已按 N2-6 实现，但别把它写成 `bind` 的变体**——它不析出、不建边、不占配额；
+   财富残差只能进**每个粗侧自己的** `transfer_pool`，不能进全局单例（ADR-005 方案 B）。
 
 ### 与其他模块的协作
 - `IndividualWindow`：`attach` / `detach` / `dematerialize`；析出的新成员**不写** `member_ids`（见 N2-1 第 7 步）。
@@ -496,10 +713,15 @@ class ChannelRecord:
   宽限期冻结集在 `allocate` 前算好（`_grace_ids`）。
 - `ClusterStore`：复用 `extract`（"只从 `count ≥ amount` 的桶析出整人"的按谓词泛化）。
 - `Character` / `links`：`link` 必须是边的**唯一入口**。
+- `Measure` / `transitions`：`transfer_pool` 挂在每个 `Measure` 上；清算/投递复用
+  `_shift_age_wealth`（整桶位移 + 实付量返回），不得另写一套分数桶逻辑。
+- `ResolutionManager.step`：年度投递在 `step_coarse()` **之后**、通道 `run()` **之前**
+  （先让本 tick 的池可用于支付，再做意图）。
 
 ### 验收
 
-**验收**:`pytest tests/test_channel.py -q` → 全部通过，覆盖不变量 1–8（手段 = **不变量 → property test**：每条不变量写成"任意合法输入下恒成立"的断言）。
+**验收**:`pytest tests/test_channel.py tests/test_transfer.py -q` → 全部通过，覆盖不变量 1–13（手段 = **不变量 → property test**：每条不变量写成"任意合法输入下恒成立"的断言）。
+**验收**:`python -m bench.audit_transfer` → `identity error = 0`（transfer 原子 / 清算 / 投递 / 生命周期折叠的逐次 W 恒等）。
 **验收**:`python -m bench.audit_ledger --resolution --n 1500 --steps 2500 --capacity 250` → `identity error = 0`（通道接入后不改变该恒等式；手段 = **approved scenario / golden**：账本逐条核平）。
 **验收**:零规则运行 `python -m pytest -q` + `python -m bench.audit_ledger --resolution --n 3000 --steps 2000` → 全绿且数字不退化（证明通道**惰性**）；**mutation**：把 reserve 的 `-1.0` 改成 `-0.0`，`tests/test_channel.py` 必须变红（手段 = **mutation testing**，证"测试本身有效"）。
 
@@ -512,6 +734,6 @@ class ChannelRecord:
 - 分辨率 / 共演单元层契约：[`../cluster-contract.md`](../cluster-contract.md)
 - 规范（守恒律 / §9）：[`../engineering-spec.md`](../engineering-spec.md)
 - 术语：[`../glossary.md`](../glossary.md)
-- 相关 ADR：[`../decisions/adr-003-interaction-channel.md`](../decisions/adr-003-interaction-channel.md)
+- 相关 ADR：[`adr-003`](../decisions/adr-003-interaction-channel.md)（通道）、[`adr-005`](../decisions/adr-005-transfer-quality-side.md)（质量侧池与清算/投递）
 - 被拒方案 / 负结果：[`../history.md`](../history.md)（Stage 3 碎片化 / Stage 7 账本注水 / Stage 15 确定性）
 - N2 验收方法论：[`../../docs-templates/verifying-n2.md`](../../docs-templates/verifying-n2.md)
