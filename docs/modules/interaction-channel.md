@@ -646,7 +646,11 @@ class ChannelRecord:
 1. **收集（每 tick 一次）**：规则 `offers(context)` 由 `_collect_intents` 调用，位置在
    `store.step_coarse()` + `_settle_transfer_pools()` **之后**、`channel.run()` **之前** ⇒ 规则算出的 coarse 权重
    与同 tick 的 `extract` **同源**（本 tick 内 coarse 不再演化）。
-   `ChannelContext` 携带 `tick / window / store / rng`（`rng` = `window.rng`，**唯一随机源**；不得用模块级 `random`）。
+   `ChannelContext` 携带 `tick / window / store / rng`。
+   **随机流（2026-10-18 修订）**：规则应持有**自有**的确定性流（`MarriageRule(rng=…)`；runner 由
+   `SIM_SEED` 派生）；`context.rng`（= `window.rng`）只是无自有流时的回退。**不得用模块级 `random`**。
+   理由：与窗口共流会让"开关规则"改变个体事件的随机流，A/B 与校准不可控
+   （见 [`../reviews/2026-10-18-marriage-calibration.md`](../reviews/2026-10-18-marriage-calibration.md)）。
 2. **目标簇候选**（只算一次，避免"每个单身扫一遍簇"）：
    - 取 `level==0` 且 `state["engine"]` 存在的簇；
    - 编译一次 `pred = compile_match(Match(marital=0, age=(18, 59)), window.space)`；
@@ -704,6 +708,9 @@ class ChannelRecord:
 7. **`kind` 在不同 `op` 下身份不同**：`bind` 下 `kind` = **边名**（这里 `"spouse"`）；`transfer` 下 `kind` 只是标签；
    `RULES` 的键（`"cross_marriage"`）是**规则名**——三者别混。
 8. **规则婚姻的生命周期**：终止 = 死亡 / `dematerialize`（容量逐出），**不是** `unbind`（`unbind` 的语义是"折算回粗侧"）。
+   **可达性边界（2026-10-18 校准）**：`scope` 只支持 coarse **簇** ⇒ 规则只能同"族内单身"成婚；
+   生产样态下 coarse 族几乎不含 18–59 未婚桶 ⇒ crossings ≈ 0。大多数单身在**全局测度**里，
+   而通道目前**不能寻址全局测度**——要让这条通道改变宏观，得先做那个扩展（独立 ADR）。
    析出的配偶**不进 `member_ids`**、也不建 `acquaintance` 网 ⇒ 只有 1 条 `spouse` 边（嵌入度 2，高于浮层单身但低于有网络者），
    容量吃紧时可能较早退场——MVP 接受，记为边界。
 
@@ -723,6 +730,9 @@ class ChannelRecord:
    （history Stage 15 的确定性 bug 即此类）。
 2. 配额三个量：`cap_per_cluster=2`、`cap_per_tick=8`（常数）、窗口 headroom = `capacity − len(window) − reserved`。
    三个量**只约束 `bind`**（N2-6 第 4 步）；`headroom_reserve` 只在"存在声明 `emits_bind`（缺省 `True`）的规则"时预留。
+   **注意（2026-10-18 校准）**：预留是**常驻**的——只要注册了会 `bind` 的规则，窗口就永久少留
+   `cap_per_tick` 个名额，**即使规则从不发意图**（实测单独贡献 `married_frac(adults)` +0.003~+0.010）。
+   A/B/校准必须用"同为 `emits_bind` 但不发意图"的 **null 臂**对齐；生产默认 `RULES` 空 ⇒ 无影响。
 3. **宽限期 = 分辨率冻结**（MVP 归**通道机制**）：被 `bind` 触及的簇记入 `recently_active[cid] = tick`，
    在 `grace_ticks = 180` 内**不换档（不 `coarsen` 也不 `materialize`）、也不被 `_recycle` 回收**。
    - **不得用"把注意力抬到 `theta_base`"来实现**——那会让 `allocate` 反过来**物化**该簇

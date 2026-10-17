@@ -63,6 +63,7 @@ python -m bench.cluster_fidelity --members 8 --ticks 8000 --trials 40           
 python -m bench.audit_transfer                                                  # 质量侧 transfer 的财富恒等（池/清算/投递/折叠）
 python -m bench.audit_ledger --wealth --n 1500 --steps 2500 --capacity 250       # 分辨率折算的财富恒等（含池 + 折算残差）
 python -m bench.channel_marriage --ticks 3000                                   # 跨分辨率婚配规则 A/B（关 / 开）+ 守恒
+python -m bench.calibrate_marriage --population 1200 --ticks 2000 --seeds 1 2 3 4  # 婚配规则校准（含 null 臂隔离混淆项）
 
 # 文档检查器（手动；Windows 用 .ps1，bash 用 .sh）
 powershell -File scripts/check-docs-sync.ps1

@@ -57,6 +57,9 @@ resolved 死亡后的**族内继承**。其中继承会与个体引擎的语义�
 
 1. **发起方**：窗口内 `18 ≤ age < 60` 且 `relationships["spouse"]` 为空的 resolved 个体；
    **性别中立**（与个体引擎一致）；每 tick 以 `MARRIAGE_RATE` 掷一次。
+   **2026-10-18 修订（校准发现）**：规则用**自有**的确定性随机流（`MarriageRule(rng=…)`；
+   runner 由 `SIM_SEED` 派生）。原写法用通道的 `context.rng`（= `window.rng`）⇒ 开关规则会改变
+   个体事件的随机流，A/B 与校准都不可控（实测：四档 rate 得到**同一个被污染**的数字）。
 2. **动作**：`Intent(op="bind", kind="spouse", origin=("character", rid), scope=("cluster", cid),
    match=Match(marital=0, age=(18, 59)))` —— `bind` 先扣后加析出**恰好 1 个**单身（`marital=0` ⇒ `amount=1`），
    `link(rid, new, "spouse")`。**不涉财富**（无彩礼；`transfer` 不参与）。
@@ -98,7 +101,36 @@ resolved 死亡后的**族内继承**。其中继承会与个体引擎的语义�
 ### 需要跟进的
 - teach-back 对账（独立验证者，判"有缺口但可补"，11 条在实现前补完）：
   [`reviews/2026-10-17-marriage-teachback.md`](../reviews/2026-10-17-marriage-teachback.md)。
-- **校准**：`MARRIAGE_RATE` 是"尝试率"，但规则的成功条件（族内有合格单身）比个体引擎（有 `friend`）更宽松 ⇒
-  开启后实际婚配速度偏快。要标定就把"窗口已婚比例 / 初婚年龄"作为观测量，与 `SIM_MODE=individual` 对齐后再定 rate。
+- **校准（已于 2026-10-18 做，见下）**：`tools = bench/calibrate_marriage`，
+  方法与负结果落 [`reviews/2026-10-18-marriage-calibration.md`](../reviews/2026-10-18-marriage-calibration.md)。
+
+### 校准结论（2026-10-18，N=1200 / C=240 / t=2000 / 4 seeds）
+
+**两个必须先排掉的混淆项**（否则 A/B 不是受控实验）：
+
+1. **共流扰动**：规则若用 `window.rng`，开关规则就会改变个体事件的随机流——实测四档 rate 给出
+   **完全相同**的 `married_frac`（同一个被污染值）。⇒ 规则改用自有流（见「选择」第 1 条修订）。
+2. **`headroom_reserve` 常驻**：只要注册了会 `bind` 的规则，窗口就永久少留 `cap_per_tick=8` 个名额
+   （**即使规则从不 bind**）。实测该项单独贡献 `married_frac(adults) +0.003 ~ +0.010`
+   （视窗口占用敏感度）。⇒ 校准必须有"同为 `emits_bind` 但不发意图"的 **null 臂**。
+
+**受控读数**（`on − null` = 规则的语义效应）：
+
+| rate | crossings（4 seed 均值） | Δ married_frac(adults) vs null |
+| --- | ---: | ---: |
+| 0.25× `MARRIAGE_RATE` | 5.5 | **+0.0027** |
+| 0.50× | 8.2 | **+0.0035** |
+| 1.00× | 9.0 | **+0.0163** |
+| 2.00× | 13.8 | **+0.0177** |
+
+3. **效应小且有饱和**：1× 以上再加倍几乎不再增加（crossings 9 → 14，Δ 只 +0.001）。
+4. **真正的瓶颈是"可达性"，不是 rate**：**无合成族**时 crossings = **0**——生产世界里大多数单身在
+   **全局测度**里，而通道的 `scope` 只支持 `("cluster", cid)`（coarse 族）。规则只能同"族内单身"成婚，
+   覆盖不到匿名大众。⇒ 要让这条通道真正改变宏观，下一步是让 `bind` 能**寻址全局测度**
+   （通道扩展，独立决策），而不是调 rate。
+5. **对"宏观忠实"的结论**：关规则时 measure 合并已婚比例与个体参照差 **−0.011**（4 seed 均值，
+   `off 0.5503` vs `ref 0.5616`；`null 0.5603`）；开启只会在其上再加正通量。⇒ **默认保持关**；
+   开启是"共演化演示"开关，不是保真修正。方案 C（挤占窗口概率保总风险）**暂不做**——
+   在"可达性"未解决前，它调的是一个几乎不发生的通量。
 - **总风险口径**（方案 C）：若校准发现"新增通量"不可接受，再走"替代口径"（碰冻结面，独立 ADR）。
 - 亲属/年龄差/财富门第等额外约束；离婚/再婚；`transfer` 侧的彩礼/赠予（可与本规则组合，但要另一条 ADR）。
