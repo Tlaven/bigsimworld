@@ -135,7 +135,7 @@
 **步骤级说明**
 
 1. 分辨率算子（`create` / `materialize` / `coarsen` / `merge` / `split` / `dissolve`，以及窗口侧 `materialize` / `dematerialize`）**计数中性**：只移动，不产生 / 销毁。
-2. **整人析出守卫**：只能从 `count ≥ 1.0` 的桶取整人，每取 1 人恰好扣 1.0；分数桶（<1 人份额，来自 coarse 的 `death` / `birth`）**留在共演单元内**。
+2. **整人析出守卫**：只能从 `count ≥ amount` 的桶取整人（单人 `amount=1.0`；通道的双人析出 `amount=2.0`），每取 1 人恰好扣 1.0；分数桶（<1 人份额，来自 coarse 的 `death` / `birth`）**留在共演单元内**。
 3. **残留并入**：`coarsen` 以窗口成员重建聚合态时，必须并入共演单元内的分数残留；否则再次粗化会丢质量。
 4. 恒等式扩为：`Σ measure.counts + Σ_coarse size + len(window.characters) == 初始 + 出生 − 死亡`。
 

@@ -26,10 +26,10 @@
 
 | # | 问题 | 结论 | 状态 | 落档 |
 |---|---|---|---|---|
-| 1 | 婚配维度 `marital` 是否可寻址 | **双人析出**（扩 `RECONSTRUCTIBLE` + `extract(amount=2)` 同桶取 2 人并 `link` 成配偶） | **待实现**（N2 ⇒ 先 teach-back） | [`adr-003`](docs/decisions/adr-003-interaction-channel.md) |
+| 1 | 婚配维度 `marital` 是否可寻址 | **双人析出**（扩 `RECONSTRUCTIBLE` + `extract(amount=2)` 同桶取 2 人并 `link` 成配偶） | **已实现**（3 轮 teach-back + 6 条新测试） | [`adr-003`](docs/decisions/adr-003-interaction-channel.md) |
 | 2 | 配额形态 | **常数**：`cap_per_cluster=2`、`cap_per_tick=8` + 窗口 headroom | 已实现 | 同上 |
 | 3 | 宽限期归属 | **通道机制**：`_grace_ids(tick)` 在 `allocate()` 前给出分辨率冻结集（`grace_ticks=180`） | 已实现 | 同上 |
-| 4 | 分辨率层保真门槛 | **分层门槛**：结构层不设阈值 + 跨规模趋势（`age_l1` 不随 n 升且 ≤0.06）+ `pop(R−C)` 相对偏差 ≤5% 硬门禁 | **待实现**（门禁工具 + CI 慢跑） | [`adr-004`](docs/decisions/adr-004-cluster-fidelity-gate.md) |
+| 4 | 分辨率层保真门槛 | **分层门槛**：结构层不设阈值 + 跨规模趋势（`age_l1` 不随 n 升且 ≤0.06）+ `pop(R−C)` 相对偏差 ≤5% 硬门禁 | **已实现**（`bench.cluster_fidelity --gate` + CI 慢跑 job） | [`adr-004`](docs/decisions/adr-004-cluster-fidelity-gate.md) |
 
 > **第 4 条的关键更正**：`pop(R−C)` **不是**"随 n 放大"——n≈400 见顶（−4.6%）后**回落**（800: −1.0%、1600: −0.66%）；
 > `age_l1` 到 n=1600（0.0359）**仍未平台化**，且衰减远慢于 1/n。数据见 [`bench/README.md`](bench/README.md) 与 `history.md` Stage 16 修订。

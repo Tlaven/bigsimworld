@@ -31,7 +31,7 @@
 | `InteractionChannel` | 收集意图 → 确定性排序 → 配额闸 → `bind` / `unbind` → 记账本 | ✅ |
 | `bind` | 原子：`extract` + `link`（**有身份**，先扣后加） | ✅ |
 | `unbind` | `bind` 的逆：`unlink`（断链）+ 把该角色折算回 **coarse**（按**当前**属性落桶，见 N2-4） | ✅ |
-| `extract` | 从 coarse `Measure` 按 `Match` 析出 1 个整人并扣减（`_sample_cell` 的按谓词泛化） | ✅（第 0 步已交付） |
+| `extract` | 从 coarse `Measure` 按 `Match` 析出 `amount` 个整人并扣减（`_sample_cell` 的按谓词泛化；`amount=2` = N2-5 的成对析出） | ✅（第 0 步已交付） |
 | `link` | **边的唯一入口**：一次调用双向写 `relationships`（对称；非对称用 `reverse`）。**不记档**——`relation_record` 只由 `unlink(..., record=True)` 双向追加 | ✅（第 0 步已交付） |
 | `InteractionRule`（Protocol + `RULES` 注册表） | 规则缝：**只声明"发起什么意图"**；**建边由通道统一执行**（`link`），规则不碰边。签名（MVP）：`offers(context: ChannelContext) -> Iterable[Intent]` | ✅（空注册表） |
 | 通道账本（有界 `deque`，`maxlen=4096`） | 每条操作一条记录，供观测与对账 | ✅ |
@@ -137,7 +137,7 @@ class Intent:
 1. **coarse 侧** = `origin` 若是 `("cluster", …)` 则取 `origin`，否则取 `scope`（此时 `scope` 必须是 `("cluster", …)`）。
 2. **resolved 侧发起者** = `origin` 若是 `("character", …)` 则该角色本人；否则（C 侧发起）在 `scope=("window",)` 里
    按 `match` 选出**一个已有窗口角色**作为对手方。
-3. **析出**永远在 **coarse 侧**（唯一没有身份的一侧）：析出 1 个整人 → 得到新 `Character`。
+3. **析出**永远在 **coarse 侧**（唯一没有身份的一侧）：析出整人（1 个；`Match(marital=1)` 时**成对 2 个**，见 N2-5）→ 得到新 `Character`。
 4. **建边**：`link(发起者角色, 析出的新角色, kind)`——两者此时**都已是 `Character`**。
    - R→C：发起者是 R，析出的是**对手方**；
    - C→R：析出的是**发起者**（代表该簇），对手方是第 2 步选中的窗口角色。
@@ -248,23 +248,26 @@ class Intent:
    `run()` 按"本次实际析出人数"累加，而不是"每个成功意图 +1"。
 5. **解析两侧**（决策 2 第 1–2 步）：定出 `coarse_cluster` 与 `initiator_character`。
    任一解析不出（簇不存在 / 窗口侧无匹配 / 发起者已离场）⇒ 丢弃（记 `dropped:stale` 或 `dropped:no_match`）。
-6. **reserve**：在 `coarse_cluster` 的 mini `Measure` 上，取满足 `Match` **且** `count ≥ 1.0` 的候选桶，
-   **按桶索引升序**后做**计数加权抽样**（用 `ctx.rng`）。候选为空 ⇒ 丢弃（记 `dropped:no_match`）。
-   随后 `mini.add(cell, -1.0)` 并 `reserved += 1`。
+6. **reserve**：在 `coarse_cluster` 的 mini `Measure` 上，取满足 `Match` **且** `count ≥ amount` 的候选桶
+   （单人 1.0；成对 2.0，见 N2-5），**按桶索引升序**后做**计数加权抽样**（用 `ctx.rng`）。候选为空 ⇒ 丢弃（记 `dropped:no_match`）。
+   随后 `mini.add(cell, -amount)` 并 `reserved += amount`。
    - **此刻起质量已离开 coarse 侧。**
 7. **析出**：由 `(age, gender, wealth_bucket)` 造新 `Character` 并入窗口（`window.attach`）。
    - **不写 `coarse_cluster.member_ids`**：coarse 簇的 `member_ids` 按契约**必须为空**（`cluster-contract.md` §1）；
      析出者是"与该簇相连的具名个体"，不是它的成员。若建的是**亲属**边，下一个 `form_interval` 的
      `_reconcile` 会按既有机制把它抽入（level→1）；非亲属边则保持浮动——这正是想要的语义。
-   - **第 7 步抛异常**（`generate_character` / `window.attach`）⇒ 回滚第 6 步：`mini.add(cell, +1.0)`、
-     `reserved -= 1`、丢弃（`dropped:error`）。
+   - **第 7 步抛异常**（`generate_character` / `window.attach`）⇒ 回滚第 6 步：`mini.add(cell, +amount)`、
+     `reserved -= amount`、丢弃（`dropped:error`）。
 8. **link**：`link(initiator_character, new_character, kind)`——双向写 `relationships`（**`link` 不记档**；`relation_record` 只由 `unlink(..., record=True)` 追加）。
    - **第 8 步抛异常** ⇒ **逆序撤销第 7 步**（`window.detach(new_id)`）**+ 回滚第 6 步**
-     （`mini.add(cell, +1.0)`、`reserved -= 1`）、丢弃（`dropped:error`）。
+     （`mini.add(cell, +amount)`、`reserved -= amount`）、丢弃（`dropped:error`）。
      **回滚清单必须是"已完成步骤的逆序全撤"**——只回滚测度会留下"已入窗口的真人 + 测度已退"，
      破坏不变量 1（人头守恒）与不变量 3（无幽灵）。
 9. **宽限期登记**：`recently_active[cid] = tick`。**放在建边成功之后**——失败的意图不该给簇一段宽限期。
-10. **commit**：账本追加一条 `ok` 记录；`reserved -= 1`。
+10. **commit**：账本追加一条 `ok` 记录；`reserved -= amount`。
+
+> 上面第 6–10 步里的 `amount`：单人路径 = 1；`Match(marital=1)` 时 = 2（**成对析出**，
+> 多一条 `spouse` 边与一个配偶回滚对象——完整规格见 **N2-5**）。
 
 > **`bind` 只对 `level==0`（coarse）簇有效**：resolved 簇的成员本就是具名角色，规则可直接取用，无需"析出"。
 > 命中 resolved/不存在的簇 ⇒ `dropped:stale`。
@@ -313,7 +316,7 @@ class ChannelRecord:
 6. **账本**：`unbind` 追加一条 `status="unbound"` 的记录（`delta_mass=+1.0`，`cell` = 折算的**目标桶**；
    并带 `new_id` 与 `initiator_id`，便于把该记录**挂回**原 `bind` 记录——对账需要）。
 
-**N2-5 · `marital` 双人析出（已婚者不得单独析出）**（2026-10-17 拍板；**待实现**）
+**N2-5 · `marital` 双人析出（已婚者不得单独析出）**（2026-10-17 拍板并实现）
 
 **为什么**：个体引擎里"已婚"**不是属性**，而是 `relationships["spouse"]`（一条双向边）。
 从 `marital=1` 的桶析出**1 个人**，必然造出一个**假单身**（今天的物化路径正是如此：丢 `_marital`、
@@ -491,7 +494,7 @@ class ChannelRecord:
   `WindowEngine._refill` 会按 `channel.headroom_reserve()` 预留窗口名额（见决策 6）。
 - `ResolutionManager`：交互阶段插在 `store.step_coarse()` **之后**、`allocate()/apply` **之前**；
   宽限期冻结集在 `allocate` 前算好（`_grace_ids`）。
-- `ClusterStore`：复用 `extract`（"只从 count ≥ 1.0 的桶析出整人"的按谓词泛化）。
+- `ClusterStore`：复用 `extract`（"只从 `count ≥ amount` 的桶析出整人"的按谓词泛化）。
 - `Character` / `links`：`link` 必须是边的**唯一入口**。
 
 ### 验收
