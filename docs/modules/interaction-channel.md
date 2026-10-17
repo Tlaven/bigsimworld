@@ -66,6 +66,10 @@
 `bench.audit_ledger --resolution/--clusters` 数字不退化（实测 `dev = 0`、`identity error = 0`、
 `rho = 2143` 与接入前一致）。
 
+**拍板后待实现（2026-10-17，状态 = doing）**：`marital` **双人析出**（N2-5）。
+拍板落档见 [`../decisions/adr-003-interaction-channel.md`](../decisions/adr-003-interaction-channel.md)（状态 accepted）；
+实现前必须过 teach-back（铁律 9），因为它是 N2 改动。
+
 **mutation 检验**（证"测试本身有效"）：把 `ClusterStore.extract` 的 `mini.add(chosen, -amount)` 改成 `…, 0.0`，
 `tests/test_channel.py` 中守恒 / 可逆 / 回滚三条**变红**——测试确实在守不变量。
 
@@ -145,18 +149,21 @@ class Intent:
   **先设计 id 式 API 一定会推倒重来。**
 - `Match` 是**声明**，其字段（**闭区间**，两端都含）：
   ```python
-  Match(age=(lo, hi), gender=0|1, wealth_bucket=(lo, hi))   # 全部可选，None = 不限
+  Match(age=(lo, hi), gender=0|1, wealth_bucket=(lo, hi), marital=0|1)   # 全部可选，None = 不限
   ```
   `wealth_bucket` 用**桶索引**（线性宽 1000），不用财富值——避免"值是连续、桶是离散"的二次换算。
   **`age` 的单位是"岁"**（不是龄段号）：年龄桶是 1:1 的（121 桶 = 0..120），故 `age` 值与桶索引相等。
+  **`marital` 是标量 0/1**（不是区间；桶空间里它只有 0/1 两档）。**缺省（`None`）的语义见 N2-5 第 1 步**：
+  单人路径自动排除 `marital=1`。
 - `Match` 编译为**桶索引谓词** `pred(index) -> bool`，两侧共用：
   - R→C：直接作用于 coarse 的 `occupied` 桶索引；
-  - C→R：把每个窗口角色折算成桶索引（`space.encode(c.age, gender, space.wealth_bucket(c.wealth), …)`）后作用——
-    代价 O(窗口人数) = O(`capacity`)，可接受。
+  - C→R：把每个窗口角色折算成桶索引
+    （`space.encode(c.age, gender, space.wealth_bucket(c.wealth), 1 if c.relationships.get("spouse") else 0)`）
+    后作用——代价 O(窗口人数) = O(`capacity`)，可接受。
   - **C→R 的对手方选取顺序固定为 `Character.id` 升序取第一个匹配**（不得依赖窗口 `dict` 迭代序）。
-- **本期可重建维度 = `{age, gender, wealth}`**（`RECONSTRUCTIBLE`）。`marital` **本期不可寻址**：
-  `Match(marital=…)` ⇒ **抛错**。（ADR-003 未定点 1 若将来选"双人析出"，只需扩 `RECONSTRUCTIBLE` 并让
-  `extract` 支持 `amount=2`——扩展缝已留好。）
+- **可重建维度 = `{age, gender, wealth, marital}`**（`RECONSTRUCTIBLE`；2026-10-17 拍板，ADR-003 未定点 1 = **双人析出**）。
+  `Match(marital=1)` 合法，但**已婚者不得单独析出**——必须成对（见 N2-5）。
+  规则：`Match` 引用 ∉ `RECONSTRUCTIBLE` 的维度 ⇒ 在 `compile` **抛错**（不变量 4）。
 
 ### 决策 5：本期只做通道，不做规则
 "规则未知"恰好是对通道设计的**检验**：零规则 + 探针规则即可完整验收通道（见 [不变量] 的验收）。
@@ -215,7 +222,8 @@ class Intent:
 6. **可交换** `[强制]`：`bind` 的处理结果与"同 tick 内其它**无关**意图"的顺序无关；
    与竞争同一份 coarse 质量的意图**相关但确定**（由不变量 5 的排序保证）。
 7. **配额有界** `[强制]`：单簇单 tick 析出 ≤ `cap_per_cluster`；单 tick 总析出 ≤ `cap_per_tick`；
-   窗口不超 `capacity`。**MVP 取值**：`cap_per_cluster=2`、`cap_per_tick=8`（常数，可换）。
+   窗口不超 `capacity`。**按人计，且闸必须 `amount` 感知**（N2-1 第 4 步）——否则双人析出会越过上界。
+   **取值**：`cap_per_cluster=2`、`cap_per_tick=8`（常数）。
 8. **可对账** `[强制]`：每条通道操作（含每次丢弃）在账本有且仅有一条记录；逐条可核平。
 
 ### N2 步骤级说明
@@ -227,9 +235,12 @@ class Intent:
 2. **排序**：按 `(origin_side, origin_id, kind, scope_type, scope_id)` 升序（`origin_side`：`character`=0、`cluster`=1；
    `scope_type`：`cluster`=0、`window`=1）。字符串比大小即可（Python 元组比较），**唯一确定的处理序**。
 3. **去重**：同一 `(origin, kind, scope)` 只保留第一条。
-4. **配额闸**：`coarse` 簇本 tick 已析出数 ≥ `cap_per_cluster` ⇒ 丢弃（记 `dropped:quota_cluster`）；
-   本 tick 总析出 ≥ `cap_per_tick` ⇒ 丢弃（记 `dropped:quota_tick`）；
-   `len(window) + reserved ≥ capacity` ⇒ 丢弃（记 `dropped:window`）。
+4. **配额闸（`amount` 感知）** `[强制]`：设本次意图需要的析出量 `amount`（单人路径 = 1；婚配成对 = 2，见 N2-5）：
+   `per_cluster + amount > cap_per_cluster` ⇒ 丢弃（记 `dropped:quota_cluster`）；
+   `made_total + amount > cap_per_tick` ⇒ 丢弃（记 `dropped:quota_tick`）；
+   `len(window) + reserved + amount > capacity` ⇒ 丢弃（记 `dropped:window`）。
+   **闸必须在 reserve 之前、按 `amount` 判定**——否则婚配意图会在"只剩 1 个名额"时挤进来，
+   事后 `+= 2` 直接**破坏不变量 7**。
 5. **解析两侧**（决策 2 第 1–2 步）：定出 `coarse_cluster` 与 `initiator_character`。
    任一解析不出（簇不存在 / 窗口侧无匹配 / 发起者已离场）⇒ 丢弃（记 `dropped:stale` 或 `dropped:no_match`）。
 6. **reserve**：在 `coarse_cluster` 的 mini `Measure` 上，取满足 `Match` **且** `count ≥ 1.0` 的候选桶，
@@ -266,9 +277,12 @@ class ChannelRecord:
     scope: tuple
     cell: int | None = None         # reserve 到的桶；未 reserve 时为 None
     delta_mass: float = 0.0         # ok 时 = -1.0；其余为 0.0
-    initiator_id: int | None = None # 建边两端（unbind 靠它定位对端）
+    initiator_id: int | None = None # 意图边**非 `new_id` 的一端**（恒为窗口侧：R→C=R，C→R=W）；
+                                    # unbind 靠它定位对端（N2-5 第 5 步）
     new_id: int | None = None
+    spouse_id: int | None = None    # 仅 N2-5 双人析出：配偶 id（`new_id` 记 `a`）
     coarse_id: int | None = None    # 析出源簇（unbind 靠它决定折算回簇还是全局测度）
+    spouse_cell: int | None = None  # 仅 N2-5 的 `unbind`：配偶的折算目标桶
     note: str = ""                  # dropped:error 存异常摘要
 ```
 
@@ -276,10 +290,12 @@ class ChannelRecord:
 
 1. **定位**：由 `new_id` 在该 `kind` 的 `ok` 记录里查得 `initiator_id` 与 `cell`（一个 `new_id` 只可能由一次
    `bind` 创建 ⇒ 唯一）。
-2. **两端的边**：`unlink(initiator, new, kind)`（`record=True`）——**不猜"哪条边"**，就是这条。
-3. **折算回 coarse**：把该角色按**当前** `(age, gender, space.wealth_bucket(wealth))` 折算回
+2. **两端的边**：`unlink(record.initiator_id, new_id, record.kind)`（`record=True`）——**不猜"哪条边"**，就是这条。
+   （`initiator_id` 的定义见 N2-1 的账本形状与 N2-5 第 5 步：**恒为意图边非 `new_id` 的一端**。）
+3. **折算回 coarse**：把该角色按**当前** `(age, gender, space.wealth_bucket(wealth), marital=0)` 折算回
    `coarse_cluster` 的 mini 引擎（`mini.add(encode(...), +1.0)`），随后 `window.detach(new_id)`、
    `coarse_cluster.member_ids.discard(new_id)`。
+   - **`marital` 恒取 0**：配偶边在第 2 步已断 ⇒ 该角色此刻是单身（N2-5 第 9 步同此口径）。
    - **不**用账本里的 `cell` 强写回：coarse 侧在此期间持续演化，强写回会把一个已变老/变富的人塞回旧桶，
      破坏 mini 的年龄结构。代价是**不保证回到原桶**（见不变量 3 的注意）。
    - 若 `coarse_cluster` 已被回收/`dissolve` ⇒ 折算回**全局测度**（该角色退场，人头不变）。
@@ -287,7 +303,99 @@ class ChannelRecord:
    `dropped:error`（供对账发现）。
 5. **`unbind` 可跨 tick 调用**（宽限期正是为此存在）；同一 tick 内调用时 `unbind` 应与 `bind` 记录**独立**，
    不合并、不抵消。
-6. **账本**：`unbind` 追加一条 `status="unbound"` 的记录（`delta_mass=+1.0`，`cell` = 折算的**目标桶**）。
+6. **账本**：`unbind` 追加一条 `status="unbound"` 的记录（`delta_mass=+1.0`，`cell` = 折算的**目标桶**；
+   并带 `new_id` 与 `initiator_id`，便于把该记录**挂回**原 `bind` 记录——对账需要）。
+
+**N2-5 · `marital` 双人析出（已婚者不得单独析出）**（2026-10-17 拍板；**待实现**）
+
+**为什么**：个体引擎里"已婚"**不是属性**，而是 `relationships["spouse"]`（一条双向边）。
+从 `marital=1` 的桶析出**1 个人**，必然造出一个**假单身**（今天的物化路径正是如此：丢 `_marital`、
+`generate_character` 默认单身）。所以"寻址已婚"在语义上**只能**成对。
+
+**步骤级说明**
+
+1. **寻址**：`Match(marital=1)` 合法（`RECONSTRUCTIBLE` 已含 `marital`）。`Match(marital=0)` 走原有单人路径。
+   **`Match(marital=None)`（缺省 = 不限）在单人路径下自动排除 `marital=1` 桶**——否则会造出 N2-5 明令禁止的
+   假单身（"已婚者不得单独析出"是**硬规则**，不因谓词缺省而失效）。⇒ 本期的"不限"实为"未婚或未指定婚配"；
+   要寻址已婚**必须显式** `marital=1`（成对）。
+   **`amount` 只由 `match.marital` 决定**（`= 1` ⇒ 2；否则 ⇒ 1）⇒ 闸在 reserve **之前**即可判定（N2-1 第 4 步）。
+   **该排除只作用于 coarse 侧的析出**：C→R 的**窗口侧对手选取**不受它影响——窗口角色本就是真个体，
+   其 `marital` 由 `relationships["spouse"]` 折算（决策 4），不存在"假单身"问题。
+2. **成对析出**：命中 `marital=1` 时，`extract(mini, predicate, amount=2.0)` —— **同一桶取 2.0**，得到一个桶索引。
+   候选桶由 `extract` 内部按 `count ≥ amount` 过滤 ⇒ 此时天然是 `count ≥ 2.0`（N2-1 第 6 步的 `count ≥ 1.0` 在 `amount=2` 下的特例）。
+3. **前置条件**：该桶 `count ≥ 2.0`（两个人都在桶里）。不足 ⇒ `dropped:no_match`。**禁止跨桶凑对**——
+   不同桶的两人年龄/财富都不同（**代价见下「性别与"重建哪段婚姻"」**）。
+4. **两个析出者 `a` / `b` 的确定（方向无关）**：`a` = 那一对里**承接意图边**的一个；`b` = `a` 的配偶。
+   **`a`/`b` 由 `window.attach` 的调用序决定**（先 attach 的是 `a`）——不得依赖 `dict` / `set` 迭代序（不变量 5）。
+5. **重建婚姻 + 建意图边**（方向语义**完全复用决策 2**，两者都必须是 `Character` 之后才建边）：
+   - 先 `link(a, b, "spouse")`（`record=True`）——这是"重建既有婚姻"，不是"新办婚事"；
+   - **R→C**（发起者是窗口角色 `R`，析出的是**对手方**）：`link(R, a, intent.kind)`；
+   - **C→R**（析出的是**簇的代表**）：`link(a, W, intent.kind)`，`W` = 决策 2 第 2 步选出的窗口角色。
+   - **账本 `initiator_id` 的唯一规则**：**恒为意图边"非 `new_id` 的一端"**——R→C ⇒ `R`；C→R ⇒ `W`
+     （**不是** `a`！）。这条规则让 N2-4 第 2 步的 `unlink(record.initiator_id, new_id, record.kind)`
+     对两个方向**都**成立；若 C→R 存成 `a`，`unbind` 会退化成 `unlink(a, a)`（空操作），
+     `a—W` 边**永不解除** ⇒ 违反不变量 3（无幽灵）。
+   - ⚠️ **两个"发起者"不是一回事**：**语义发起者**在 C→R 下是**簇**（由析出的 `a` 代表），
+     而**账本 `initiator_id`** 恒指**窗口侧**那一端（R→C 的 `R` / C→R 的 `W`）。别混用这两个词。
+6. **配额按人计**（闸见 N2-1 第 4 步，按 `amount=2` 判定）：reserve 时 `reserved += 2`；成功时
+   `per_cluster[cluster.id] += 2`、`made_total += 2`。
+   ⚠️ **一次婚配绑定即用满单簇配额**（`cap_per_cluster=2`）⇒ 单簇单 tick 至多一次婚配绑定；
+   若该簇本 tick 已析出 1（单人路径），后续婚配意图会被**闸**丢弃（`1 + 2 > 2`）。
+7. **账本**：**一条** `bind` 记录，`delta_mass = -2.0`；`ChannelRecord` 新增两字段——`spouse_id`
+   （配偶 id；`new_id` 记 `a`）与 `spouse_cell`（bind 时为 `None`，`unbind` 时填配偶的折算目标桶）。
+   `initiator_id` 按第 5 步的唯一规则（窗口侧那一端）。**commit 时 `reserved -= 2`**（N2-1 第 10 步的 `-= 1` 在此为 `-= 2`）。
+8. **回滚（逆序全撤）**：任一步失败 ⇒ `unlink` 已建的边（先 `intent.kind`、再 `"spouse"`）→ `detach` 两人 →
+   `mini.add(cell, +2.0)` → `reserved -= 2`。**只回滚测度会留下幽灵**（同 N2-1 第 8 步）。
+9. **`unbind`**：断**两条**边——`unlink(record.initiator_id, new_id, record.kind)` 与 `unlink(a, b, "spouse")`
+   （均 `record=True`）——然后两人各按**当前**属性折算回 coarse（或全局测度）。
+   **折算的 `marital` 一律取 0**（配偶边已断 ⇒ 两人此时都是单身；N2-4 第 3 步的编码同此口径）。
+   **账本一条** `status="unbound"`：`delta_mass = +2.0`、`cell` = `a` 的折算目标桶、
+   `spouse_cell` = `b` 的折算目标桶（两人可能落**不同**桶——绑定期间 `income`/`aging` 会移动它们；
+   见不变量 3 的注意）。簇已回收 ⇒ 两人都折算回全局测度。
+   **配偶 `b` 已不在窗口**（被逐出 / 离场）：只解除**仍存在**的边、只折算**仍在窗口**的那一个；
+   仍记一条 `unbound`（`spouse_cell = None`，`note` 记 `spouse_gone`），**不抛错**（与 N2-4 第 4 步同精神）。
+   **反向（`a` = `new_id` 已离场、`b` 仍在窗口）**：按 N2-4 第 4 步**返回 `False`**，不抛错；
+   `b` 的状态由它自己的离场 / `unbind` 路径处理——**不**在这里顺手折算（避免双重记账）。
+   `unbound` 记录同样带 `new_id` / `initiator_id`（挂回原 `bind`）。
+
+**精确例子**
+
+- **R→C**：桶 `count=2.0 @ encode(30, 0, b, 1)`、`Intent(origin=("character", R.id), scope=("cluster", cid), match=Match(marital=1), kind="probe")`
+  ⇒ 该桶 `2.0 → 0.0`；`len(window) +2`；`a`/`b` 之间有 `spouse` 边；**`R ↔ a`** 有 `probe` 边（不是 `R ↔ b`）；
+  账本 1 条 `delta_mass=-2.0`、`new_id=a`、`spouse_id=b`；`per_cluster` 记 2 ⇒ 该簇本 tick 再收不到第二个意图。
+- **C→R**：`origin=("cluster", cid)`、`scope=("window",)`、`match=Match(marital=1)`，窗口内有匹配的 `W`
+  ⇒ 析出的一对是**簇的代表**：`a` = 承接意图边的那一个（语义发起者 = 簇），`b` = `a` 的配偶；
+  `link(a, b, "spouse")` + `link(a, W, "probe")`；账本 `new_id=a`、`spouse_id=b`、
+  **`initiator_id=W`**（窗口侧那一端，见第 5 步）。
+- 桶 `count=1.0 @ marital=1` ⇒ `dropped:no_match`（**凑不出一对**，宁可丢弃也不造假单身）。
+- `Match(marital=0)` ⇒ 单人路径，行为与从前逐位一致。
+
+**性别与"重建哪段婚姻"（两条已知性质，不是缺陷）**
+
+- **聚合态不记录"谁与谁"** ⇒ 成对析出重建的是**一段合法婚姻**，不是**原来那段婚姻**（身份在本层本就不守恒：
+  `coarsen → materialize` 是重采样新代表，见 `engineering-spec.md` §9）。
+- **`gender` 是桶维度** ⇒ 同桶取 2 必然**同性**。这在本模型里**合法**：个体引擎的婚配**无性别约束**
+  （`spouse_event` 只筛 `18 ≤ age < 60` 且未婚，见 `app/core/person/events.py`），测度层的婚配维度同样是"性别中立"的。
+  若将来要**异性配对**，需改成跨 `gender` 桶取对（新原语 + 新不变量，属**独立决策**）。
+
+**验收**:`python -m pytest tests/test_channel.py -q` → 全绿（新增：成对析出守恒 `Σmeasure+Σcoarse+len(window)` 不变、
+`count=1.0` 的已婚桶必被丢弃、`unbind` 双向解除且无幽灵）；
+`python -m bench.audit_ledger --resolution --n 3000 --steps 2000 --capacity 300` → 逐算子 `identity error = 0`（**惰性不变**：无规则时该路径不执行）。
+
+**范围声明（本次不动）**：物化丢婚配的**其余两条路径**——`ClusterStore.materialize`（分辨率层析出代表）
+与窗口 `_refill`（`materialize_sample`，从全局测度抽样代表）——**本次不改**：它们是"抽样代表"，
+成对析出会改**窗口人口构成**与回填口径（属独立决策）。二者记为**已知近似**（状态：planned，集中在此处）。
+
+**陷阱**
+
+- **配额 / headroom 闸必须按 `amount` 判定**（N2-1 第 4 步）：按"1 个"判会让婚配意图在只剩 1 个名额时挤进来，
+  事后 `+= 2` ⇒ 破坏不变量 7。这是本单元最容易被写错的一处。
+- **C→R 时账本 `initiator_id` 存 `W`（窗口侧），不是 `a`**：存错 ⇒ `unbind` 退化成 `unlink(a, a)`，
+  `a—W` 边永不解除（幽灵）。别把"语义发起者（簇，由 `a` 代表）"与"账本 `initiator_id`（窗口侧那一端）"混用。
+- 不得"析出 1 人 + 伪造配偶边"（幽灵边）；不得跨桶凑对。
+- **`a` / `b` 的确定必须来自 `window.attach` 的调用序**，不得依赖 `dict` / `set` 迭代序（不变量 5）。
+- 析出者**从不进** `coarse_cluster.member_ids`（N2-1 第 7 步）；N2-4 第 3 步的 `discard` 是**幂等防御**，不是"曾经写进去过"。
+- 别把本规则推广成"所有 `marital=1` 的析出都成对"——`ClusterStore.materialize` / `_refill` 当前**有意**不遵守（范围声明）。
 
 **N2-2 · 谓词式寻址与可重建维度守卫**
 
@@ -353,7 +461,8 @@ class ChannelRecord:
    **新增代码不得再用模块级 `random`**。
 3. **顺序依赖**：多个 R 竞争同一份 coarse 质量时结果依赖处理序 ⇒ 必须排序（N2-3 第 1 步）。
 4. **不要枚举状态空间**（2.18e6 桶），只扫 `occupied` / `capacity`。
-5. **不要把 `marital` 当普通可寻址维度**——本期它不可重建（物化丢婚配）⇒ `Match` 引用它必须抛错。
+5. **`marital` 可寻址，但**不是**普通维度**：个体引擎里"已婚"是 `relationships["spouse"]`（不是属性）⇒
+   必须**成对析出**（N2-5）；单独析出一个"已婚桶"的人 = 造出假单身。引用 ∉ `RECONSTRUCTIBLE` 的维度仍须抛错。
 6. **边语义的单一真相源是 `relationships`**（经 `links.neighbors` 求关系度）。曾经有个 `relatives` 字段
    只在构造时填充、构造后**从不更新**，导致三处依赖失真（广场配对去重失效、收敛指纹度指标恒为 0、
    ρ 退化为簇成员数）。**该字段已删除**，三处改为真实语义。实测交叉印证：同一次审计里 `rho` 由

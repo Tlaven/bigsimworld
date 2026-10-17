@@ -1,7 +1,7 @@
 # SimuWorld — AI 协作记忆文件（L1）
 
 > 本文件由 `init-project-docs` 以**嫁接模式**生成：本仓库已有成体系文档，此处**不重述事实，只做定位 + 指针 + 约束**（遵循 E1 指针优先）。
-> 标 **［推断,待确认］** 的条目是从代码 / 既有文档 / 与作者会话**推断的证据草稿**，待作者拍板（集中在「开放问题」）。**当前有 4 条待确认项（见「开放问题」）。**
+> 标 **［推断,待确认］** 的条目是从代码 / 既有文档 / 与作者会话**推断的证据草稿**，待作者拍板（集中在「开放问题」）。**当前无未决项**（4 条已于 2026-10-17 拍板，见「开放问题」表）。
 >
 > 宿主：OpenCode → 本文件。若将来并存 Claude Code，请只加一行指针（`见 AGENTS.md`），**不要各写一份**。
 
@@ -22,17 +22,17 @@
 
 ## 开放问题（未决）
 
-以下 3 条是 **ADR-003（交互通道）** 的未定点，待作者拍板（详见 [`docs/decisions/adr-003-interaction-channel.md`](docs/decisions/adr-003-interaction-channel.md) §选择）：
+**当前无未决项。** 原先的 4 条已于 2026-10-17 全部拍板（决策型陈述只增不改，落档在 ADR）：
 
-1. **婚配维度 `marital` 是否可寻址**——推荐"双人析出"（顺带修物化丢婚配的保真 bug），备选"宣布为不可寻址维度"。
-2. **配额形态**——推荐"单簇单 tick 析出上限 = 常数 + 窗口 headroom"。
-3. **宽限期归属**——刚绑定的簇在 N tick 内不粗化：归**通道机制**还是**调度策略**。
-4. **是否给分辨率层设保真门槛、设多少**（Stage 16 + 修订）——首测 `age_l1 ≈ 0.25` **不可读作粗化误差**：
-   它是**分箱离散 + 相位错位**的产物（规模扫描：n=8→0.2556、200→0.0566、400→0.0454，衰减未平台化）；
-   且**分解本身随时长变**（相位贡献：t=600 时 100%、t=8000 时 16%）。
-   真实系统性偏差 **≲0.05**（与 `age_l1<0.06` 同阶）；而 `pop(R−C)` 随 n **放大**（n=400 时 ≈ **+4.6%**，
-   coarse 系统性多产人）——**这条更硬**。门槛属**范围**决策，故 `tests/test_cluster_fidelity.py` 目前
-   **只守结构、不设阈值**。**注意**：该层保真度在生产规模上不可单点判读，设计必须含**跨规模扫描 + 多时长**。
+| # | 问题 | 结论 | 状态 | 落档 |
+|---|---|---|---|---|
+| 1 | 婚配维度 `marital` 是否可寻址 | **双人析出**（扩 `RECONSTRUCTIBLE` + `extract(amount=2)` 同桶取 2 人并 `link` 成配偶） | **待实现**（N2 ⇒ 先 teach-back） | [`adr-003`](docs/decisions/adr-003-interaction-channel.md) |
+| 2 | 配额形态 | **常数**：`cap_per_cluster=2`、`cap_per_tick=8` + 窗口 headroom | 已实现 | 同上 |
+| 3 | 宽限期归属 | **通道机制**：`_grace_ids(tick)` 在 `allocate()` 前给出分辨率冻结集（`grace_ticks=180`） | 已实现 | 同上 |
+| 4 | 分辨率层保真门槛 | **分层门槛**：结构层不设阈值 + 跨规模趋势（`age_l1` 不随 n 升且 ≤0.06）+ `pop(R−C)` 相对偏差 ≤5% 硬门禁 | **待实现**（门禁工具 + CI 慢跑） | [`adr-004`](docs/decisions/adr-004-cluster-fidelity-gate.md) |
+
+> **第 4 条的关键更正**：`pop(R−C)` **不是**"随 n 放大"——n≈400 见顶（−4.6%）后**回落**（800: −1.0%、1600: −0.66%）；
+> `age_l1` 到 n=1600（0.0359）**仍未平台化**，且衰减远慢于 1/n。数据见 [`bench/README.md`](bench/README.md) 与 `history.md` Stage 16 修订。
 
 （`scripts/` 已接入 CI：`.github/workflows/docs-guard.yml`——PR 时跑 `check-docs-sync --strict` + `check-doc-refs --strict`。）
 
@@ -175,6 +175,7 @@ powershell -File scripts/check-doc-refs.ps1
 - **守恒律**：`Σ measure.counts + Σ_coarse size + len(window.characters) == 初始 + 出生 − 死亡`；所有分辨率算子（`create/materialize/coarsen/merge/split/dissolve`，以及窗口侧 `materialize`/`dematerialize`）**计数中性**（只移动，不产生/销毁）。（源：`docs/engineering-spec.md` §9、`docs/cluster-contract.md` §6）
 - **身份不守恒**：`coarsen → materialize` 是**重采样新代表**（人数守恒、身份不保）。不要把身份当守恒量。
 - **收敛门槛**（测度 vs 个体）：`gini_diff < 0.02`、`wealth_ks < 0.06`、`age_l1 < 0.06`、`married_diff < 0.10`。判定由 `tests/`（`pytest`）断言；人肉核对口径 = `bench.convergence --full-compare --sizes 2000 5000 10000 --steps 4000`。（源：`docs/history.md` 验收门槛）
+- **分辨率层保真门槛（分层）**：**禁止**在生产簇规模（`members ≤ 12`）上设单点阈值；门槛只在可判读口径上定义——跨规模（n≥400）+ 配对试验 + 多 trial：`age_l1` 随 n **不升**且最大 n 处 ≤ 0.06、`pop(R−C)` 相对偏差 ≤ 5% 且**不随 n 增长**。验证：`python -m bench.cluster_fidelity --gate`（CI 慢跑）；结构层仍由 `tests/test_cluster_fidelity.py` 守。（源：`docs/decisions/adr-004-cluster-fidelity-gate.md`）
 - **质量底线**：`coverage fail_under=80`；`ruff` 仅运行时缺陷（`E9/F63/F7/F82`），**风格刻意不设**。（源：`pyproject.toml`）
 - **确定性**：设 `SIM_SEED` 即固定随机种子 + 跳过墙钟负载反馈（同种子必然同发展）；`SIM_RESUME=1` 以快照为准、**不参与**种子重演。（源：`docs/engineering-spec.md` §9）
 - **算子改动纪律**：改财富/账本类算子必跑 `bench.audit_ledger` (+ `--resolution`)；账本禁止挂桶索引、禁止分数桶位移、转移只走"段池 + 整数桶 + 余量留池"。（源：`bench/README.md`）
