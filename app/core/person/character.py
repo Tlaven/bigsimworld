@@ -27,14 +27,13 @@ class Character:
         self.pedometer = temp_pedometer
         
         #relationship_keys = {"acquaintance","familiarity","friend","spouse", "ex-spouses", "father","mother", "child"}
-        self.relatives = set()
+        # 关系人的唯一真相源是 `relationships` 本身（求关系度用 `links.neighbors`）。
+        # 原先此处还有一个 `relatives` 字段，但它构造后从不更新 ⇒ 三处读取全部失真，已删除。
 
         temp_ralationships = defaultdict(list)
         for key, value in self.relationships.items():
             temp_ralationships[key] = value
-            self.relatives.update(value)
         self.relationships = temp_ralationships
-
         self.relation_record = defaultdict(list, self.relation_record)
 
         

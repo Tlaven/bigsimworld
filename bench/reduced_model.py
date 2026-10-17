@@ -24,7 +24,7 @@ class ReducedModel:
         for i, data in enumerate(make_characters(n, seed=seed), start=1):
             self.characters[i] = SimpleNamespace(
                 age=data["age"], gender=data["gender"],
-                wealth=data["wealth"], relatives=set(), relationships={},
+                wealth=data["wealth"], relationships={},
             )
 
     def step(self):

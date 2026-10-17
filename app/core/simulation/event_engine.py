@@ -15,6 +15,7 @@
 """
 
 import heapq
+import random
 
 from sqlalchemy import func
 
@@ -35,10 +36,12 @@ WEALTH_PERIOD = 30
 
 
 class EventEngine:
-    def __init__(self, db_queues, characters=None, rare_stride=1, n_cells=1):
+    def __init__(self, db_queues, characters=None, rare_stride=1, n_cells=1, rng=None):
         self.simulation_time = 0
         self.characters = {}
         self.n_cells = n_cells
+        # 随机源：默认模块级 random（保持"全局 seed 即复现"与逐位一致性测试），可注入以隔离随机流。
+        self.rng = rng or random
         self.event_plaza = {
             "acquaintance": [[] for _ in range(n_cells)],
         }
@@ -179,7 +182,7 @@ class EventEngine:
         self._plaza_scheduled_at = None
         plaza = self.event_plaza["acquaintance"]
         if any(len(cell_plaza) > 1 for cell_plaza in plaza):
-            PeopleEvents(self.event_plaza)
+            PeopleEvents(self.event_plaza, self.rng)
         if any(len(cell_plaza) > 1 for cell_plaza in plaza):
             self._ensure_plaza(when + 1)
 

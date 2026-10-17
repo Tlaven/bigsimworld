@@ -2,6 +2,8 @@
 
 import numpy as np
 
+from app.core.person.links import neighbors
+
 AGE_BOUNDARIES = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]
 
 
@@ -34,6 +36,15 @@ def _weighted_quantile(values, weights, quantiles):
     cum = np.cumsum(w)
     cum /= cum[-1]
     return np.interp(quantiles, cum, v).round(3).tolist()
+
+
+def degree_of(character):
+    """关系度 = **不同关系人**的数量。
+
+    定义在 [`app.core.person.links.neighbors`]，此处仅作 `bench` 侧的薄别名
+    （**不能**再用已删除的死字段 `Character.relatives` —— 取它会让度分布恒为单桶）。
+    """
+    return len(neighbors(character))
 
 
 def measure_fingerprint(measure, space):
@@ -92,7 +103,7 @@ def fingerprint(engine):
 
     ages = np.array([c.age for c in chars], dtype=np.int64)
     wealths = np.array([c.wealth for c in chars], dtype=np.float64)
-    degrees = np.array([len(c.relatives) for c in chars], dtype=np.int64)
+    degrees = np.array([degree_of(c) for c in chars], dtype=np.int64)
 
     adults = [c for c in chars if 18 <= c.age < 60]
     married = [c for c in adults if c.relationships.get("spouse")]

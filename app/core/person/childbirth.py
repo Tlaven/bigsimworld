@@ -1,5 +1,6 @@
 
 from app.core.generation.human import generate_character
+from app.core.person.links import link
 
 
 class ChildbirthEvent:
@@ -27,9 +28,12 @@ class ChildbirthEvent:
         for sibling in self.relationships['sibling'] + other.relationships['sibling']:
             sibling.childbirth_event.notify_sibling(newborn)
 
-        self.relationships['child'].append(newborn)
-        other.relationships['child'].append(newborn)
-    
+        # 子/亲边必须在通知循环**之后**建立：若先建，上面的
+        # `for child in self.relationships['child']` 会把新生儿也当成"已有的孩子"通知一遍
+        # （notify_child 会给它自己加 sibling 边）。顺序是语义的一部分。
+        link(self.character, newborn, 'child', 'parent')
+        link(other, newborn, 'child', 'parent')
+
     def self_event(self, other):
         if self.character.gender == 'male':
             xing = self.character.xing
@@ -37,13 +41,11 @@ class ChildbirthEvent:
             xing = other.xing
         newborn_dict = generate_character(xing = xing, DOB = self.model.UTC)
         newborn = self.model.create_character(newborn_dict)
-        newborn.relationships['parent'] = [self.character, other]
 
         return newborn
 
     def notify_child(self, newborn):
-        self.relationships['sibling'].append(newborn)
-        newborn.relationships['sibling'].append(self.character)
+        link(self.character, newborn, 'sibling')
 
     def notify_friend(self, friend):
         pass

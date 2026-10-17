@@ -1,5 +1,7 @@
 
 
+from app.core.person.links import unlink
+
 
 class DeathEvent:
     def __init__(self, model, character):
@@ -10,25 +12,27 @@ class DeathEvent:
         self.relation_record = character.relation_record
 
     def happen(self):
-        for acquaintance in self.relationships['acquaintance']:
+        # 必须按**快照**迭代：notify_* 经 `unlink` 会**双向**解除边，因而会改到本列表；
+        # 边遍历边改会跳过元素并制造"单边残留"（原实现只单向移除，侥幸没暴露）。
+        for acquaintance in list(self.relationships['acquaintance']):
             acquaintance.death_event.notify_acquaintance(self.character)
 
-        for familiarity in self.relationships['familiarity']:
+        for familiarity in list(self.relationships['familiarity']):
             familiarity.death_event.notify_familiarity(self.character)
 
-        for friend in self.relationships['friend']:
+        for friend in list(self.relationships['friend']):
             friend.death_event.notify_friend(self.character)
 
-        for spouse in self.relationships['spouse']:
+        for spouse in list(self.relationships['spouse']):
             spouse.death_event.notify_spouse(self.character)
-            
-        for parent in self.relationships['parent']:
+
+        for parent in list(self.relationships['parent']):
             parent.death_event.notify_parent(self.character)
 
-        for sibling in self.relationships['sibling']:
+        for sibling in list(self.relationships['sibling']):
             sibling.death_event.notify_sibling(self.character)
- 
-        for child in self.relationships['child']:
+
+        for child in list(self.relationships['child']):
             child.death_event.notify_child(self.character)
 
         self.self_event()
@@ -43,36 +47,27 @@ class DeathEvent:
         cell_plaza[:] = [character for character in cell_plaza if character.id != self.character.id]
 
     def notify_acquaintance(self, acquaintance):
-        self.relationships['acquaintance'].remove(acquaintance)
+        unlink(self.character, acquaintance, 'acquaintance')
 
     def notify_familiarity(self, familiarity):
-        self.relationships['familiarity'].remove(familiarity)
+        unlink(self.character, familiarity, 'familiarity')
 
     def notify_friend(self, friend):
-        self.relationships['friend'].remove(friend)
-        self.relation_record['friend'].append(friend.id)
-        friend.relation_record['friend'].append(self.character.id)
+        unlink(self.character, friend, 'friend', record=True)
 
     def notify_spouse(self, spouse):
-        self.relationships['spouse'].remove(spouse)
-        self.relation_record['spouse'].append(spouse.id)
-        spouse.relation_record['spouse'].append(self.character.id)
+        unlink(self.character, spouse, 'spouse', record=True)
 
     def notify_parent(self, child):
-        self.relationships['child'].remove(child)
-        self.relation_record['child'].append(child.id)
-        child.relation_record['parent'].append(self.character.id)
+        unlink(self.character, child, 'child', 'parent', record=True)
 
     def notify_sibling(self, sibling):
-        self.relationships['sibling'].remove(sibling)
-        self.relation_record['sibling'].append(sibling.id)
-        sibling.relation_record['sibling'].append(self.character.id)
+        unlink(self.character, sibling, 'sibling', record=True)
 
     def notify_child(self, parent):
         # 平分10%的遗产
+        # 注意：分母 `len(parent.relationships['child'])` 必须在解除边**之前**取，故顺序不可调换。
         self.character.wealth += parent.wealth * 0.1 / len(parent.relationships['child'])
-        self.relationships['parent'].remove(parent)
-        self.relation_record['parent'].append(parent.id)
-        parent.relation_record['child'].append(self.character.id)
+        unlink(self.character, parent, 'parent', 'child', record=True)
 
 

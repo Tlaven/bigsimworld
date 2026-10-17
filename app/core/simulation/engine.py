@@ -1,3 +1,5 @@
+import random
+
 from sqlalchemy import func
 
 from app.models import crud
@@ -10,10 +12,12 @@ logger = setup_logger()
 
 
 class SimulationEngine:
-    def __init__(self, db_queues, characters=None, n_cells=1):
+    def __init__(self, db_queues, characters=None, n_cells=1, rng=None):
         self.simulation_time = 0
         self.characters = {}
         self.n_cells = n_cells
+        # 随机源：默认模块级 random（保持"全局 seed 即复现"），可注入独立 Random 以隔离随机流。
+        self.rng = rng or random
         self.event_plaza = {
             "acquaintance": [[] for _ in range(n_cells)],
         }
@@ -85,7 +89,7 @@ class SimulationEngine:
         self.change_attribute()
         for character in self.characters.values():
             character.step()
-        PeopleEvents(self.event_plaza)
+        PeopleEvents(self.event_plaza, self.rng)
         self.later_queue.run_later()
         
     # 更新数据库中的状态
