@@ -5,19 +5,23 @@
 `InteractionRule`（第 9 缝）声明，本期 `RULES` 为空（通道惰性）。
 
 守恒律（**人头**）：身份侧操作（`bind` / `unbind`）不改变
-``Σmeasure + ΣCoarse + len(window)``。财富守恒是另一条账（属下期的 `transfer`）。
+``Σmeasure + ΣCoarse + len(window)``。
+守恒律（**财富**）：质量侧 `transfer`（R→C / C→R / 清算 / 投递）不改变
+``Σ count×桶中心 + Σ transfer_pool + Σ yearly_inherited + Σ 窗口 wealth``（见 N2-6 / ADR-005）。
 
 确定性：随机源只有一个 —— `window.rng`（`ClusterStore.rng` / `TickContext.rng` 是它的同一实例）。
 """
 
 from __future__ import annotations
 
+import math
 import random
 from collections import deque
 from dataclasses import dataclass, field
 from typing import Iterable, Protocol
 
 from app.core.generation.human import generate_character
+from app.core.measure.transitions import _shift_age_wealth
 from app.core.person.links import link, unlink
 
 # 可重建的桶维度：`extract` 之后能被重建的维度。
@@ -103,13 +107,17 @@ def compile_match(match: Match, space, extraction: bool = False):
 
 @dataclass(frozen=True)
 class Intent:
-    """通道的唯一输入形态。``origin`` = 发起者，``scope`` = 对手侧范围。"""
+    """通道的唯一输入形态。``origin`` = 发起者，``scope`` = 对手侧范围。
+
+    ``op`` 选定原子：``"bind"``（缺省，有身份，N2-1）/ ``"transfer"``（无身份质量移动，N2-6）。
+    """
 
     kind: str
     origin: tuple                      # ("character", rid) | ("cluster", cid)
     scope: tuple                       # ("cluster", cid)  | ("window",)
     match: Match
     payload: dict = field(default_factory=dict)
+    op: str = "bind"                   # "bind" | "transfer"
 
 
 @dataclass(frozen=True)
@@ -128,6 +136,9 @@ class ChannelRecord:
     spouse_id: int | None = None        # 仅双人析出（N2-5）：配偶 id（`new_id` 记 `a`）
     coarse_id: int | None = None
     spouse_cell: int | None = None      # 仅双人析出的 `unbind`：配偶的折算目标桶
+    op: str = "bind"                    # "bind" | "transfer"（N2-6）
+    wealth_delta: float = 0.0           # transfer ok：以**窗口个体**为口径（付 = 负、收 = 正）
+    pool_after: float = 0.0             # transfer ok：目标粗侧 `transfer_pool` 余额；其余无定义
     note: str = ""
 
 
@@ -160,12 +171,12 @@ def register(rule: InteractionRule) -> None:
 # ---------------------------------------------------------------- 通道
 
 def _sort_key(intent: Intent) -> tuple:
-    """确定性处理序：`(origin_side, origin_id, kind, scope_type, scope_id)` 升序。"""
+    """确定性处理序：`(origin_side, origin_id, op, kind, scope_type, scope_id)` 升序。"""
     origin_side = _ORIGIN_SIDE.get(intent.origin[0], 9)
     origin_id = intent.origin[1] if len(intent.origin) > 1 else 0
     scope_type = _SCOPE_TYPE.get(intent.scope[0], 9)
     scope_id = intent.scope[1] if len(intent.scope) > 1 else 0
-    return (origin_side, origin_id, intent.kind, scope_type, scope_id)
+    return (origin_side, origin_id, intent.op, intent.kind, scope_type, scope_id)
 
 
 class InteractionChannel:
@@ -191,31 +202,44 @@ class InteractionChannel:
     def submit(self, intent: Intent) -> None:
         self._queue.append(intent)
 
-    def _ordered_intents(self) -> list:
+    def _ordered_intents(self) -> tuple:
+        """→ ``(ordered, duplicates)``。去重键含 ``op``（bind 与 transfer 不得互撞）。"""
         seen = set()
         ordered = []
+        duplicates = []
         for intent in sorted(self._queue, key=_sort_key):
-            key = (intent.origin, intent.kind, intent.scope)
-            if key in seen:            # 去重：同一 (origin, kind, scope) 只留第一条
+            key = (intent.op, intent.origin, intent.kind, intent.scope)
+            if key in seen:            # 去重：同一 (op, origin, kind, scope) 只留第一条
+                duplicates.append(intent)
                 continue
             seen.add(key)
             ordered.append(intent)
         self._queue = []
-        return ordered
+        return ordered, duplicates
 
     # ------------------------------------------------------------ 主循环
 
     def run(self, ctx) -> dict:
         per_cluster: dict = {}
         made_total = 0
+        transferred = 0.0
         by_status: dict = {}
-        for intent in self._ordered_intents():
+        ordered, duplicates = self._ordered_intents()
+        for intent in duplicates:       # 不变量 8：含丢弃在内，每条意图都有记录
+            record = ChannelRecord(ctx.tick, "dropped:duplicate", intent.kind,
+                                   intent.origin, intent.scope, op=intent.op)
+            self.ledger.append(record)
+            by_status[record.status] = by_status.get(record.status, 0) + 1
+        for intent in ordered:
             record, made = self._process(intent, ctx, per_cluster, made_total)
             self.ledger.append(record)
             by_status[record.status] = by_status.get(record.status, 0) + 1
             made_total += made          # **按人计**（单人 = 1，成对 = 2）；丢弃 = 0
-        report = {"tick": ctx.tick, "made": made_total, "by_status": by_status,
-                  "ledger": len(self.ledger), "reserved": self._reserved}
+            if record.status == "ok" and intent.op == "transfer":
+                transferred += abs(record.wealth_delta)
+        report = {"tick": ctx.tick, "made": made_total, "transferred": transferred,
+                  "by_status": by_status, "ledger": len(self.ledger),
+                  "reserved": self._reserved}
         self.last_report = report
         return report
 
@@ -225,18 +249,25 @@ class InteractionChannel:
 
         def drop(status, cell=None, note=""):
             return (ChannelRecord(tick, status, intent.kind, intent.origin, intent.scope,
-                                  cell=cell, note=note), 0)
+                                  cell=cell, op=intent.op, note=note), 0)
 
-        # 解析两侧：coarse 簇（必须是 level==0）+ 发起者角色
+        if intent.op not in ("bind", "transfer"):
+            return drop("dropped:bad_op")
+
+        # 解析两侧：coarse 簇（必须是 level==0）+ 窗口侧角色
         sides = self._resolve_sides(intent)
         if sides is None:
             return drop("dropped:stale")
-        cluster, initiator = sides
+        cluster, counterpart = sides
         engine = cluster.state.get("engine")
         if engine is None:
             return drop("dropped:stale")
         mini = engine.measure
 
+        if intent.op == "transfer":          # —— 质量侧（N2-6）：不占配额、不建边 ——
+            return self._process_transfer(intent, tick, cluster, counterpart, mini, drop)
+
+        initiator = counterpart
         # 配额闸（**`amount` 感知**，必须在 reserve 之前；N2-1 第 4 步）
         # 按"1 个"判会让双人析出在只剩 1 个名额时挤进来，事后 += 2 直接破坏不变量 7。
         amount = intent.match.extraction_amount()
@@ -285,6 +316,108 @@ class InteractionChannel:
                               initiator_id=initiator.id, new_id=head.id,
                               spouse_id=made[1].id if amount == 2 else None,
                               coarse_id=cluster.id), amount)
+
+    # ------------------------------------------------------------ 质量侧 transfer（N2-6）
+
+    @staticmethod
+    def _transfer_amount(intent: Intent):
+        """`payload["amount"]` → 正有限浮点；非法返回 None（⇒ `dropped:bad_amount`）。"""
+        amount = (intent.payload or {}).get("amount")
+        if type(amount) not in (int, float):     # 排除 bool（它是 int 的子类）
+            return None
+        amount = float(amount)
+        if not math.isfinite(amount) or amount <= 0.0:
+            return None
+        return amount
+
+    def _process_transfer(self, intent, tick, cluster, counterpart, mini, drop):
+        """`op="transfer"`：R→C 精确借记入池；C→R 精确支付（必要时向下整桶清算）。
+
+        守恒口径与零副作用纪律见 `docs/modules/interaction-channel.md` N2-6 / `adr-005`。
+        """
+        amount = self._transfer_amount(intent)
+        if amount is None:
+            return drop("dropped:bad_amount")
+
+        if intent.origin[0] == "character":      # R→C：个体付给粗侧池
+            if intent.match.used_dimensions():   # 对手方是显式 cluster，没有粗侧寻址需求
+                return drop("dropped:unsupported_match")
+            if amount > counterpart.wealth + 1e-12:
+                return drop("dropped:insufficient_funds")
+            counterpart.wealth -= amount
+            mini.transfer_pool += amount
+            return (ChannelRecord(tick, "ok", intent.kind, intent.origin, intent.scope,
+                                  op="transfer", wealth_delta=-amount,
+                                  pool_after=mini.transfer_pool,
+                                  initiator_id=counterpart.id,
+                                  coarse_id=cluster.id), 0)
+
+        # C→R：粗侧池付给具名个体（`counterpart` = 接收者）
+        total = mini.mass() + mini.transfer_pool
+        if amount > total + 1e-9:
+            return drop("dropped:insufficient_funds")
+        minted = 0.0
+        if amount - mini.transfer_pool > 1e-9:
+            plan = self._liquidation_plan(mini, amount - mini.transfer_pool)
+            if plan is None:
+                return drop("dropped:illiquid")
+            space = self.window.space
+            # **升序应用**（源桶财富）：低桶先动，高桶才不会把低桶刚收到的质量再搬一次（防级联）
+            for index, steps in sorted(plan, key=lambda item: space.decode(item[0])[2]):
+                paid = _shift_age_wealth(mini, space, [index], -steps)
+                if paid < 0.0:
+                    minted += -paid
+            mini.transfer_pool += minted
+        if mini.transfer_pool + 1e-9 < amount:   # 计划必须保守；保险丝（不得在此钳制造币）
+            return drop("dropped:illiquid", note="liquidation_undershoot")
+        mini.transfer_pool -= amount
+        counterpart.wealth += amount
+        cluster.state["size"] = mini.total()
+        note = f"liquidated:{minted:.6f}" if minted > 0.0 else ""
+        return (ChannelRecord(tick, "ok", intent.kind, intent.origin, intent.scope,
+                              op="transfer", wealth_delta=amount,
+                              pool_after=mini.transfer_pool,
+                              initiator_id=counterpart.id, coarse_id=cluster.id,
+                              note=note), 0)
+
+    def _liquidation_plan(self, mini, shortfall):
+        """向下清算的**只算不改**计划：``[(index, steps)]``；不可行返回 None。
+
+        - 候选按 `(count, −wealth_bucket, index)` 升序（**人数最少优先**——减少被触及的桶）；
+        - `steps ≤ wealth_bucket`（**正确性前提**：越界会把桶索引串到别的 age/gender 桶）；
+        - 浮点保守：宁可多移一步，绝不欠付（第二段补足循环）。
+        """
+        space = self.window.space
+        width = space.wealth_width
+        candidates = sorted((index for index in mini.occupied
+                             if mini.counts[index] > 0.0 and space.decode(index)[2] > 0),
+                            key=lambda index: (mini.counts[index], -space.decode(index)[2], index))
+        planned: dict = {}
+        remaining = float(shortfall)
+        for index in candidates:
+            if remaining <= 1e-9:
+                break
+            unit = mini.counts[index] * width
+            if unit <= 0.0:
+                continue
+            steps = min(int(math.ceil(remaining / unit)), space.decode(index)[2])
+            if steps <= 0:
+                continue
+            planned[index] = planned.get(index, 0) + steps
+            remaining -= unit * steps
+        guard = 0
+        while remaining > 1e-9:                  # 浮点补足：绝不欠付
+            progressed = False
+            for index in candidates:
+                if planned.get(index, 0) < space.decode(index)[2]:
+                    planned[index] = planned.get(index, 0) + 1
+                    remaining -= mini.counts[index] * width
+                    progressed = True
+                    break
+            guard += 1
+            if not progressed or guard > len(candidates) + 2:
+                return None
+        return list(planned.items())
 
     # ------------------------------------------------------------ 两侧解析
 
@@ -397,14 +530,28 @@ class InteractionChannel:
         return None
 
     def headroom_reserve(self) -> int:
-        """给通道预留的窗口名额：**无规则时恒为 0**（惰性路径零影响）。
+        """给通道预留的窗口名额：**无（会 bind 的）规则时恒为 0**（惰性路径零影响）。
 
         `WindowEngine._refill` 会把窗口补满到 `capacity`；若不预留，`bind` 会被
         `dropped:window` 永久饿死（窗口恒满 ⇒ 通道在生产里是死的）。
+        只发 `transfer` 的规则可声明 `emits_bind = False` 来不占名额（transfer 不用窗口名额）。
         """
-        return self.cap_per_tick if RULES else 0
+        if not RULES:
+            return 0
+        if any(getattr(rule, "emits_bind", True) for rule in RULES.values()):
+            return self.cap_per_tick
+        return 0
 
     # ------------------------------------------------------------ 观测
+
+    def pool_total(self) -> float:
+        """全世界的通道池余额（全局测度 + 每个簇的 mini）。"""
+        total = float(self.window.measure.transfer_pool)
+        for cluster in self.store.clusters.values():
+            engine = cluster.state.get("engine")
+            if engine is not None:
+                total += float(engine.measure.transfer_pool)
+        return total
 
     def summary(self, last: int = 8) -> dict:
         return {
@@ -412,6 +559,7 @@ class InteractionChannel:
             "cap_per_tick": self.cap_per_tick,
             "grace_ticks": self.grace_ticks,
             "reserved": self._reserved,
+            "pool_total": self.pool_total(),
             "recently_active": len(self.recently_active),
             "ledger": len(self.ledger),
             "last_report": dict(self.last_report),

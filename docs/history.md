@@ -425,3 +425,49 @@ t=8000，`members=8`/40 trials 与 `members=12`/20 trials：
 - **`pop` 的相对偏差在 n≈400 见顶后回落** ⇒ ④-3 的"随 n 放大"作废；`pop` 仍系统性（多 trial 同号）但**有界**。
 - 门槛怎么设（以及为什么**禁止**在生产规模上设单点门槛）见 [`decisions/adr-004-cluster-fidelity-gate.md`](decisions/adr-004-cluster-fidelity-gate.md)；
   门禁工具 = `python -m bench.cluster_fidelity --gate`（CI 慢跑）。
+
+### Stage 17 · 质量侧 `transfer`（2026-10-17）
+
+[`adr-003`](decisions/adr-003-interaction-channel.md) 把跨分辨率交互拆成"先建通道、后定规则"，身份侧 `bind` 早已落地，
+质量侧 `transfer` 当时只登记不实现——理由是那笔量化残差没有人接。本阶段把它做完：
+**先规格、再 teach-back、再实现**（规格 = [`adr-005`](decisions/adr-005-transfer-quality-side.md) + L3 N2-6）。
+
+**规格（被拒方案是金矿，完整版见 ADR-005）**：
+
+- 池做成**全局单例**（被拒）：残差跨族泄漏，直接破坏"富族恒富"，也无法对账归属。
+- 只允许**整桶量级**的 transfer（被拒）：`A=500` 表达不出来；`count=3` 的桶取 1 桶仍是 3000。
+- 每笔 transfer 用**同 tick escrow**、结不清就丢（被拒）：通道会再次"通电不做功"，也表达不了跨期 treasury。
+- C→R **只能用已入池资金**、禁止清算（被拒）：资产≠流动性，"族养人"跑不了。
+- 分数桶位移 / 负计数（被拒）：Stage 3 碎片化 + 人头语义，均已否过。
+
+**实现**（`Measure.transfer_pool` 每粗侧一个；`Intent.op="transfer"`；`channel.py` + `transitions.py`）：
+
+- **R→C**：个体精确借记 → 目标粗侧池；分布不动。**C→R**：池够直接付；不够则**向下整桶清算**
+  （人数最少桶优先、`k ≤ wealth_bucket`、按源桶财富**升序**应用防级联），再精确支付；超取留池。
+- **年度投递**：每 360 tick 把池按整桶送回分布（整人桶、最穷优先、按目标桶财富**降序**应用）。
+- **豁免**：transfer 不析出、不建边 ⇒ 不占 `cap_*` / headroom / 宽限期。
+- 丢弃有五种（`bad_op` / `bad_amount` / `unsupported_match` / `insufficient_funds` / `illiquid`），**一律零副作用**。
+
+**teach-back 抓到的 4 个真错**（先于实现修掉，这一轮最值钱的部分）：
+
+1. **年投递"最穷优先"会退化成"最稀优先"**：`count=0.001` 的分数桶能一口吃掉整池并顶到上限 ⇒ 投递只取 `count ≥ 1.0`。
+2. **超取上界写错了**：不是"最小 `count×w`"，而是**被清算桶中最大 `count×w`**（反例 `1@5 + 3@6`、A=6000 ⇒ 超取 2000）。
+3. **"相邻桶才级联"是错的**：触发条件是"计划序 ≠ 财富序且低桶 count 更大"（`3@9+1@10` 池 4500：升序应用会造**负池**）。
+4. **池的生命周期没闭合**：`materialize` 保留 mini ⇒ **resolved 簇也持池**；`merge` 的 resolved+resolved 快路径与
+   `split` 会 `del` 掉持有 mini 的簇——那里连**分数计数残留**都会丢。现已一并折叠（`fold_pools`）。
+   另外：`coarsen` / `merge` / `dissolve` **此前就不折 `yearly_inherited`**，快照也不存池——
+   这是**既有财富漏洞**，`bench.audit_ledger --clusters` 结构上看不见（它只守人头）。本次一并修掉。
+
+**验收（本机实测，2026-10-17）**：
+
+| 项 | 结果 |
+| --- | --- |
+| `pytest -q` | **192 passed**（+32：`tests/test_transfer.py`） |
+| `python -m bench.audit_transfer` | `identity error = +0.000e+00`（R→C / 清算 / 投递 / dissolve 逐步核对） |
+| `python -m bench.audit_ledger --resolution --n 1500 --steps 2500` | 42588 次算子 `dev = 0`（惰性不退化） |
+| `python -m bench.audit_ledger --clusters --n 3000 --steps 2000` | `identity error = 0`，`rho = 2143` 与接入前一致 |
+| `coverage` | 88%（门槛 80） |
+
+**已知边界（未做，别当成 bug）**：全局 W 在**分辨率折算**处仍有 ≤ `w/2` 量化差（ADR-005 方案 H 的符号残差池未做）；
+C↔C / resolved 簇支付 / 规则注册表仍为空；账本是有界 deque，记录被挤出后 `unbind` 会失效（既有边界）。
+**惰性**：`RULES` 仍为空 ⇒ 生产路径与从前逐位一致（池恒 0）。

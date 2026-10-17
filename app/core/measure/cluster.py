@@ -24,8 +24,10 @@ from app.core.generation.human import generate_character
 from app.core.person.links import neighbors
 from app.core.measure.channel import ChannelContext, InteractionChannel, RULES
 from app.core.measure.engine import MeanFieldEngine
-from app.core.measure.measure import measure_from_characters, measure_from_payload, measure_to_payload
+from app.core.measure.measure import (fold_pools, measure_from_characters,
+                                      measure_from_payload, measure_to_payload)
 from app.core.measure.transitions import FULL_FLOWS, distribute_pool, inject_inherited
+from app.core.measure.transitions import settle_transfer_pool
 from app.core.measure.transitions import inheritance as _mf_inheritance
 
 
@@ -311,6 +313,8 @@ class ClusterStore:
             mini = leftover.measure
             for index in list(mini.occupied):
                 aggregate.add(index, mini.counts[index])
+            # 池（通道池 + 继承段池）必须一起折回，否则再次粗化会丢财富（ADR-005）
+            fold_pools(mini, aggregate)
         cluster.rho += self.rho_metric.on_coarsen(cluster.kind, members)
         for mid in list(members):
             self.window.detach(mid)
@@ -386,6 +390,21 @@ class ClusterStore:
         """两共演单元并一。resolved+resolved 保留成员（免费）；否则先粗化再并 mini。"""
         ca, cb = self.clusters[a], self.clusters[b]
         if ca.level == 1 and cb.level == 1:
+            # b 可能持有"物化后残留"的 mini（分数计数 + 池）——`del` 之前必须折走，否则财富/计数一起丢
+            src_engine = cb.state.get("engine")
+            if src_engine is not None:
+                mb = src_engine.measure
+                dst_engine = ca.state.get("engine")
+                if dst_engine is not None:
+                    ma = dst_engine.measure
+                    for index in list(mb.occupied):
+                        ma.add(index, mb.counts[index])
+                    fold_pools(mb, ma)
+                    ca.state["size"] = ma.total()
+                else:
+                    for index in list(mb.occupied):
+                        self.measure.add(index, mb.counts[index])
+                    fold_pools(mb, self.measure)
             ca.member_ids |= cb.member_ids
             ca.rho += self.rho_metric.on_merge(ca.kind, 0.0)
             del self.clusters[b]
@@ -397,6 +416,7 @@ class ClusterStore:
         mb = cb.state["engine"].measure
         for index in list(mb.occupied):
             ma.add(index, mb.counts[index])
+        fold_pools(mb, ma)
         ca.state["size"] = ma.total()
         ca.rho += self.rho_metric.on_merge(ca.kind, 0.0)
         del self.clusters[b]
@@ -408,6 +428,14 @@ class ClusterStore:
         cluster = self.clusters[cid]
         if cluster.level != 1:
             raise NotImplementedError("MVP 只支持 resolved 共演单元的切分")
+        # 被切掉的簇可能持有"物化后残留"的 mini（分数计数 + 池）：没有"分给哪个孩子"的
+        # 策略，故**折回全局测度**（不做猜测）——否则 `del` 会把它们一起丢掉。
+        engine = cluster.state.get("engine")
+        if engine is not None:
+            mini = engine.measure
+            for index in list(mini.occupied):
+                self.measure.add(index, mini.counts[index])
+            fold_pools(mini, self.measure)
         del self.clusters[cid]
         self.revision += 1
         new_ids = []
@@ -445,6 +473,7 @@ class ClusterStore:
             mini = engine.measure
             for index in list(mini.occupied):
                 self.measure.add(index, mini.counts[index])
+            fold_pools(mini, self.measure)
         self.dissolved_rho += cluster.rho
         del self.clusters[cid]
         self.revision += 1
@@ -600,12 +629,14 @@ class ResolutionManager:
         entries = []
         for cluster in list(self.store.clusters.values())[:max_entries]:
             size = len(cluster.member_ids) if cluster.level == 1 else round(cluster.state.get("size", 0.0), 3)
+            engine = cluster.state.get("engine")
             entries.append({
                 "id": cluster.id,
                 "kind": cluster.kind,
                 "level": cluster.level,
                 "size": size,
                 "rho": round(cluster.rho, 3),
+                "pool": round(engine.measure.transfer_pool, 1) if engine is not None else 0.0,
                 "attention": round(self.attention.get(cluster.id, 0.0), 3),
             })
         return {
@@ -706,6 +737,8 @@ class ResolutionManager:
             self._reconcile()
             self._next_form = ctx.tick + self.form_interval
         self.store.step_coarse(ctx)
+        # —— 年度投递（transfer 池，N2-6）：在 coarse 演化（含继承年清算）之后、意图之前 ——
+        self._settle_transfer_pools(ctx.tick)
         # —— 交互通道：在 coarse 演化之后、分辨率调度之前 ——
         for intent in self._collect_intents(ctx):
             self.channel.submit(intent)
@@ -734,6 +767,17 @@ class ResolutionManager:
             elif level == 0 and cluster.level == 1:
                 self.store.coarsen(cid)
         self._recycle(grace)
+
+    def _settle_transfer_pools(self, tick: int) -> None:
+        """每 360 tick：全局测度 + 每个簇 mini 的通道池按整桶投递回分布（N2-6 第 6 步）。
+
+        `RULES` 为空时池恒 0，本调用是 O(簇数) 的空转，对惰性路径无行为影响。
+        """
+        settle_transfer_pool(self.measure, tick)
+        for cluster in self.store.clusters.values():
+            engine = cluster.state.get("engine")
+            if engine is not None:
+                settle_transfer_pool(engine.measure, tick)
 
     def _recycle(self, grace=frozenset()) -> None:
         """回收：长期无注意的 coarse 共演单元折回全局测度，释放槽位（防共演单元数饱和）。"""

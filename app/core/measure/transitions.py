@@ -150,11 +150,12 @@ def inheritance(measure, tick):
 
 
 def _shift_age_wealth(measure, space, cells, steps):
-    """把若干桶的财富整体上移 steps 桶（整桶，无碎片）。
+    """把若干桶的财富整体平移 steps 桶（整桶，无碎片；``steps`` 可正可负）。
 
-    返回**实际支付的质量**（= 实际移出桶的 ``count × steps × 宽度``）。
-    触顶（``wealth + steps`` 越过 ``wealth_bins``）的桶**不支付**、其份额留在池里——
-    调用方**只能按本返回值扣池**，否则会凭空销毁质量（见 `docs/core-code.md` N2-3）。
+    返回**实际移动的质量**（= 实际移出桶的 ``count × steps × 宽度``；``steps < 0`` 时为负）。
+    触顶（``wealth + steps`` 越过 ``wealth_bins``）或触底（越过桶 0）的桶**不支付**、
+    其份额留在池里——调用方**只能按本返回值扣池**，否则会凭空销毁质量（见 `docs/core-code.md` N2-3）；
+    越界还会把索引串到别的 age/gender 桶，故下界守卫是**正确性前提**。
     """
     paid = 0.0
     moves = {}
@@ -165,6 +166,8 @@ def _shift_age_wealth(measure, space, cells, steps):
         age, gender, wealth, marital = space.decode(index)
         if wealth + steps >= space.wealth_bins:
             continue  # 触顶：本桶不支付，份额留池（不越界、不注水）
+        if wealth + steps < 0:
+            continue  # 触底：桶 0 不再可下移（负索引会串到别的 age/gender 桶）
         target = space.encode(age, gender, wealth + steps, marital)
         moves[target] = moves.get(target, 0.0) + count
         measure.add(index, -count)
@@ -172,6 +175,54 @@ def _shift_age_wealth(measure, space, cells, steps):
     for target, amount in moves.items():
         measure.add(target, amount)
     return paid
+
+
+def deliver_transfer_pool(measure):
+    """把通道池按整桶位移送回分布（**最穷整人桶优先**；余量留池）。返回实付质量。
+
+    规格见 `docs/modules/interaction-channel.md` N2-6 第 6 步 / `adr-005`：
+
+    - 目标是 ``count ≥ 1.0`` 的**整人桶**（分数残留不参与年度投递，否则"最穷优先"退化成"最稀优先"）；
+    - 计划按目标桶财富**升序**（最穷优先）算，按财富**降序**应用——
+      升序应用会把低桶刚收到的质量再搬一次（级联重复加）；
+    - 只按 ``_shift_age_wealth`` 的**实付量**扣池（触顶分支不支付）。
+    """
+    space = measure.space
+    pool = float(measure.transfer_pool)
+    if pool <= 0.0:
+        return 0.0
+    width = space.wealth_width
+    targets = sorted((index for index in measure.occupied if measure.counts[index] >= 1.0),
+                     key=lambda index: (space.decode(index)[2], index))
+    plan = []
+    remaining = pool
+    for index in targets:
+        if remaining <= 0.0:
+            break
+        count = measure.counts[index]
+        wealth = space.decode(index)[2]
+        headroom = space.wealth_bins - 1 - wealth
+        if headroom <= 0:
+            continue
+        k = int(remaining // (count * width))
+        k = min(k, headroom)
+        if k <= 0:
+            continue
+        plan.append((index, k))
+        remaining -= count * k * width
+    plan.sort(key=lambda item: space.decode(item[0])[2], reverse=True)  # 降序应用：防级联
+    delivered = 0.0
+    for index, k in plan:
+        delivered += _shift_age_wealth(measure, space, [index], k)
+    measure.transfer_pool = pool - delivered
+    return delivered
+
+
+def settle_transfer_pool(measure, tick):
+    """年度投递（每 360 tick；与继承年清算同拍）。"""
+    if tick % 360 == 0:
+        return deliver_transfer_pool(measure)
+    return 0.0
 
 
 def birth(measure, tick):

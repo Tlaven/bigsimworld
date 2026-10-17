@@ -6,7 +6,7 @@
 - **approved scenario**：零规则惰性（通道"通电不做功"）；
 - mutation：把 `ClusterStore.extract` 的 `-amount` 改成 `0.0`，本文件必须变红（见 L3 验收栏）。
 
-**本期不做交互规则**（`RULES` 为空），也**不做 `transfer`**（质量侧，另有规格）。
+**交互规则不做**（`RULES` 为空）；质量侧 `transfer` 另有规格与验收，见 `tests/test_transfer.py`（N2-6）。
 """
 
 import random
@@ -17,7 +17,6 @@ import app.core.measure.channel as channel_mod
 from app.core.measure.channel import (
     RULES,
     Intent,
-    InteractionChannel,
     Match,
     compile_match,
 )
@@ -76,9 +75,12 @@ def test_zero_rules_channel_is_inert():
     assert channel._reserved == 0
 
 
-def test_transfer_is_out_of_scope_this_phase():
-    """`transfer`（质量侧）本期不做：它的财富量化残差池需要独立规格与独立不变量。"""
-    assert not hasattr(InteractionChannel, "transfer")
+def test_transfer_is_dispatched_by_op_not_by_kind():
+    """`transfer` 是 `op` 选定的原子（N2-6），不是 `bind` 的 kind；渠道不暴露独立方法。"""
+    assert Intent(op="transfer", kind="gift", origin=("character", 1),
+                  scope=("cluster", 1), match=Match(), payload={"amount": 1.0}).op == "transfer"
+    assert Intent(kind="probe", origin=("character", 1),
+                  scope=("cluster", 1), match=Match()).op == "bind"
 
 
 # ------------------------------------------------------------------ bind：守恒 / 建边
