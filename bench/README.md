@@ -19,6 +19,7 @@
 | `bench.audit_ledger --clusters` | 窗口+共演单元 的**分辨率守恒**审计（materialize/coarsen/dissolve/refill 逐一守恒） | `python -m bench.audit_ledger --clusters --n 3000 --steps 2000` |
 | `bench.cluster_inheritance` | 族内池 vs 全局池的继承集中度（"富族恒富"） | `python -m bench.cluster_inheritance --peers 120` |
 | `bench.cluster_fidelity` | **共演单元保真度 A/B**：coarse vs 保持 resolved（配对试验 + 跨 trial 汇总，误差包络） | `python -m bench.cluster_fidelity --members 8 --ticks 8000 --trials 40` |
+| `bench.cluster_fidelity --gate` | **分层门槛**（ADR-004）：跨规模（n≥400）趋势 + `pop` 相对偏差；违反 ⇒ exit 1（CI 慢跑） | `python -m bench.cluster_fidelity --gate` |
 | `bench.diagnose_cluster_bias` | 保真度偏差**归因**：相位对照 / 规模扫描 / 消融（消融只作必要条件检查） | `python -m bench.diagnose_cluster_bias --ticks 8000 --trials 20` |
 
 结果写入 `bench/results/`；结果文件是**证据**，提交。
@@ -47,6 +48,9 @@ python -m bench.audit_ledger --clusters --n 3000 --steps 2000 --capacity 300
 
 # 共演单元**保真度**：coarse vs 保持 resolved（配对 A/B + 跨 trial 噪声带；约 12s/20 trials）
 python -m bench.cluster_fidelity --members 8 --ticks 8000 --trials 40
+
+# 分辨率层**门槛**（分层；ADR-004）：跨规模趋势 + pop 相对偏差，违反 ⇒ exit 1（分钟级，CI 慢跑）
+python -m bench.cluster_fidelity --gate
 
 # 保真度偏差**归因**（相位对照 / 规模扫描 / 消融——消融只作必要条件检查）
 python -m bench.diagnose_cluster_bias --ticks 8000 --trials 20
@@ -79,13 +83,17 @@ python -m bench.diagnose_cluster_bias --ticks 8000 --trials 20
 | married_frac | +0.011 ± 0.182 | 23/40 | 噪声级 |
 | pool_frac | −0.0066 ± 0.0026 | 0/40 | coarse 侧恒有 ~0.7% 财富滞留继承段池 |
 
-> **修订（Stage 16 修订，见 `docs/history.md`）**：`age_l1` 在生产簇规模（≤12）上被**分箱离散 + 相位错位**
-> 主导，**不是**粗化误差。规模扫描（`bench.diagnose_cluster_bias`）：
-> `n=8 → 0.2556`、`25 → 0.1514`、`80 → 0.0899`、`200 → 0.0566`、`400 → 0.0454`（全部 20/20 同号，**衰减未平台化**）。
+> **修订（Stage 16 修订 + 2026-10-17 渐近扫描，见 `docs/history.md`）**：`age_l1` 在生产簇规模（≤12）上被
+> **分箱离散 + 相位错位**主导，**不是**粗化误差。规模扫描（`bench.diagnose_cluster_bias`，20 trials/t=8000）：
+> `n=8 → 0.2556`、`25 → 0.1514`、`80 → 0.0899`、`200 → 0.0566`、`400 → 0.0454`、`800 → 0.0412`、**`1600 → 0.0359`**
+> （全部 20/20 同号；**仍未平台化**，且 `age_l1 × n` 一路涨 ⇒ 衰减远慢于 1/n）。
 > 相位对照：**t=600 时相位解释 100%**（`age_l1` 0.2361 → 0.0000）、**t=8000 时只剩 16%**（0.2556 → 0.2163）
-> ——**分解本身依赖时长**。真实系统性偏差 **≲0.05**（与门槛同阶）；而 `pop(R−C)` 随 n **放大**
-> （n=400: −18.25 ≈ **+4.6%**，coarse 系统性多产人）——**这条比 `age_l1` 更硬**。
+> ——**分解本身依赖时长**。真实系统性偏差 **≲0.05**（与门槛同阶）。
+> **`pop(R−C)`：不是"随 n 放大"**——n≈400 见顶（−18.25 ≈ −4.6%）后**回落**（800: −1.0%、1600: −0.66%）；
+> 仍系统性（多 trial 同号）但**有界**。
 > 解读与"失败的方法"（单臂消融不是归因手段）见 `docs/history.md` Stage 16 修订。
+> **门槛（ADR-004，分层）**：`python -m bench.cluster_fidelity --gate` 断言
+> `age_l1` 不随 n 升且最大 n ≤ 0.06、`pop` 相对偏差 ≤ 5% 且不随 n 增长。
 > **注意**：`members≤12` 时分布型指标（KS/gini/age 直方图）被离散噪声主导，**必须**用
 > **跨规模扫描 + 配对试验 + 多时长**判读；单点、单次、单时长读数不作结论。
 

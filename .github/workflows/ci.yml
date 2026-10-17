@@ -24,6 +24,20 @@ jobs:
           python -m coverage run -m pytest -q
           python -m coverage report
 
+  fidelity-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+      - name: Install deps
+        run: pip install -r requirements-dev.txt
+      - name: Cluster fidelity gate (ADR-004: cross-scale trend + population bias)
+        run: python -m bench.cluster_fidelity --gate
+
   frontend:
     runs-on: ubuntu-latest
     timeout-minutes: 10

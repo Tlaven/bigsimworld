@@ -191,6 +191,75 @@ def summarize(per_trial):
     return out
 
 
+# ---------------------------------------------------------------- 分层门槛（ADR-004）
+
+# 门槛只在**可判读口径**上定义：跨规模（n ≥ 400）+ 配对试验 + 多 trial。
+# **禁止**在生产簇规模（≤ max_members=12）上设阈值——那里的一切分布型读数都被
+# 分箱离散 + 相位错位主导（见 docs/decisions/adr-004-cluster-fidelity-gate.md）。
+GATE_AGE_MAX = 0.06        # 与测度层门槛 `age_l1 < 0.06` **同阶**（不是等同）
+GATE_POP_FRAC_MAX = 0.05   # `pop` 相对偏差上界（n=400 实测 −4.6% 是当前观察峰值）
+GATE_AGE_TOL = 0.005       # "不随 n 上升"的容差（跨 trial 抽样波动）
+GATE_POP_TOL = 0.005       # "相对偏差不增长"的容差
+GATE_SIZES = (400, 800, 1600)
+
+
+def evaluate_gate(sweep):
+    """分层门槛判定（纯函数，便于单测；规格见 ADR-004）。
+
+    ``sweep`` = ``[{"members": int, "age_l1": float, "pop": float}, ...]``（顺序无关）。
+
+    规则：
+      1. `age_l1` 对 n **不升**（容差 `GATE_AGE_TOL`），且**最大 n 处 ≤ `GATE_AGE_MAX`**；
+      2. `pop` 的**相对偏差** ``|pop| / members ≤ GATE_POP_FRAC_MAX``（每个规模都要满足），
+         且**不随 n 增长**（最大 n 处 ≤ 最小 n 处 + `GATE_POP_TOL`）。
+
+    返回 ``(ok, reasons)``；``reasons`` 为空 ⟺ ``ok``。
+    """
+    if len(sweep) < 2:
+        return False, ["规模扫描至少要有 2 个 members 才能查趋势"]
+    rows = sorted(sweep, key=lambda row: row["members"])
+    reasons = []
+
+    for prev, cur in zip(rows, rows[1:]):
+        if cur["age_l1"] > prev["age_l1"] + GATE_AGE_TOL:
+            reasons.append(f"age_l1 随 n 上升：n={prev['members']}→{cur['members']} "
+                           f"{prev['age_l1']:.4f}→{cur['age_l1']:.4f}")
+
+    largest = rows[-1]
+    if largest["age_l1"] > GATE_AGE_MAX:
+        reasons.append(f"age_l1 在 n={largest['members']} 超门槛 {GATE_AGE_MAX}："
+                       f"{largest['age_l1']:.4f}")
+
+    for row in rows:
+        frac = abs(row["pop"]) / row["members"]
+        if frac > GATE_POP_FRAC_MAX:
+            reasons.append(f"pop 相对偏差在 n={row['members']} 超 {GATE_POP_FRAC_MAX:.0%}："
+                           f"{frac:.2%}")
+
+    smallest_frac = abs(rows[0]["pop"]) / rows[0]["members"]
+    largest_frac = abs(largest["pop"]) / largest["members"]
+    if largest_frac > smallest_frac + GATE_POP_TOL:
+        reasons.append(f"pop 相对偏差随 n 增长：n={rows[0]['members']} {smallest_frac:.2%} → "
+                       f"n={largest['members']} {largest_frac:.2%}")
+
+    return (not reasons), reasons
+
+
+def run_gate(sizes=GATE_SIZES, ticks=8000, trials=20, seed0=1):
+    """跑跨规模扫描并判定（返回 ``(ok, reasons, sweep)``）。"""
+    sweep = []
+    for members in sizes:
+        per_trial = [run_trial(seed0 + i, members, [ticks]) for i in range(trials)]
+        summary = summarize(per_trial)[ticks]
+        sweep.append({"members": members,
+                      "age_l1": summary["age_l1"]["mean"],
+                      "pop": summary["population"]["mean"],
+                      "age_l1_sd": summary["age_l1"]["sd"],
+                      "trials": trials})
+    ok, reasons = evaluate_gate(sweep)
+    return ok, reasons, sweep
+
+
 # ---------------------------------------------------------------- CLI
 
 def main():
@@ -203,7 +272,32 @@ def main():
                         help="误差包络取样点（默认：ticks 的四等分）")
     parser.add_argument("--capacity", type=int, default=None)
     parser.add_argument("--out", default=None, help="结果写 JSON（证据，可提交）")
+    parser.add_argument("--gate", action="store_true",
+                        help="分层门槛模式（ADR-004）：跨规模趋势 + pop 相对偏差；违反 ⇒ exit 1")
+    parser.add_argument("--gate-sizes", type=int, nargs="+", default=list(GATE_SIZES),
+                        help="门槛扫描的 members（**禁止**放 ≤12 的生产簇规模）")
+    parser.add_argument("--gate-trials", type=int, default=20, help="门槛扫描每规模的配对试验数")
     args = parser.parse_args()
+
+    if args.gate:
+        print(f"分辨率层保真门槛（ADR-004）：跨规模 + 配对 + 多 trial（t={args.ticks}，"
+              f"trials={args.gate_trials}，sizes={args.gate_sizes}）")
+        print("门槛只在可判读口径上定义；**生产簇规模（≤12）上的单点读数不作门槛**\n")
+        ok, reasons, sweep = run_gate(args.gate_sizes, args.ticks, args.gate_trials, args.seed0)
+        print(f"  {'members':>8}{'age_l1':>12}{'sd':>9}{'pop(R−C)':>12}{'相对':>9}")
+        for row in sweep:
+            print(f"  {row['members']:>8}{row['age_l1']:>12.4f}{row['age_l1_sd']:>9.4f}"
+                  f"{row['pop']:>12.2f}{abs(row['pop']) / row['members']:>8.2%}")
+        print()
+        print(f"门槛：age_l1 不随 n 升且最大 n ≤ {GATE_AGE_MAX}；"
+              f"pop 相对偏差 ≤ {GATE_POP_FRAC_MAX:.0%} 且不随 n 增长")
+        if ok:
+            print("GATE PASS")
+            return
+        print("GATE FAIL：")
+        for reason in reasons:
+            print(f"  - {reason}")
+        raise SystemExit(1)
 
     checkpoints = sorted(set(args.checkpoints or
                             [max(1, args.ticks * i // 4) for i in (1, 2, 3, 4)]))
