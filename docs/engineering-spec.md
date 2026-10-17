@@ -84,7 +84,7 @@ SIM_MODE=measure ──────────┤
 ## 5. 持久化（snapshot）
 
 `app/models/snapshot.py`：表 `snapshots(simulation_time, measure, window)`。
-- `measure` payload：`{"size", "cells": [[index, count(6位小数)], …]}`（只存非零桶，往返误差 <1e-6/桶）。
+- `measure` payload：`{"size", "cells": [[index, count(6位小数)], …], "transfer_pool", "inherited", "conversion_residual"}`（只存非零桶，往返误差 <1e-6/桶；三项质量账见 §9 / ADR-005 / ADR-006；旧档缺字段按 0 读）。
 - `window` payload：每个窗口 Character 的全量 `__dict__`（含 relationships 为 id 列表）。
 - 写入：`simulation/stop`（measure 模式自动）；`SIM_RESUME=1` 时 `run.py` 启动即 `load_latest()` 恢复；无档/空表/无表 → 新建世界。
 - 注意：恢复后窗口负载回到 capacity 上限之内；窗口计数与测度不重复计（存档时两者守恒互斥）。
@@ -160,13 +160,19 @@ SIM_MODE=measure ──────────┤
 - **投递**：每 360 tick 把池按整桶送回分布（最穷桶优先），余量留池。
 - **生命周期**：`coarsen` / `merge` / `dissolve` 必须折叠池（含 `yearly_inherited`）；快照同时往返两个池。
 
-财富恒等式（transfer 口径）：
+**分辨率折算的财富残差**（[`adr-006`](decisions/adr-006-conversion-residual.md)）：具名个体折回测度只能落在桶中心 `c`，
+"精确 → 桶"方向差 `w − c` ⇒ 每个 `Measure` 持一个**符号**账 `conversion_residual`（折算点记 `w − c`；
+`materialize`/`bind` 是精确点，不记）。全局财富恒等式（**含分辨率折算**）：
 
 ```
-Σ 粗侧 count×桶中心 + Σ transfer_pool + Σ yearly_inherited + Σ 窗口个体 wealth
+W = Σ_测度 [ count×桶中心 + transfer_pool + conversion_residual + Σ yearly_inherited ]
+    + Σ 窗口个体 wealth
 ```
 
-对 `transfer` / 清算 / 投递 / 池折叠**严格不变**（浮点噪声）。注意：`bind`/`unbind`/`dematerialize`/`coarsen` 的桶中心折算仍有 ≤ `w/2` 的量化差（已知边界，未在本期修）——全局 W 的严格性只在无分辨率折算的区间内成立。门禁：`python -m bench.audit_transfer`。
+`transfer` / 清算 / 投递 / 池与残差折叠 / 所有分辨率算子（`materialize` / `materialize_sample` / `coarsen` /
+`merge` / `split` / `dissolve` / `dematerialize` / `refill` / `bind`（含 `extract`）/ `unbind`）对它**严格不变**
+（逐算子 `|ΔW| ≤ 1e-6` 且 `|ΔW| / W ≤ 1e-9`，浮点噪声）。残差**不可花费**（不进池、不结算）。
+门禁：`python -m bench.audit_transfer` 与 `python -m bench.audit_ledger --wealth`。
 
 **coarse 共演单元** = mini `MeanFieldEngine`（`FamilyKind.flows` = FULL_FLOWS 去掉 `inheritance`）；继承由 `step_coarse` 手动调 `family_inheritance`（含 `overflow_fraction`：族内继承中改注入全局池的比例，0 = 完全内化 ="富族恒富"）。
 
@@ -184,4 +190,5 @@ SIM_MODE=measure ──────────┤
 
 **已验**：`bench.audit_ledger --clusters` 恒等误差 **0.0000%**；`bench.cluster_inheritance` 族内 vs 全局人均留存 ~181×（peers=120）。
 
-**已知边界（本层）**：resolved 共演单元的婚配/出生仍族内闭合（跨共演单元婚配只**记录** `interface`，未在 coarse 模型消费，除 `overflow_fraction`）；`life_log` 只保留窗口内当前个体。`transfer` 只支持 R↔C（C↔C 与 resolved 簇支付未做），交互规则注册表仍为空；分辨率折算的财富量化差 ≤ `w/2` 未建符号残差池（ADR-005 方案 H）。
+**已知边界（本层）**：resolved 共演单元的婚配/出生仍族内闭合（跨共演单元婚配只**记录** `interface`，未在 coarse 模型消费，除 `overflow_fraction`）；`life_log` 只保留窗口内当前个体。`transfer` 只支持 R↔C（C↔C 与 resolved 簇支付未做），交互规则注册表仍为空。分辨率折算的财富量化差已由
+符号残差账承接（ADR-006）——旧快照（无该字段）恢复后 W 有一次性断点，属兼容边界。

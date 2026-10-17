@@ -17,6 +17,8 @@
 | `bench.diagnose_tail` | 财富分位偏差归因（KS vs p100 噪声、多种子） | `python -m bench.diagnose_tail --n 5000 --steps 8000 --seeds 1 7 42` |
 | `bench.audit_ledger` | 财富守恒审计（初始+收入+出生-蒸发 == 期末+池余） | `python -m bench.audit_ledger --n 5000 --steps 8000` |
 | `bench.audit_ledger --clusters` | 窗口+共演单元 的**分辨率守恒**审计（materialize/coarsen/dissolve/refill 逐一守恒） | `python -m bench.audit_ledger --clusters --n 3000 --steps 2000` |
+| `bench.audit_ledger --resolution` | 分辨率算子守恒探针（**生产口径**，coarse 流含 death/birth） | `python -m bench.audit_ledger --resolution --n 3000 --steps 2000` |
+| `bench.audit_ledger --wealth` | **分辨率折算的财富恒等式**（含池与折算残差，ADR-006）逐算子 W 探针 | `python -m bench.audit_ledger --wealth --n 1500 --steps 2500 --capacity 250` |
 | `bench.cluster_inheritance` | 族内池 vs 全局池的继承集中度（"富族恒富"） | `python -m bench.cluster_inheritance --peers 120` |
 | `bench.audit_transfer` | **质量侧 transfer 的财富恒等**：R→C / C→R / 清算 / 投递 / 生命周期折叠逐次核对 W | `python -m bench.audit_transfer` |
 | `bench.cluster_fidelity` | **共演单元保真度 A/B**：coarse vs 保持 resolved（配对试验 + 跨 trial 汇总，误差包络） | `python -m bench.cluster_fidelity --members 8 --ticks 8000 --trials 40` |
@@ -49,6 +51,9 @@ python -m bench.audit_ledger --clusters --n 3000 --steps 2000 --capacity 300
 
 # 改动 transfer / 通道池 / 共演单元池折叠之后必跑（财富口径，见 adr-005）
 python -m bench.audit_transfer
+
+# 改动任何分辨率算子（materialize/coarsen/merge/split/dissolve/dematerialize/回填）之后必跑（adr-006）
+python -m bench.audit_ledger --wealth --n 1500 --steps 2500 --capacity 250
 
 # 共演单元**保真度**：coarse vs 保持 resolved（配对 A/B + 跨 trial 噪声带；约 12s/20 trials）
 python -m bench.cluster_fidelity --members 8 --ticks 8000 --trials 40

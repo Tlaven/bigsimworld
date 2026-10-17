@@ -18,7 +18,7 @@
   - 不设代码风格约束（`ruff` 只做运行时缺陷探测；风格不是本仓库质量基线，测量/实验优先）。
   - **不做跨共演单元的社会网络**（T3 已评估并搁置；**作者已确认"不做"**，2026-10-16）。
   - **不做关系漏斗 / 广场 / 两个 driver 的重构**（`SimulationEngine`、`EventEngine`）——它们是**已冻结的公共面**（本主题期间不动；通道从不接触 driver）。
-  - **`transfer` 只做 R↔C**（C↔C 族间再分配、resolved 簇支付、交互规则注册表均不做）；**不建**"分辨率折算"的符号残差池（ADR-005 方案 H）——全局 W 只在无折算区间严格。
+  - **`transfer` 只做 R↔C**（C↔C 族间再分配、resolved 簇支付、交互规则注册表均不做）；折算残差**只记账、不结算**（ADR-006）——不要给它发明"把钱还给谁"的规则。
   - **不做广场的"亲属避让"**（原检查读死字段 `relatives`，从未生效；字段已删，只保留同 id 保护。真要实现属独立决策——会改变个体引擎行为与已拟合常数）。
 
 ## 开放问题（未决）
@@ -59,6 +59,7 @@ python -m bench.audit_ledger --clusters --n 3000 --steps 2000 --capacity 300    
 python -m bench.audit_ledger --resolution --n 3000 --steps 2000 --capacity 300   # 生产口径：逐算子守恒门禁
 python -m bench.cluster_fidelity --members 8 --ticks 8000 --trials 40            # 共演单元保真度 A/B（配对 + 噪声带）
 python -m bench.audit_transfer                                                  # 质量侧 transfer 的财富恒等（池/清算/投递/折叠）
+python -m bench.audit_ledger --wealth --n 1500 --steps 2500 --capacity 250       # 分辨率折算的财富恒等（含池 + 折算残差）
 
 # 文档检查器（手动；Windows 用 .ps1，bash 用 .sh）
 powershell -File scripts/check-docs-sync.ps1
@@ -176,7 +177,7 @@ powershell -File scripts/check-doc-refs.ps1
 
 - **守恒律**：`Σ measure.counts + Σ_coarse size + len(window.characters) == 初始 + 出生 − 死亡`；所有分辨率算子（`create/materialize/coarsen/merge/split/dissolve`，以及窗口侧 `materialize`/`dematerialize`）**计数中性**（只移动，不产生/销毁）。（源：`docs/engineering-spec.md` §9、`docs/cluster-contract.md` §6）
 - **身份不守恒**：`coarsen → materialize` 是**重采样新代表**（人数守恒、身份不保）。不要把身份当守恒量。
-- **财富守恒（含池）**：`Σ 粗侧 count×桶中心 + Σ transfer_pool + Σ yearly_inherited + Σ 窗口 wealth`；`transfer`（R→C / C→R / 清算 / 投递）严格中性，池**非负且按粗侧归属**，`coarsen/merge/dissolve` 必须折叠池（含 `yearly_inherited`）。注意：分辨率折算的桶中心化仍有 ≤ `w/2` 量化差（已知边界，见 `adr-005` 方案 H），全局 W 只在无折算区间内严格。门禁 `bench.audit_transfer`。（源：`docs/decisions/adr-005-transfer-quality-side.md`、`docs/engineering-spec.md` §9）
+- **财富守恒（含池与折算残差）**：`W = Σ_测度 [count×桶中心 + transfer_pool + conversion_residual + Σ yearly_inherited] + Σ 窗口 wealth`；`transfer`（R→C / C→R / 清算 / 投递）与**所有分辨率折算**（materialize/coarsen/merge/split/dissolve/dematerialize/unbind/回填）严格中性。池**非负且按粗侧归属**，残差是**不可花费**的符号账；`coarsen/merge/dissolve/split` 必须折叠三样（两个池 + 残差）。门禁 `bench.audit_transfer` + `bench.audit_ledger --wealth`。（源：`docs/decisions/adr-005-transfer-quality-side.md`、`adr-006-conversion-residual.md`、`docs/engineering-spec.md` §9）
 - **收敛门槛**（测度 vs 个体）：`gini_diff < 0.02`、`wealth_ks < 0.06`、`age_l1 < 0.06`、`married_diff < 0.10`。判定由 `tests/`（`pytest`）断言；人肉核对口径 = `bench.convergence --full-compare --sizes 2000 5000 10000 --steps 4000`。（源：`docs/history.md` 验收门槛）
 - **分辨率层保真门槛（分层）**：**禁止**在生产簇规模（`members ≤ 12`）上设单点阈值；门槛只在可判读口径上定义——跨规模（n≥400）+ 配对试验 + 多 trial：`age_l1` 随 n **不升**且最大 n 处 ≤ 0.06、`pop(R−C)` 相对偏差 ≤ 5% 且**不随 n 增长**。验证：`python -m bench.cluster_fidelity --gate`（CI 慢跑）；结构层仍由 `tests/test_cluster_fidelity.py` 守。（源：`docs/decisions/adr-004-cluster-fidelity-gate.md`）
 - **质量底线**：`coverage fail_under=80`；`ruff` 仅运行时缺陷（`E9/F63/F7/F82`），**风格刻意不设**。（源：`pyproject.toml`）

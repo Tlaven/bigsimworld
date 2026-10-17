@@ -16,6 +16,7 @@
 | N2-2 | 流算子的顺序契约与「只移动不产生」 | `measure/transitions.py` | **高扇入**：窗口 / 共演单元 / 通道复用同一批算子 |
 | N2-3 | 继承的段池整数分配（守恒可审计优先） | `measure/transitions.py` | **骨架样板**：任何"质量转移"必须照此做，否则守恒立刻破 |
 | N2-4 | 分辨率算子的计数中性（整人析出 / 残留并入） | `measure/cluster.py`、`measure/window.py`、`measure/channel.py` | **高扇入**：3 个模块共用同一条纪律 |
+| N2-5 | 分辨率折算的财富残差（**符号账**，折算点唯一写法） | `measure/measure.py`、`measure/window.py`、`measure/cluster.py`、`measure/channel.py` | **骨架**：财富恒等式的最后一块；漏记/多记会让全局 W 静默失真 |
 
 **术语**（定义见 [`glossary.md`](glossary.md)，此处只引用）：测度、状态空间、桶 / 占用桶、段池、分数桶位移、计数中性、可用性闭合、materialize、dematerialize、extract。
 
@@ -151,6 +152,62 @@
 `python -m bench.audit_ledger --resolution --n 3000 --steps 2000 --capacity 300` → **逐算子** `identity error = 0`（生产口径，coarse 流含 `death` / `birth`）。
 
 **陷阱**：从分数桶取整人 ⇒ `Measure.add` 夹零 ⇒ 只扣分数却生出一整个人（**质量泄漏**，Stage 14 的 bug）；`--clusters`（质量保持子集）**结构上盖不住**分数桶 / 残留泄漏 ⇒ **两个门禁都要跑**；身份不守恒（`coarsen → materialize` 是**重采样新代表**）——别把身份当守恒量。
+
+### N2-5 · 分辨率折算的财富残差（符号账）
+
+**为什么**：`w` = 财富桶宽。具名个体的 `wealth` 是精确浮点，折回测度时只能落在**桶中心** `c`。
+"精确 → 桶"这一方向差 `wealth − c`（可正可负，≤ `w/2`）；不记账，全局财富恒等式就不成立
+（决策与备选见 [`adr-006`](decisions/adr-006-conversion-residual.md)）。
+
+**步骤级说明**
+
+1. **恒等式**（在每个 `Measure` 上扩一项）：
+   ```
+   W = Σ_测度 [ count×桶中心 + transfer_pool + conversion_residual + Σ yearly_inherited ]
+       + Σ_窗口 wealth
+   ```
+2. **唯一写法**（折算点）：`record_conversion(measure, space, wealth)`：
+   `bucket = space.wealth_bucket(wealth)`；`measure.conversion_residual += wealth − space.wealth_value(bucket)`。
+   **正号** = 该测度把高于桶中心的个体折低了（欠世界）；负号反之。
+3. **只有三个损失点可以调用**：`IndividualWindow.dematerialize`、`ClusterStore.coarsen`（**每个**成员）、
+   `Channel.unbind`（每个折算者）。
+4. **精确点不得调用**：`materialize` / `materialize_sample`（角色 `wealth` 取**桶中心**，不是桶内随机值）/
+   `ClusterStore.materialize` / `bind`（含成对析出的 `extract(amount=2)`）——它们"移走 `c`、造出 `c`"，
+   天然精确；多记一次就破坏恒等式。
+5. **随测度走**：`fold_pools(src, dst)` 除两个池外**也要折 `conversion_residual`**
+   （`coarsen` / `merge` / `dissolve` / `split` 四处，**只折不记**）；快照往返该字段（旧档按 0 读）。
+6. **不可花费**：`transfer` 的"可支付总额" = `mass() + transfer_pool`，**不含**残差；
+   它不进池、不结算、不做决策，只做审计。`Measure.wealth()` = `mass() + transfer_pool + conversion_residual
+   + Σ yearly_inherited`（**观测/审计口径**，不是可花费量）。
+7. **穷尽性**（哪条离场路径该记）：容量逐出 / 回填收缩 ⇒ `dematerialize` ⇒ 记；`unbind` ⇒ 记；
+   `coarsen` 收编 ⇒ 记（**不得**复用 `dematerialize`，否则同一成员双记）；窗口内**死亡** ⇒ 死亡/继承结算，**不记**；
+   `split` / `merge` / `dissolve` ⇒ 只折已有的残差，**不记**。
+
+**精确例子**（`w=1000`，桶中心 `c=(b+0.5)·w`）
+
+- `wealth=1537.2` ⇒ bucket `1`、`c=1500` ⇒ 记 `+37.2`。
+- `wealth=999.0` ⇒ bucket `0`、`c=500` ⇒ 记 `+499.0`（"穷但高于桶中心"也是欠账）。
+- `wealth=100.0` ⇒ bucket `0`、`c=500` ⇒ 记 `−400.0`（被折高了，世界欠该测度）。
+- `coarsen` 两个成员 `1537.2` 与 `100.0`：aggregate 质量 `+2000`、残差 `+37.2−400.0=−362.8`；
+  窗口 `−1637.2` ⇒ `2000 − 362.8 = 1637.2` ⇒ W 不变。
+- `materialize` / `materialize_sample`：从 bucket `1` 取走 `c=1500`、造出 `wealth=1500` 的角色 ⇒ 残差**不动**，W 不变。
+- `extract(amount=2)`：从 bucket 取走 `2×c`、造出两个 `wealth=c` ⇒ 残差**不动**，W 不变。
+
+**验收**:`python -m pytest tests/test_conversion_residual.py -q` → 全绿（三个损失点逐点 + 精确点不记 + 折叠 + 快照 + 旧档）；
+`python -m bench.audit_ledger --wealth --n 1500 --steps 2500 --capacity 250` → **逐算子**
+`|ΔW| ≤ 1e-6` **且** `|ΔW| / W ≤ 1e-9`（浮点级）。
+算子清单**必须穷尽**：`materialize` / `materialize_sample` / `coarsen` / `merge` / `split` / `dissolve` /
+`dematerialize` / `refill` / `bind`（含 `extract`）/ `unbind` / channel `run`（transfer + 清算 + 投递）。
+每个算子一行期望值（记 / 不记、ΔW=0）。
+
+**陷阱**
+
+- **"损失点 vs 精确点"必须逐处人工确认**：写错的后果只在**跨折算**的长跑里现形（单点测试守不住）——
+  所以门禁必须是"逐算子 W 探针"，不能只看期末对账。
+- **别把残差并进 `transfer_pool`**：池是可花费流动性，符号残差是纪律账；混账 ⇒ C→R 能花掉 IOU（造钱）。
+- **别忘折叠**：`fold_pools` 要折三样（两个池 + 残差）；漏一样就静默丢账。
+- **符号别反**：`+` = 欠世界（`wealth > c`）。反号会让两个方向的误差互相"抵消"成假绿灯。
+- **别在 `materialize`/`bind` 记**：它们在数值上精确，多记等于凭空造账。
 
 ---
 
