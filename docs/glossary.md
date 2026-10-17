@@ -20,7 +20,7 @@
 | coarse / resolved | `level=0`（聚合态）/ `level=1`（逐个体） | | | | — |
 | 注意力（attention） | 决定共演单元是否保持 resolved 的"凝视"量 | `dict[cid→float]`，`a ← γ·a` 衰减 | | 不是"重要度"绝对值 | — |
 | 水位线（WaterlinePolicy） | `attention ≥ theta_base` 且 leaf 预算够 → resolved | `theta_base=0.5`、`budget_leaves=capacity` | | | — |
-| ρ（rho） | 已遗忘的身份质量（coarsen 增、merge 减、dissolve 记入累计） | `float ≥ 0` | `IdentityMassRho` | | — |
+| ρ（rho） | 已遗忘的身份质量 = 收编时 `Σ(1 + 关系度)`（关系度 = `neighbors` 大小）；coarsen 增、dissolve 记入累计 | `float ≥ 0` | `IdentityMassRho` | | 不是"簇成员数"（取死字段 `relatives` 的旧后果，已修） | — |
 | 显要（notability） | 自身财富 ≥ 全人口高位分位阈值的个体；**不逐出、不粗化** | `WealthNotability`；`SIM_NOTABLE_FRACTION`（默认 `0.01`） | | 不是"注意力高"（两者取 max，但含义不同） | — |
 | 桶（bucket） | 状态空间的一格；"占用桶" = 计数 > 0 的桶 | `int` 索引 | `occupied` | | — |
 | 段池（yearly_inherited） | 继承的年度分段池（gap 窗口 `u∈[a−50,a−18]`）；**整数桶支付 + 余量留池** | `dict[segment→float]` | | 不是 per-cell 账本（会注水） | — |
@@ -32,6 +32,20 @@
 | 确定性模式 | 设 `SIM_SEED` 即固定随机 + 跳过墙钟负载反馈 | | | 与"按机器吃满预算"互斥 | — |
 | 快照（snapshot） | `simulation_time` + 测度 + 窗口（含关系图 id）的持久化 | `snapshots` 表 | | | — |
 | 继承溢出（overflow_fraction） | 族内继承中改注入**全局池**的比例（0 = 完全内化 = "富族恒富"） | `float ∈ [0,1]` | | | — |
+| 交互通道（InteractionChannel） | 共演单元 ↔ 单位个体的**点对点、双向、可具名**交互路径 | `Intent` 队列 + `bind`/`unbind` + 账本 | `channel.run(ctx)` | 不是"经全局测度中转"的间接路径（`overflow_fraction`→测度→`materialize`） | — |
+| 意图（Intent） | 通道的唯一输入形态：`kind / origin / scope / match / payload`；`origin` = 发起者（角色或簇） | frozen dataclass | `Intent(kind="probe", origin=("character",3), scope=("cluster",7), match=…)` | 粗侧**不能**用 id 寻址（只能带 `Match`） | — |
+| Match | 声明式可匹配性（`age`/`gender`/`wealth_bucket`，**闭区间**），编译为**桶索引谓词**，R↔C 两侧共用 | frozen dataclass + `compile(match, space)` | `Match(age=(28,35), gender=0)` | 不是任意闭包；引用不可重建维度必须抛错 | — |
+| bind | **有身份**的绑定 = `extract` + `link`，先扣后加；**析出永远发生在 coarse 侧** | 通道原子 | 婚配 / 结友 | 不是 transfer（不产生身份） | — |
+| unbind | `bind` 的逆：`unlink`（断链）+ 把该角色折算回 coarse | 通道逆算子 | `unbind(new_id)` | 不是 `dematerialize`（后者折算回**全局测度**） | — |
+| extract | 从 coarse `Measure` 按 `Match` 析出 1 个整人（要求桶 count ≥ 1.0） | 通道原子 | `extract(mini, pred)` | 不是 `materialize`（后者从全局测度取） | — |
+| `link` | **边的唯一入口**：一次调用双向写 `relationships`（对称；非对称用 `reverse`），`record=True` 时并写 `relation_record` | `link(a, b, "friend")` / `link(parent, child, "child", "parent")` | 不是直接改 `relationships`（会漏写另一侧、造幽灵边） | — |
+| 关系人（`neighbors`） | 个体的**关系人集合**（`relationships` 全部关系桶的并集，去重）；"关系度" = `len(neighbors)` | `links.neighbors` | `len(neighbors(c))` | 不是已删除的 `relatives`（构造后从不更新 ⇒ 度恒为 0） | — |
+| 先扣后加律 | 会产生边的跨分辨率交互**必须先把质量从 coarse 侧移出**，否则重复计数 | 通道强制的提交协议 | `bind` 的 reserve→commit→rollback | 不是"守恒"（守恒只管人头，不管重复计数） | — |
+| 谓词式寻址 | 粗侧无 id ⇒ 意图只用 `Match` 声明可匹配性；id 只在 `extract` 之后存在 | `Match` 声明 | `Match(gender=0)` | 不是 id 式寻址（粗侧无 id，表达不出来） | — |
+| 可重建维度 | `extract` 之后能重建的桶维度；本期 `{age, gender, wealth}` | `RECONSTRUCTIBLE` | | `marital` 本期**不可寻址**（物化丢婚配） | — |
+| transfer | **无身份**的质量移动（可交换、不产生边）——**本期不做**：其财富量化残差池需独立规格与独立不变量 | 质量侧原子（下期） | 继承 / 馈赠 / 族间再分配 | 不是 bind；也**不**受"人头守恒"约束 | — |
+| 通道账本 | 每条通道操作的逐条记录（有界 deque），供观测与对账 | `deque(maxlen=…)` | 逐条核平 | 不是 `yearly_inherited`（那是继承段池） | — |
+| 交互规则（InteractionRule） | 第 9 缝：声明"发起什么意图 + 绑定后建什么边"；**本期为空注册表** | `Protocol` + `RULES` | `RULES = {}` | 不是通道（通道保证守恒/确定性，规则只管语义） | — |
 
 ## 维护规则
 

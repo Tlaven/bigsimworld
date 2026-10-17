@@ -1,6 +1,7 @@
 # Phase 0 接口契约：共演单元（Cluster）与分辨率
 
 本文是**契约**：共演单元的数据模型、七个扩展缝、通用算子与不变量。实现骨架见 `app/core/measure/cluster.py`。
+跨分辨率**直接交互**（R↔C）的通道契约见 [`modules/interaction-channel.md`](modules/interaction-channel.md)（ADR [`decisions/adr-003-interaction-channel.md`](decisions/adr-003-interaction-channel.md)）；本节只描述共演单元自身。
 
 > 原则：**机制通用、策略可插拔**。MVP 只给每个策略一个实现（单 kind、两档分辨率、水位线调度、身份质量 ρ），但接口从第一天留好，后续规则不得因 MVP 而被限死。
 

@@ -21,6 +21,8 @@ from dataclasses import dataclass, field
 from typing import Callable, Protocol
 
 from app.core.generation.human import generate_character
+from app.core.person.links import neighbors
+from app.core.measure.channel import ChannelContext, InteractionChannel, RULES
 from app.core.measure.engine import MeanFieldEngine
 from app.core.measure.measure import measure_from_characters, measure_from_payload, measure_to_payload
 from app.core.measure.transitions import FULL_FLOWS, distribute_pool, inject_inherited
@@ -105,10 +107,14 @@ class RhoMetric(Protocol):
 # ---------------------------------------------------------------- MVP 实现
 
 class IdentityMassRho:
-    """MVP ρ：收编时按被遗忘的身份质量计（1 + 关系度）；合并/分裂暂返回 0。"""
+    """MVP ρ：收编时按被遗忘的身份质量计（1 + 关系度）；合并/分裂暂返回 0。
+
+    关系度来自 `links.neighbors`（`relationships` 的并集），**不是**已删除的死字段
+    `relatives`——后者构造后从不更新，会让 ρ 退化为"簇成员数"（见 `docs/history.md` Stage 1 编注）。
+    """
 
     def on_coarsen(self, kind: str, members: dict) -> float:
-        return float(sum(1 + len(getattr(c, "relatives", ()) or ()) for c in members.values()))
+        return float(sum(1 + len(neighbors(c)) for c in members.values()))
 
     def on_merge(self, kind: str, coupling: float) -> float:
         return 0.0
@@ -260,14 +266,19 @@ register(FamilyKind())
 class ClusterStore:
     """共演单元容器与通用算子（策略无关）。成员为 resolved 时计入 window，不重复计数。"""
 
-    def __init__(self, measure: object, window: object, rho_metric: RhoMetric | None = None):
+    def __init__(self, measure: object, window: object, rho_metric: RhoMetric | None = None,
+                 rng=None):
         self.measure = measure
         self.window = window
         self.space = getattr(window, "space", None) or measure.space
         self.rho_metric = rho_metric or IdentityMassRho()
+        self.rng = rng or getattr(window, "rng", None) or random
         self.clusters: dict = {}
         self._next_id = 0
         self.dissolved_rho = 0.0  # 已回收共演单元的累计 ρ（回收不抹掉遗忘代价）
+        # 结构版本号：成员集合每变一次 +1。消费方（person→cluster 反向索引）靠它做缓存失效，
+        # 避免"改了成员却没被发现"的静默错索引。
+        self.revision = 0
 
     # ------------------------------------------------------------ 建立共演单元
 
@@ -275,7 +286,12 @@ class ClusterStore:
         self._next_id += 1
         cluster = Cluster(id=self._next_id, kind=kind, level=1, member_ids=set(member_ids))
         self.clusters[cluster.id] = cluster
+        self.revision += 1
         return cluster
+
+    def touch(self) -> None:
+        """结构变更通知：凡**直接**改过 `cluster.member_ids` / `clusters` 的调用方都要调一次。"""
+        self.revision += 1
 
     # ------------------------------------------------------------ 粗化 / 物化
 
@@ -301,6 +317,7 @@ class ClusterStore:
         cluster.member_ids = set()
         cluster.state = kind.init_coarse(aggregate)
         cluster.level = 0
+        self.revision += 1
 
     def materialize(self, cid: int, n: int | None = None) -> int:
         """聚合 → 若干新叶子（经 window 建真个体，新代表而非原人）。返回实际析出数。
@@ -316,11 +333,10 @@ class ClusterStore:
         count = size if n is None else min(n, size)
         made = 0
         for _ in range(count):
-            cell = self._sample_cell(mini)
+            cell = self.extract(mini)
             if cell is None:
                 break
             age, gender, wealth, _marital = self.space.decode(cell)
-            mini.add(cell, -1.0)
             data = generate_character(
                 age=age,
                 gender="male" if gender == 0 else "female",
@@ -332,29 +348,37 @@ class ClusterStore:
         cluster.state["size"] = mini.total()
         if made > 0:
             cluster.level = 1
+        self.revision += 1
         return made
 
-    def _sample_cell(self, mini):
-        """按计数加权抽取一个**可整人取出**的桶（计数 ≥ 1.0）。
+    def extract(self, mini, predicate=None, amount: float = 1.0):
+        """从 ``mini`` 选出一个**可整人取出**的桶并扣减 ``amount``；返回桶索引或 None。
 
-        分数桶（< 1 人份额，来自 coarse 流 ``death``/``birth`` 的分数流入出）**不可**
-        物化整人：``Measure.add`` 在结果 ≤0 时把桶夹零，强行取会**只扣分数、却生出一个
-        完整的人**，造成质量泄漏。这类残量留在共演单元内（物化上限随之收缩），随 ``dissolve``
-        折回全局测度——计数恒等守恒。无 ≥1.0 的桶时返回 None。
+        - ``predicate``：None = 任意桶；否则是"桶索引 → bool"的判定函数
+          （**谓词式寻址**的落地形态——粗侧只有分布、没有 id）。
+        - 只从 ``count ≥ amount`` 的桶取：``Measure.add`` 在结果 ≤0 时把桶夹零，强行取
+          分数桶会**只扣分数、却生出一个完整的人**（质量泄漏）——见 `docs/engineering-spec.md` §9。
+          分数残量留在共演单元内（物化上限随之收缩），随 ``dissolve`` 折回全局测度。
+        - 候选集**排序**后再加权抽样：``occupied`` 是 set，直接迭代顺序不稳，
+          会破坏确定性（`docs/history.md` Stage 15 的教训）。
+        - 用注入的 ``rng``，**不得**用模块级 ``random``。
         """
-        eligible = [index for index in mini.occupied if mini.counts[index] >= 1.0]
+        eligible = sorted(index for index in mini.occupied
+                          if mini.counts[index] >= amount
+                          and (predicate is None or predicate(index)))
         if not eligible:
             return None
-        total = 0.0
-        for index in eligible:
-            total += mini.counts[index]
-        r = random.random() * total
+        total = sum(mini.counts[index] for index in eligible)
+        r = self.rng.random() * total
         acc = 0.0
+        chosen = eligible[-1]
         for index in eligible:
             acc += mini.counts[index]
             if acc >= r:
-                return index
-        return eligible[-1]
+                chosen = index
+                break
+        mini.add(chosen, -amount)
+        return chosen
 
     # ------------------------------------------------------------ 合并 / 分裂
 
@@ -365,6 +389,7 @@ class ClusterStore:
             ca.member_ids |= cb.member_ids
             ca.rho += self.rho_metric.on_merge(ca.kind, 0.0)
             del self.clusters[b]
+            self.revision += 1
             return a
         self.coarsen(a)
         self.coarsen(b)
@@ -375,6 +400,7 @@ class ClusterStore:
         ca.state["size"] = ma.total()
         ca.rho += self.rho_metric.on_merge(ca.kind, 0.0)
         del self.clusters[b]
+        self.revision += 1
         return a
 
     def split(self, cid: int, groups: list) -> list:
@@ -383,6 +409,7 @@ class ClusterStore:
         if cluster.level != 1:
             raise NotImplementedError("MVP 只支持 resolved 共演单元的切分")
         del self.clusters[cid]
+        self.revision += 1
         new_ids = []
         share = cluster.rho / max(len(groups), 1)
         for group in groups:
@@ -420,6 +447,7 @@ class ClusterStore:
                 self.measure.add(index, mini.counts[index])
         self.dissolved_rho += cluster.rho
         del self.clusters[cid]
+        self.revision += 1
         return True
 
     # ------------------------------------------------------------ 序列化
@@ -443,6 +471,7 @@ class ClusterStore:
         self.clusters = {}
         self._next_id = 0
         self.dissolved_rho = 0.0
+        self.revision += 1
         if isinstance(payload, dict):           # 新格式
             items = payload.get("clusters") or []
             self.dissolved_rho = float(payload.get("dissolved_rho", 0.0))
@@ -475,11 +504,20 @@ class ResolutionManager:
     def __init__(self, window, measure=None, policy=None, gamma=0.99,
                  form_kind="family", min_size=2, max_members=12, max_clusters=64,
                  initial_attention=0.8, form_interval=30, budget_leaves=None, dissolve_floor=0.1,
-                 endogenous_scale=None, notability=None, notable_fraction=None):
+                 endogenous_scale=None, notability=None, notable_fraction=None, rng=None,
+                 grace_ticks=180, channel=None):
         self.window = window
         self.measure = measure or window.measure
         self.space = window.space
-        self.store = ClusterStore(self.measure, window)
+        self.rng = rng or getattr(window, "rng", None) or random
+        self.store = ClusterStore(self.measure, window, rng=self.rng)
+        self.grace_ticks = grace_ticks
+        # 交互通道：本期 RULES 为空 ⇒ 惰性（不产生任何操作）。
+        # 宽限期表（`channel.recently_active`）在 `allocate()` 之前被读取。
+        self.channel = channel or InteractionChannel(self.window, self.store,
+                                                     rng=self.rng, grace_ticks=grace_ticks)
+        self._owner_cache = None   # person id → cluster id（惰性重建；按 store.revision 失效）
+        self._owner_rev = None
         self.policy = policy or WaterlinePolicy(budget_leaves=budget_leaves)
         self.gamma = gamma
         self.form_kind = form_kind
@@ -540,12 +578,22 @@ class ResolutionManager:
     def set_attention(self, cluster_id: int, value: float) -> None:
         self.attention[cluster_id] = float(value)
 
+    def _owner_index(self) -> dict:
+        """person id → cluster id 的反向索引（惰性重建；`store.revision` 变了才重建）。"""
+        revision = self.store.revision
+        if self._owner_cache is None or self._owner_rev != revision:
+            owner = {}
+            for cluster in self.store.clusters.values():
+                if cluster.level == 1:
+                    for mid in cluster.member_ids:
+                        owner[mid] = cluster.id
+            self._owner_cache = owner
+            self._owner_rev = revision
+        return self._owner_cache
+
     def cluster_of(self, person_id: int):
-        """person id → 其所属共演单元 id（resolved 共演单元成员）；无则 None。"""
-        for cluster in self.store.clusters.values():
-            if cluster.level == 1 and person_id in cluster.member_ids:
-                return cluster.id
-        return None
+        """person id → 其所属共演单元 id（resolved 共演单元成员）；无则 None。O(1)。"""
+        return self._owner_index().get(person_id)
 
     def summary(self, max_entries: int = 64) -> dict:
         """观测面摘要（有界）：水位/预算/ρ/共演单元数 + 共演单元条目。"""
@@ -579,6 +627,33 @@ class ResolutionManager:
     def feedback(self, cost: float, budget: float) -> None:
         if hasattr(self.policy, "feedback"):
             self.policy.feedback(cost, budget)
+
+    # ------------------------------------------------------------ 交互通道
+
+    def _collect_intents(self, ctx) -> list:
+        """向规则征集本 tick 的意图。**本期 `RULES` 为空 ⇒ 恒返回 []**（通道惰性）。"""
+        if not RULES:
+            return []
+        context = ChannelContext(tick=ctx.tick, window=self.window, store=self.store)
+        intents = []
+        for rule in RULES.values():
+            intents.extend(rule.offers(context) or ())
+        return intents
+
+    def _grace_ids(self, tick: int) -> set:
+        """**宽限期 = 分辨率冻结**：这些簇不换档（不 `coarsen` 也不 `materialize`）、也不被回收。
+
+        起初用"把注意力抬到 `theta_base`"来实现，但那会让 `allocate` 反过来**物化**该簇
+        （注意力 ≥ 门槛 ⇒ `target=1`）——与"别扰动刚建好的关系"的意图相反。故改为显式冻结。
+        """
+        channel = self.channel
+        for cid, when in list(channel.recently_active.items()):
+            if tick - when >= channel.grace_ticks or cid not in self.store.clusters:
+                channel.recently_active.pop(cid, None)
+        return set(channel.recently_active)
+
+    def channel_summary(self) -> dict:
+        return self.channel.summary()
 
     def _endogenous_attention(self) -> dict:
         """L1 社会凝视：共演单元被窗口内**非成员**认识的程度（外部入边数）→ [0,1] 注意力。
@@ -631,6 +706,10 @@ class ResolutionManager:
             self._reconcile()
             self._next_form = ctx.tick + self.form_interval
         self.store.step_coarse(ctx)
+        # —— 交互通道：在 coarse 演化之后、分辨率调度之前 ——
+        for intent in self._collect_intents(ctx):
+            self.channel.submit(intent)
+        self.channel.run(ctx)
         decay(self.attention, self.gamma)
         if self.endogenous_scale:
             for cid, value in self._endogenous_attention().items():
@@ -639,6 +718,7 @@ class ResolutionManager:
         for cid, cluster in self.store.clusters.items():
             if cluster.level == 1 and cluster.member_ids & notable:
                 self.attention[cid] = max(self.attention.get(cid, 0.0), 1.0)  # 显要：注意力地板
+        grace = self._grace_ids(ctx.tick)   # 刚绑定的簇：宽限期内**分辨率冻结**（不换档、不回收）
         targets = self.policy.allocate(list(self.store.clusters.values()), self.attention)
         for cid, cluster in self.store.clusters.items():
             if cluster.level == 1 and cluster.member_ids & notable:
@@ -647,17 +727,21 @@ class ResolutionManager:
             cluster = self.store.clusters.get(cid)
             if cluster is None:
                 continue
+            if cid in grace:                # 宽限期：分辨率冻结
+                continue
             if level >= 1 and cluster.level == 0:
                 self.store.materialize(cid)
             elif level == 0 and cluster.level == 1:
                 self.store.coarsen(cid)
-        self._recycle()
+        self._recycle(grace)
 
-    def _recycle(self) -> None:
+    def _recycle(self, grace=frozenset()) -> None:
         """回收：长期无注意的 coarse 共演单元折回全局测度，释放槽位（防共演单元数饱和）。"""
         if self.dissolve_floor is None:
             return
         for cid in list(self.store.clusters):
+            if cid in grace:                # 宽限期：不回收
+                continue
             cluster = self.store.clusters[cid]
             if cluster.level == 0 and self.attention.get(cid, 0.0) < self.dissolve_floor:
                 if self.store.dissolve(cid):
@@ -741,6 +825,7 @@ class ResolutionManager:
             self.attention[cluster.id] = self.initial_attention
         self._merge_coupled()
         self._split_fragmented()
+        self.store.touch()   # 本轮直接改过 member_ids（抽入 / 剪枝 / 切分）→ 通知反向索引失效
         self._formed = True
         self._refresh_notability()
 

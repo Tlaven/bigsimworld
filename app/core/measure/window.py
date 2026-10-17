@@ -12,15 +12,19 @@ from collections import deque
 
 from app.core.generation.human import generate_character
 from app.core.person.character import Character
+from app.core.person.links import link, unlink
 from app.core.simulation.events import PeopleEvents
 
 
 class IndividualWindow:
-    def __init__(self, measure, capacity=1000, n_cells=1):
+    def __init__(self, measure, capacity=1000, n_cells=1, rng=None):
         self.measure = measure
         self.space = measure.space
         self.capacity = capacity
         self.n_cells = n_cells
+        # 随机源：默认用模块级 random（保持"全局 seed 即复现"的既有行为），
+        # 可注入独立 Random 以隔离随机流（通道 / 测试）。
+        self.rng = rng or random
 
         # —— 作为 Character 的 model 接口 ——
         self.characters = {}
@@ -104,9 +108,8 @@ class IndividualWindow:
         if character.age >= 6:
             adults = [c for c in self.characters.values()
                       if c is not character and 18 <= c.age < 60]
-            for other in random.sample(adults, min(3, len(adults))):
-                character.relationships["acquaintance"].append(other)
-                other.relationships["acquaintance"].append(character)
+            for other in self.rng.sample(adults, min(3, len(adults))):
+                link(character, other, "acquaintance")
         self.stats["materialized"] += 1
         return character.id
 
@@ -118,7 +121,7 @@ class IndividualWindow:
         total = sum(weights)
         made = 0
         while made < n and total >= 1.0 and ids:
-            r = random.random() * total
+            r = self.rng.random() * total
             acc = 0.0
             chosen = 0
             for k, weight in enumerate(weights):
@@ -187,9 +190,7 @@ class IndividualWindow:
         for other in list(character.relationships["sibling"]):
             other.death_event.notify_sibling(character)
         for child in list(character.relationships["child"]):
-            child.relationships["parent"].remove(character)
-            child.relation_record["parent"].append(character.id)
-            character.relation_record["child"].append(child.id)
+            unlink(character, child, "child", "parent", record=True)
 
     def _strip_plaza(self, character):
         cell_plaza = self.event_plaza["acquaintance"][character.cell]
@@ -227,7 +228,7 @@ class IndividualWindow:
         for character in list(self.characters.values()):
             character.step()
             self._log_life(character, tick)
-        PeopleEvents(self.event_plaza)
+        PeopleEvents(self.event_plaza, self.rng)
         protected = self.protected_provider() if self.protected_provider else None
         self.enforce_capacity(protected)
         if self.life_log:
@@ -246,9 +247,10 @@ class WindowEngine:
     """测度引擎 + 真个体窗口：总体统计演化，窗口内是带关系图的真角色。"""
 
     def __init__(self, measure_engine, capacity=1000, window=0, resolution=False,
-                 endogenous_scale=None):
+                 endogenous_scale=None, rng=None):
         self.measure_engine = measure_engine
-        self.window = IndividualWindow(measure_engine.measure, capacity=capacity)
+        self.rng = rng or random
+        self.window = IndividualWindow(measure_engine.measure, capacity=capacity, rng=self.rng)
         self.simulation_time = measure_engine.simulation_time
         self.endogenous_scale = endogenous_scale  # L1 社会凝视（None=关）
         self.resolution = None
@@ -261,13 +263,22 @@ class WindowEngine:
         if self.resolution is None:
             from app.core.measure.cluster import ResolutionManager
             self.resolution = ResolutionManager(self.window, budget_leaves=self.window.capacity,
-                                                endogenous_scale=self.endogenous_scale)
+                                                endogenous_scale=self.endogenous_scale,
+                                                rng=self.rng)
             self.window.protected_provider = self.resolution.protected_ids  # 共演单元成员不参与逐出
         return self.resolution
 
     def _refill(self):
-        """从测度补位，维持窗口可见人口（coarsen 让窗口缩水时回填）。"""
-        missing = self.window.capacity - len(self.window.characters)
+        """从测度补位，维持窗口可见人口（coarsen 让窗口缩水时回填）。
+
+        另有规则注册时，预留 `cap_per_tick` 个名额给交互通道——否则窗口恒满
+        （`_refill` 每 tick 补满），`bind` 会被 `dropped:window` **永久饿死**。
+        **无规则时预留为 0 ⇒ 行为与从前完全一致。**
+        """
+        reserve = 0
+        if self.resolution is not None:
+            reserve = self.resolution.channel.headroom_reserve()
+        missing = self.window.capacity - len(self.window.characters) - reserve
         if missing > 0:
             self.window.materialize_sample(missing)
 
@@ -295,7 +306,7 @@ class WindowEngine:
         if self.resolution is not None:
             from app.core.measure.cluster import TickContext
             ctx = TickContext(tick=self.simulation_time,
-                              measure=self.measure_engine.measure, rng=random)
+                              measure=self.measure_engine.measure, rng=self.rng)
             self.resolution.step(ctx)
             self._refill()
 
