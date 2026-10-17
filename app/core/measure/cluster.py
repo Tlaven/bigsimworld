@@ -667,10 +667,15 @@ class ResolutionManager:
     # ------------------------------------------------------------ 交互通道
 
     def _collect_intents(self, ctx) -> list:
-        """向规则征集本 tick 的意图。**本期 `RULES` 为空 ⇒ 恒返回 []**（通道惰性）。"""
+        """向规则征集本 tick 的意图。**默认 `RULES` 为空 ⇒ 恒返回 []**（通道惰性）。
+
+        位置契约：在 `store.step_coarse()` + `_settle_transfer_pools()` **之后**、
+        `channel.run()` **之前**调用 ⇒ 规则看到的 coarse 权重与同 tick 的 `extract` 同源。
+        """
         if not RULES:
             return []
-        context = ChannelContext(tick=ctx.tick, window=self.window, store=self.store)
+        context = ChannelContext(tick=ctx.tick, window=self.window, store=self.store,
+                                 rng=self.rng)
         intents = []
         for rule in RULES.values():
             intents.extend(rule.offers(context) or ())

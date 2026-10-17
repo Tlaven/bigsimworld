@@ -59,6 +59,12 @@ class SimulationRunner:
                 fraction = os.environ.get("SIM_NOTABLE_FRACTION", "0.01").strip().lower()
                 if fraction not in ("off", "none", ""):
                     self.engine.resolution.set_notable_fraction(float(fraction))
+                # 交互规则（第 9 缝）：第一条 = 跨分辨率婚配；**默认关**。
+                # 开启 = 新增婚配通量（ADR-007）⇒ 不再属于参照模型的近似。
+                if os.environ.get("SIM_CHANNEL_MARRIAGE", "0").strip().lower() in ("1", "true", "on", "yes"):
+                    from app.core.measure.rules import register_marriage_rule
+                    register_marriage_rule()
+                    logger.info("channel rule registered: cross_marriage (SIM_CHANNEL_MARRIAGE=1)")
         else:
             self.db_queues = init_db_queues()  # 初始化队列
             self.engine = SimulationEngine(self.db_queues)  # 初始化模拟引擎

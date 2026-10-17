@@ -147,11 +147,16 @@ class ChannelRecord:
 
 @dataclass(frozen=True)
 class ChannelContext:
-    """规则发起意图时可见的上下文（只读）。"""
+    """规则发起意图时可见的上下文（只读；规则**不得**在此写任何状态）。
+
+    ``rng`` = 通道的唯一随机源（`window.rng` 的同一实例）——规则做任何抽样都必须用它，
+    否则"同 seed 同发展"不成立（不变量 5）。
+    """
 
     tick: int
     window: object
     store: object
+    rng: object = None
 
 
 class InteractionRule(Protocol):

@@ -512,3 +512,42 @@ Stage 17 把 `transfer` 的残差收进了通道池，但明确留了一处边�
 **已知边界**：残差**永不结算**（不会变成任何人的钱；要给它结算规则属新 ADR）；旧快照（无该字段）恢复后
 W 有**一次性**断点（`measure_from_payload` 按 0 读，属兼容边界）；"量化残差"（transfer 清算超取）与
 "折算残差"（本阶段）近名不同义，glossary 已互相加反例引用。
+
+### Stage 19 · 第一条交互规则：跨分辨率婚配（2026-10-17）
+
+Stage 17/18 把两个原子（`bind` / `transfer`）与两条财富账做对了，但第 9 缝 `RULES` 一直是空的
+——通道"通电不做功"，"共演单元"只有隔离、没有共同演化。本阶段落地
+[`adr-007`](decisions/adr-007-cross-resolution-marriage.md)：**`MarriageRule`（R→C 婚配，默认关）**。
+
+**为什么是婚配**：`FamilyKind` 的身份敏感边就是 `parent/child/spouse`，"窗口单身与族内单身成婚"
+正是这条边缺失的通量；只有真个体能当发起方（coarse 没有"意愿"）。被拒方案：C→R/双向（族无意愿、
+"代表去结婚"语义伪）、挤占窗口婚配概率保总风险（要动冻结的婚配事件）、默认开（动全部权威数字）、
+熟人前置/门当户对（coarse 无图；原因子无性别/财富约束）、离婚再婚（个体引擎无离婚）。
+
+**实现**：`app/core/measure/rules.py` 的 `MarriageRule`（**只发意图**，不碰边/分布/配额）+
+`ChannelContext.rng`（规则抽样必须用唯一随机源）+ runner 的 `SIM_CHANNEL_MARRIAGE`（缺省 0 ⇒ 不注册 ⇒ 惰性不变）。
+意图 = `Intent(op="bind", kind="spouse", match=Match(marital=0, age=(18,59)))`；通道先扣后加析出 1 人并建双向配偶边。
+
+**teach-back 抓到的 11 条（实现前全补）**，最值钱的三条：
+
+1. **不可达的防御分支**：规格原写"排除发起者自己所属的簇"，但 coarse 簇 `member_ids` 按契约**必空** ⇒
+   该分支恒不触发，还会诱导一个只能 mock 的假测试。**删掉**并显式声明"不做亲属/自家簇避让"。
+2. **闭区间边界**：`Match` 是闭区间，`age=(18,60)` 会抽到 `age=60`（已在死亡流）——与个体语义 `18≤age<60`
+   差一岁。统一为 `(18,59)`。
+3. **权重与析出必须同源**：`offers` 的位置（`step_coarse()+settle` 之后、`run()` 之前）要钉死，
+   否则规则算的 coarse 权重过期 ⇒ 噪声 `dropped:no_match`。已在 N2-1/N2-7 写死。
+
+**验收（本机实测，2026-10-17）**：
+
+| 项 | 结果 |
+| --- | --- |
+| `pytest -q` | **212 passed**（+8：`tests/test_rule_marriage.py`） |
+| `python -m bench.channel_marriage --ticks 1500` | off：0 桩；on：**8 桩**跨婚配，窗口已婚比例 0.290 → 0.350；逐次通道操作 `Δpop = ΔW = 0` |
+| `bench.audit_ledger --resolution` / `--wealth` / `audit_transfer` | 不退化（默认 `RULES` 空 ⇒ 惰性路径逐位一致） |
+| `coverage` | 通过 80 门槛 |
+
+**已知边界（有意为之）**：开启 = **新增婚配通量**（窗口自己的婚配事件照常跑）⇒ **不**是参照模型的近似，
+收敛/保真门槛一律只在默认关闭下跑；规则婚配**不经过熟人漏斗**（coarse 无图），也无亲属/年龄差约束；
+析出的配偶不进 `member_ids`、不建 acquaintance 网 ⇒ 容量吃紧时较早退场；
+`headroom_reserve` 只防回填不驱逐 ⇒ 开启后窗口可能长期贴着 `capacity`（既有通道行为）。
+规则与窗口事件共用 `window.rng` ⇒ 开规则会改变随机流（A/B 的窗口婚配差异不能只归因于规则）。
