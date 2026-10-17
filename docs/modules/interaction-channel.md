@@ -32,7 +32,7 @@
 | `bind` | 原子：`extract` + `link`（**有身份**，先扣后加） | ✅ |
 | `unbind` | `bind` 的逆：`unlink`（断链）+ 把该角色折算回 **coarse**（按**当前**属性落桶，见 N2-4） | ✅ |
 | `extract` | 从 coarse `Measure` 按 `Match` 析出 1 个整人并扣减（`_sample_cell` 的按谓词泛化） | ✅（第 0 步已交付） |
-| `link` | **边的唯一入口**：一次调用双向写 `relationships`（对称；非对称用 `reverse`），`record=True` 时并写 `relation_record` | ✅（第 0 步已交付） |
+| `link` | **边的唯一入口**：一次调用双向写 `relationships`（对称；非对称用 `reverse`）。**不记档**——`relation_record` 只由 `unlink(..., record=True)` 双向追加 | ✅（第 0 步已交付） |
 | `InteractionRule`（Protocol + `RULES` 注册表） | 规则缝：**只声明"发起什么意图"**；**建边由通道统一执行**（`link`），规则不碰边。签名（MVP）：`offers(context: ChannelContext) -> Iterable[Intent]` | ✅（空注册表） |
 | 通道账本（有界 `deque`，`maxlen=4096`） | 每条操作一条记录，供观测与对账 | ✅ |
 | **`transfer`（原子：无身份质量移动）** | 质量侧：继承 / 馈赠 / 族间再分配 | **下期**（见 §第二期） |
@@ -66,9 +66,12 @@
 `bench.audit_ledger --resolution/--clusters` 数字不退化（实测 `dev = 0`、`identity error = 0`、
 `rho = 2143` 与接入前一致）。
 
-**拍板后待实现（2026-10-17，状态 = doing）**：`marital` **双人析出**（N2-5）。
+**已交付（2026-10-17，拍板后实现）**：`marital` **双人析出**（N2-5）——`RECONSTRUCTIBLE` 含 `marital`、
+`extract(amount=2)` 成对、闸按 `amount` 计、账本 `spouse_id`/`spouse_cell`、双向 `unbind`。
 拍板落档见 [`../decisions/adr-003-interaction-channel.md`](../decisions/adr-003-interaction-channel.md)（状态 accepted）；
-实现前必须过 teach-back（铁律 9），因为它是 N2 改动。
+规格经 **3 轮 teach-back**（对账见 [`../reviews/2026-10-17-N2-5-marital-teachback.md`](../reviews/2026-10-17-N2-5-marital-teachback.md)）。
+**实现期又暴露 3 处文档与代码不符**（`link` 无 `record` 参数 / 折算 `marital` 不能一律取 0 /
+`made` 必须按人计），均已就地修正。
 
 **mutation 检验**（证"测试本身有效"）：把 `ClusterStore.extract` 的 `mini.add(chosen, -amount)` 改成 `…, 0.0`，
 `tests/test_channel.py` 中守恒 / 可逆 / 回滚三条**变红**——测试确实在守不变量。
@@ -241,6 +244,8 @@ class Intent:
    `len(window) + reserved + amount > capacity` ⇒ 丢弃（记 `dropped:window`）。
    **闸必须在 reserve 之前、按 `amount` 判定**——否则婚配意图会在"只剩 1 个名额"时挤进来，
    事后 `+= 2` 直接**破坏不变量 7**。
+   **口径统一**：闸、`per_cluster`、`made_total`、报告里的 `made` **一律按人计**（成对 = 2）——
+   `run()` 按"本次实际析出人数"累加，而不是"每个成功意图 +1"。
 5. **解析两侧**（决策 2 第 1–2 步）：定出 `coarse_cluster` 与 `initiator_character`。
    任一解析不出（簇不存在 / 窗口侧无匹配 / 发起者已离场）⇒ 丢弃（记 `dropped:stale` 或 `dropped:no_match`）。
 6. **reserve**：在 `coarse_cluster` 的 mini `Measure` 上，取满足 `Match` **且** `count ≥ 1.0` 的候选桶，
@@ -253,7 +258,7 @@ class Intent:
      `_reconcile` 会按既有机制把它抽入（level→1）；非亲属边则保持浮动——这正是想要的语义。
    - **第 7 步抛异常**（`generate_character` / `window.attach`）⇒ 回滚第 6 步：`mini.add(cell, +1.0)`、
      `reserved -= 1`、丢弃（`dropped:error`）。
-8. **link**：`link(initiator_character, new_character, kind)`——双向写 `relationships`（`record=True` 时并写 `relation_record`）。
+8. **link**：`link(initiator_character, new_character, kind)`——双向写 `relationships`（**`link` 不记档**；`relation_record` 只由 `unlink(..., record=True)` 追加）。
    - **第 8 步抛异常** ⇒ **逆序撤销第 7 步**（`window.detach(new_id)`）**+ 回滚第 6 步**
      （`mini.add(cell, +1.0)`、`reserved -= 1`）、丢弃（`dropped:error`）。
      **回滚清单必须是"已完成步骤的逆序全撤"**——只回滚测度会留下"已入窗口的真人 + 测度已退"，
@@ -295,7 +300,9 @@ class ChannelRecord:
 3. **折算回 coarse**：把该角色按**当前** `(age, gender, space.wealth_bucket(wealth), marital=0)` 折算回
    `coarse_cluster` 的 mini 引擎（`mini.add(encode(...), +1.0)`），随后 `window.detach(new_id)`、
    `coarse_cluster.member_ids.discard(new_id)`。
-   - **`marital` 恒取 0**：配偶边在第 2 步已断 ⇒ 该角色此刻是单身（N2-5 第 9 步同此口径）。
+   - **`marital` 按该角色"当时"的 `relationships["spouse"]` 判定**（在 `unlink` 之后取）：
+     **不保证是单身**——绑定期间窗口内可能新结了婚，一律取 0 会把已婚者折回单身桶。
+     （`detach` 会解除关系 ⇒ 口径必须在 `detach` **之前**取。）
    - **不**用账本里的 `cell` 强写回：coarse 侧在此期间持续演化，强写回会把一个已变老/变富的人塞回旧桶，
      破坏 mini 的年龄结构。代价是**不保证回到原桶**（见不变量 3 的注意）。
    - 若 `coarse_cluster` 已被回收/`dissolve` ⇒ 折算回**全局测度**（该角色退场，人头不变）。
@@ -328,7 +335,7 @@ class ChannelRecord:
 4. **两个析出者 `a` / `b` 的确定（方向无关）**：`a` = 那一对里**承接意图边**的一个；`b` = `a` 的配偶。
    **`a`/`b` 由 `window.attach` 的调用序决定**（先 attach 的是 `a`）——不得依赖 `dict` / `set` 迭代序（不变量 5）。
 5. **重建婚姻 + 建意图边**（方向语义**完全复用决策 2**，两者都必须是 `Character` 之后才建边）：
-   - 先 `link(a, b, "spouse")`（`record=True`）——这是"重建既有婚姻"，不是"新办婚事"；
+   - 先 `link(a, b, "spouse")`——这是"重建既有婚姻"，不是"新办婚事"（`link` **不记档**，见 N2-1 第 8 步）；
    - **R→C**（发起者是窗口角色 `R`，析出的是**对手方**）：`link(R, a, intent.kind)`；
    - **C→R**（析出的是**簇的代表**）：`link(a, W, intent.kind)`，`W` = 决策 2 第 2 步选出的窗口角色。
    - **账本 `initiator_id` 的唯一规则**：**恒为意图边"非 `new_id` 的一端"**——R→C ⇒ `R`；C→R ⇒ `W`
@@ -348,7 +355,8 @@ class ChannelRecord:
    `mini.add(cell, +2.0)` → `reserved -= 2`。**只回滚测度会留下幽灵**（同 N2-1 第 8 步）。
 9. **`unbind`**：断**两条**边——`unlink(record.initiator_id, new_id, record.kind)` 与 `unlink(a, b, "spouse")`
    （均 `record=True`）——然后两人各按**当前**属性折算回 coarse（或全局测度）。
-   **折算的 `marital` 一律取 0**（配偶边已断 ⇒ 两人此时都是单身；N2-4 第 3 步的编码同此口径）。
+   **折算的 `marital` 按"当时"的 `relationships["spouse"]` 判定**（两条配偶边都已断 ⇒ 通常为 0，
+   但**不强制**——绑定期间窗口内可能新结了婚；同 N2-4 第 3 步口径）。
    **账本一条** `status="unbound"`：`delta_mass = +2.0`、`cell` = `a` 的折算目标桶、
    `spouse_cell` = `b` 的折算目标桶（两人可能落**不同**桶——绑定期间 `income`/`aging` 会移动它们；
    见不变量 3 的注意）。簇已回收 ⇒ 两人都折算回全局测度。
@@ -378,9 +386,14 @@ class ChannelRecord:
   （`spouse_event` 只筛 `18 ≤ age < 60` 且未婚，见 `app/core/person/events.py`），测度层的婚配维度同样是"性别中立"的。
   若将来要**异性配对**，需改成跨 `gender` 桶取对（新原语 + 新不变量，属**独立决策**）。
 
-**验收**:`python -m pytest tests/test_channel.py -q` → 全绿（新增：成对析出守恒 `Σmeasure+Σcoarse+len(window)` 不变、
-`count=1.0` 的已婚桶必被丢弃、`unbind` 双向解除且无幽灵）；
+**验收**:`python -m pytest tests/test_channel.py -q` → 全绿，覆盖：`test_paired_extraction_conserves_headcount_and_builds_spouse_edge`（同桶取 2.0 + `spouse` 边 + 人头守恒）、
+`test_paired_extraction_needs_two_in_the_bucket`（只有 1 人 ⇒ `dropped:no_match`）、
+`test_unspecified_marital_never_extracts_a_married_bucket`（缺省谓词不得单人析出已婚桶）、
+`test_quota_gate_is_amount_aware`（已析出 1 后成对意图被丢弃 ⇒ 守住不变量 7）、
+`test_paired_unbind_severs_both_edges_and_folds_back_both`、`test_paired_bind_rolls_back_both_when_link_fails`；
 `python -m bench.audit_ledger --resolution --n 3000 --steps 2000 --capacity 300` → 逐算子 `identity error = 0`（**惰性不变**：无规则时该路径不执行）。
+**mutation 检验**（证测试有效）：把闸改回"按 1 判定" ⇒ `test_quota_gate_is_amount_aware` 变红（实测析出 **3** > cap 2）；
+去掉缺省排除 ⇒ `test_unspecified_marital_never_extracts_a_married_bucket` 变红。
 
 **范围声明（本次不动）**：物化丢婚配的**其余两条路径**——`ClusterStore.materialize`（分辨率层析出代表）
 与窗口 `_refill`（`materialize_sample`，从全局测度抽样代表）——**本次不改**：它们是"抽样代表"，

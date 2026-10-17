@@ -257,21 +257,29 @@ def test_resolved_cluster_cannot_be_extracted_from():
 
 # ------------------------------------------------------------------ 寻址封闭
 
-def test_match_rejects_unaddressable_dimension():
+def test_match_rejects_unaddressable_dimension(monkeypatch):
+    """不变量 4：引用 ∉ `RECONSTRUCTIBLE` 的维度 ⇒ **立即抛错**。
+
+    本期四个维度（age/gender/wealth/marital）都已在 `RECONSTRUCTIBLE` 里 ⇒ 用**收缩后的集合**
+    来证这条守卫仍然有效（否则它就成了一句没有测试的空话）。
+    """
     space = StateSpace()
+    compile_match(Match(age=(0, 10), gender=0, wealth_bucket=(0, 5), marital=1), space)   # 合法
+
+    monkeypatch.setattr(channel_mod, "RECONSTRUCTIBLE", frozenset({"age"}))
     with pytest.raises(ValueError):
-        compile_match(Match(marital=1), space)           # marital 本期不可寻址
-    compile_match(Match(age=(0, 10), gender=0, wealth_bucket=(0, 5)), space)   # 合法
+        compile_match(Match(gender=0), space)
 
 
-def test_invalid_match_raises_out_of_run():
+def test_invalid_match_raises_out_of_run(monkeypatch):
     """谓词非法 ⇒ **拒绝（抛错）**，不是静默失配。"""
     engine = _engine()
     cluster, _cell = _coarse_cluster(engine)
     r = next(iter(engine.window.characters.values()))
     channel = engine.resolution.channel
+    monkeypatch.setattr(channel_mod, "RECONSTRUCTIBLE", frozenset({"age"}))
     channel.submit(Intent(kind="probe", origin=("character", r.id),
-                          scope=("cluster", cluster.id), match=Match(marital=1)))
+                          scope=("cluster", cluster.id), match=Match(gender=0)))
     with pytest.raises(ValueError):
         channel.run(_ctx(engine))
 
@@ -308,6 +316,159 @@ def test_bind_rolls_back_fully_when_link_fails(monkeypatch):
 
 def _last_record(channel):
     return list(channel.ledger)[-1]
+
+
+# ------------------------------------------------------------------ N2-5：双人析出
+
+def _married_bucket(engine, age=30, gender=0, wealth=10):
+    return engine.window.space.encode(age, gender, wealth, 1)
+
+
+def test_paired_extraction_conserves_headcount_and_builds_spouse_edge():
+    """`Match(marital=1)` ⇒ **成对析出**（同一桶取 2.0）+ `link(a, b, "spouse")`。"""
+    engine = _engine()
+    cell = _married_bucket(engine)
+    cluster, _cell = _coarse_cluster(engine, members=0, count=2.0, cell=cell)
+    r = next(iter(engine.window.characters.values()))
+    channel = engine.resolution.channel
+    mini = _mini(cluster)
+    pop_before = engine.population()
+    window_before = len(engine.window.characters)
+
+    channel.submit(Intent(kind="probe", origin=("character", r.id),
+                          scope=("cluster", cluster.id), match=Match(marital=1)))
+    report = channel.run(_ctx(engine))
+
+    assert report["made"] == 2
+    assert mini.counts[cell] == pytest.approx(0.0)              # **同一桶**取 2.0
+    assert abs(engine.population() - pop_before) < 1e-9         # 人头守恒
+    assert len(engine.window.characters) == window_before + 2
+
+    record = _last_ok(channel)
+    assert record.delta_mass == -2.0
+    a = engine.window.characters[record.new_id]
+    b = engine.window.characters[record.spouse_id]
+    assert a in b.relationships["spouse"] and b in a.relationships["spouse"]
+    assert r in a.relationships["probe"] and a in r.relationships["probe"]
+    assert b not in r.relationships["probe"]                    # 意图边只连 `a`（N2-5 第 5 步）
+    assert record.initiator_id == r.id                          # 账本 initiator_id = 窗口侧那一端
+
+
+def test_paired_extraction_needs_two_in_the_bucket():
+    """桶里只有 1 个人 ⇒ 凑不出一对 ⇒ `dropped:no_match`（宁可丢弃也不造假单身）。"""
+    engine = _engine()
+    cell = _married_bucket(engine)
+    cluster, _cell = _coarse_cluster(engine, members=0, count=1.0, cell=cell)
+    r = next(iter(engine.window.characters.values()))
+    channel = engine.resolution.channel
+    total_before = _mini(cluster).total()
+    pop_before = engine.population()
+
+    channel.submit(Intent(kind="probe", origin=("character", r.id),
+                          scope=("cluster", cluster.id), match=Match(marital=1)))
+    report = channel.run(_ctx(engine))
+
+    assert report["by_status"] == {"dropped:no_match": 1}
+    assert _mini(cluster).total() == pytest.approx(total_before)
+    assert abs(engine.population() - pop_before) < 1e-9
+
+
+def test_unspecified_marital_never_extracts_a_married_bucket():
+    """**硬规则**：`Match(marital=None)`（不限）在析出域不得命中已婚桶——单人析出 = 造假单身。"""
+    engine = _engine()
+    cell = _married_bucket(engine)
+    cluster, _cell = _coarse_cluster(engine, members=0, count=2.0, cell=cell)
+    r = next(iter(engine.window.characters.values()))
+    channel = engine.resolution.channel
+
+    channel.submit(Intent(kind="probe", origin=("character", r.id),
+                          scope=("cluster", cluster.id), match=Match(age=(0, 120))))
+    assert channel.run(_ctx(engine))["by_status"] == {"dropped:no_match": 1}
+
+    channel.submit(Intent(kind="probe", origin=("character", r.id),
+                          scope=("cluster", cluster.id), match=Match(marital=1)))
+    assert channel.run(_ctx(engine))["made"] == 2               # 显式 marital=1 才走成对
+
+
+def test_quota_gate_is_amount_aware():
+    """闸必须按 `amount` 判：本 tick 已析出 1 时，双人析出（还需 2）必须被丢弃（不变量 7）。"""
+    engine = _engine()
+    space = engine.window.space
+    cluster, _cell = _coarse_cluster(engine, members=0, count=3.0,
+                                     cell=space.encode(30, 0, 10, 0))
+    _mini(cluster).add(_married_bucket(engine, wealth=11), 2.0)   # 另有已婚桶可成对
+    r = next(iter(engine.window.characters.values()))
+    channel = engine.resolution.channel
+    assert channel.cap_per_cluster == 2
+
+    # kind 排序（升序）⇒ "aSingle" 先处理
+    channel.submit(Intent(kind="aSingle", origin=("character", r.id),
+                          scope=("cluster", cluster.id), match=Match(age=(30, 30))))
+    channel.submit(Intent(kind="zPair", origin=("character", r.id),
+                          scope=("cluster", cluster.id), match=Match(marital=1)))
+    report = channel.run(_ctx(engine))
+
+    assert report["made"] == 1                                     # 单人那次成功
+    assert report["by_status"].get("dropped:quota_cluster") == 1   # 成对那次被闸挡下（1 + 2 > 2）
+
+
+def test_paired_unbind_severs_both_edges_and_folds_back_both():
+    """双人 `unbind`：断两条边（意图边 + spouse），两人各自折算；无幽灵、人头守恒。"""
+    engine = _engine()
+    cell = _married_bucket(engine)
+    cluster, _cell = _coarse_cluster(engine, members=0, count=2.0, cell=cell)
+    r = next(iter(engine.window.characters.values()))
+    channel = engine.resolution.channel
+    mini = _mini(cluster)
+    total_before = mini.total()
+    pop_before = engine.population()
+    window_before = len(engine.window.characters)
+
+    channel.submit(Intent(kind="probe", origin=("character", r.id),
+                          scope=("cluster", cluster.id), match=Match(marital=1)))
+    channel.run(_ctx(engine))
+    record = _last_ok(channel)
+    a_id, b_id = record.new_id, record.spouse_id
+
+    assert channel.unbind(a_id, tick=0) is True
+
+    assert mini.total() == pytest.approx(total_before)          # 同 tick ⇒ 回到原桶
+    assert len(engine.window.characters) == window_before
+    assert abs(engine.population() - pop_before) < 1e-9
+    assert a_id not in engine.window.characters and b_id not in engine.window.characters
+    # 三查：无幽灵（两人的边都已解除）
+    assert all(c.id not in (a_id, b_id) for c in r.relationships["probe"])
+    unbound = [x for x in channel.ledger if x.status == "unbound"][-1]
+    assert unbound.delta_mass == 2.0
+    assert unbound.spouse_cell is not None
+
+
+def test_paired_bind_rolls_back_both_when_link_fails(monkeypatch):
+    """成对析出失败 ⇒ **逆序全撤**：两人都撤销、测度按 2.0 回滚、`reserved` 配平。"""
+    engine = _engine()
+    cell = _married_bucket(engine)
+    cluster, _cell = _coarse_cluster(engine, members=0, count=2.0, cell=cell)
+    r = next(iter(engine.window.characters.values()))
+    channel = engine.resolution.channel
+    mini = _mini(cluster)
+    total_before = mini.total()
+    window_before = len(engine.window.characters)
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("link boom")
+
+    monkeypatch.setattr(channel_mod, "link", boom)
+
+    channel.submit(Intent(kind="probe", origin=("character", r.id),
+                          scope=("cluster", cluster.id), match=Match(marital=1)))
+    report = channel.run(_ctx(engine))
+
+    assert report["made"] == 0
+    assert report["by_status"].get("dropped:error") == 1
+    assert mini.total() == pytest.approx(total_before)
+    assert len(engine.window.characters) == window_before
+    assert channel._reserved == 0
+    assert not any(x.status == "ok" for x in channel.ledger)
 
 
 # ------------------------------------------------------------------ 确定性
