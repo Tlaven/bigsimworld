@@ -79,7 +79,8 @@ def measure_fingerprint(measure, space):
         "total_wealth": round(total_wealth, 3),
         "age_hist": [int(round(x)) for x in age_hist],
         "wealth_quantiles": quantiles,
-        "degree_hist": [int(round(pop))] if pop else [0],
+        "degree_hist": None,   # 测度层**无图**（状态空间不含度维度）⇒ 该概念不适用。
+                               # 不要写成 [pop] 的伪单桶——那会让跨层比较恒为 0（假绿灯）。
         "gini_wealth": round(gini_weighted(values, weights), 5) if buckets else 0.0,
         "mean_age": round(age_sum / pop, 3) if pop else 0.0,
         "married_frac": round(married_adults / adults, 5) if adults else 0.0,
