@@ -206,6 +206,17 @@ FULL_FLOWS vs 完整个体引擎（t=4000–6000 步）：
 
 N 无关性保持：1e6 人口 2.47ms/step，occupied 1379。**结论：不需要家族物化。**
 
+> **编注（2026-10-17，写 `docs/core-code.md` N2-3 时发现并修复）**：段池分配的**触顶分支曾销毁质量**——
+> `_shift_age_wealth` 在 `wealth + steps` 越过 `wealth_bins` 时提前返回（注释写"余下的支付留池"），
+> 而调用方 `distribute_pool` **仍按 `count×k×w` 扣池** ⇒ 池减少而桶未动
+> （实测：桶 `59999`、`count=1`、池 `2500` ⇒ 池变 `500`，损失 **2000**）。
+> 当前占用桶最高 ~551/60000 ⇒ 该分支**在真实世界不可达**，`bench.audit_ledger` 的恒等误差**看不见它**
+> ——这正是它一直没被发现的原因，也是本条的教训：**不可达分支上的守恒只能靠强制构造的测试守**。
+> 修复：`_shift_age_wealth` **返回实付量**，调用方按实付扣池（触顶桶不支付、份额留池）；
+> 可达路径逐位不变（实付量 == `count×k×w`）⇒ 审计数字零漂移。
+> 守卫 = `tests/test_measure_transitions.py::test_inheritance_keeps_mass_when_recipient_is_at_wealth_ceiling`
+> （mutation 检验：改回旧写法该测试变红）。规格与验收见 `docs/core-code.md` N2-3。
+
 ### Stage 8 · 工程集成 v2（2026-10-12）
 
 1. **仿真控制**：`/api/v1/simulation(/start|/stop|状态)` 真实启停（runner 可反复 start/stop，状态原地保留），`run.py` 挂 `app.extensions['sim_runner']`。

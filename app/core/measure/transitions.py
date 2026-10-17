@@ -120,9 +120,11 @@ def distribute_pool(measure):
             ideal = available * (mass / total_mass)
             k = int(ideal / (count * space.wealth_width))  # 整数桶位移（floor，不超付）
             if k > 0:
-                _shift_age_wealth(measure, space, [index], k)
-                pool[child_age] = available - count * k * space.wealth_width
-                available = pool[child_age]
+                # 只按**实付量**扣池：触顶的桶不支付（返回 0）⇒ 份额留池，不得凭空销毁
+                paid = _shift_age_wealth(measure, space, [index], k)
+                if paid > 0.0:
+                    pool[child_age] = available - paid
+                    available = pool[child_age]
 
 
 def inheritance(measure, tick):
@@ -148,7 +150,13 @@ def inheritance(measure, tick):
 
 
 def _shift_age_wealth(measure, space, cells, steps):
-    """把若干桶的财富整体上移 steps 桶（整桶，无碎片）。"""
+    """把若干桶的财富整体上移 steps 桶（整桶，无碎片）。
+
+    返回**实际支付的质量**（= 实际移出桶的 ``count × steps × 宽度``）。
+    触顶（``wealth + steps`` 越过 ``wealth_bins``）的桶**不支付**、其份额留在池里——
+    调用方**只能按本返回值扣池**，否则会凭空销毁质量（见 `docs/core-code.md` N2-3）。
+    """
+    paid = 0.0
     moves = {}
     for index in cells:
         count = measure.counts[index]
@@ -156,12 +164,14 @@ def _shift_age_wealth(measure, space, cells, steps):
             continue
         age, gender, wealth, marital = space.decode(index)
         if wealth + steps >= space.wealth_bins:
-            return  # 触顶：本桶余下的支付留池，不越界
+            continue  # 触顶：本桶不支付，份额留池（不越界、不注水）
         target = space.encode(age, gender, wealth + steps, marital)
         moves[target] = moves.get(target, 0.0) + count
         measure.add(index, -count)
+        paid += count * steps * space.wealth_width
     for target, amount in moves.items():
         measure.add(target, amount)
+    return paid
 
 
 def birth(measure, tick):
