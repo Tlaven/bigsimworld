@@ -64,6 +64,7 @@ python -m bench.run_scaling --engine legacy --sizes 1000 2000 5000 10000 20000 -
 | --- | --- |
 | `docs/engineering-spec.md` | **规范**：模型语义、速率表、守恒律、SSE/控制 API 契约、分辨率与共演单元层 |
 | `docs/cluster-contract.md` | 分辨率/共演单元层契约：数据模型、扩展缝、通用算子、不变量 |
+| `docs/core-code.md` | **核心代码（L4）**：跨模块/骨架/高扇入的 N2——稀疏计数、流算子顺序、段池整数分配、计数中性（含步骤级规格与验收） |
 | `docs/history.md` | 工程日志：个体→测度→分辨率三阶段演进的全部数字、负结果与教训 |
 | `bench/README.md` | 基准工具用法与当前权威数字 |
 | `web/README.md` | 前端（页面/SSE 契约/环境变量） |

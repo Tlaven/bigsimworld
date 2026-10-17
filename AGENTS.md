@@ -70,6 +70,7 @@ powershell -File scripts/check-doc-refs.ps1
 > L2 架构层 = [`docs/architecture.md`](docs/architecture.md)（其事实细节指 `docs/engineering-spec.md` §1）—— **此处不新造重复事实**（遵循 E1 指针优先）。
 > 术语表 = [`docs/glossary.md`](docs/glossary.md)；决策 = [`docs/decisions/`](docs/decisions/README.md)；对账 = [`docs/reviews/`](docs/reviews/)。
 > 分辨率/共演单元层契约 = [`docs/cluster-contract.md`](docs/cluster-contract.md)。
+> 核心代码（L4，跨模块 / 骨架 / 高扇入的 N2）= [`docs/core-code.md`](docs/core-code.md)。
 > 交互通道（L3，跨分辨率直接交互）= [`docs/modules/interaction-channel.md`](docs/modules/interaction-channel.md)。
 > 演进史 / 实测数字 / 被拒方案 = [`docs/history.md`](docs/history.md)。
 > 基准工具与当前权威数字 = [`bench/README.md`](bench/README.md)。
@@ -123,7 +124,8 @@ powershell -File scripts/check-doc-refs.ps1
 - **决策记录** `docs/decisions/`：ADR，记"为什么"和被拒方案。
 - **对账记录** `docs/reviews/`：teach-back 与"文档考古"的发现留档（E5 产出）。
 - **novelty 分档：** N0 通用模式 / N1 项目特有 / **N2 AI 未见**。N2 必须给"步骤级说明 + 精确例子 + 可跑验收"。
-  - **N2 写在哪（路由）：** 属**模块内**逻辑 → 该模块 L3 的 N2 栏；属**跨模块 / 架构骨架 / 高扇入** → `docs/core-code.md`（L4）。所谓"L4 默认不写" = 不主动建文件，但命中 `core-code` 收录标准的 N2 必须建。
+  - **N2 写在哪（路由）：** 属**模块内**逻辑 → 该模块 L3 的 N2 栏（**若该模块还没有 `docs/modules/<name>.md`，先照 `docs-templates/module-doc.md` 补一份**）；属**跨模块 / 架构骨架 / 高扇入** → `docs/core-code.md`（L4）。所谓"L4 默认不写" = 不主动建文件，但命中 `core-code` 收录标准的 N2 必须建。**路由指向一个不存在的文件 = N2 无处可写。**
+  - **信号 · 该不该开一份 L3：** 某模块的细节一直往 L2 / 别的大文档里堆、而不是堆进它自己的 L3 → 这是"该给它开一份 L3"的信号（**不限于"新建模块"，存量模块同样适用**）。
 
 ### 分层加载（AI 协作时按需读取）
 

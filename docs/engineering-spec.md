@@ -62,7 +62,7 @@ SIM_MODE=measure ──────────┤
 | birth | 已婚 18≤age≤50 的 `×0.005/27`，新生男女各半入 (0岁,财富0) 桶 | O(占用) |
 | inheritance | 见下 | O(占用)/年 |
 
-**继承（段池整数分配，Stage 7 设计）**：
+**继承（段池整数分配，Stage 7 设计）**：这是**骨架级 N2**——其纪律（三条禁令）、步骤级规格与可跑验收见 [`core-code.md`](core-code.md) N2-3；本节只放模型语义与数字。
 1. 每个 `recent_deaths` 记录注入 `inherited = amount × wealth_value × 0.1`，按 gap 窗口 `u ∈ [a−50, a−18]`（生育对 18–50 岁父母近似均匀 → 差值密度均匀）流入年度段池 `yearly_inherited[u]`；
 2. 每 360 tick 清算：对每个非空段，按接收桶**财富质量占比**（count×桶中心）分配理想份额；每桶支付 `floor(理想/ (count·w))` 个**整数桶位移**（整桶平移，不拆分桶计数）；余量**留池**下年再分。
 3. 守恒（`bench.audit_ledger`）：`期末报告财富 + 段池余量 == 初始 + Σ收入 + Σ出生桶值 − Σ死者×0.9`；审计误差现为 0.06%（桶中心与整数位移的量化差）。
@@ -128,7 +128,7 @@ SIM_MODE=measure ──────────┤
 
 ## 9. 分辨率与共演单元层（Cluster / Resolution）
 
-契约细节见 `docs/cluster-contract.md`；实现 `app/core/measure/cluster.py`。
+契约细节见 `docs/cluster-contract.md`；实现 `app/core/measure/cluster.py`。分辨率算子的**计数中性纪律与逐算子门禁**见 [`core-code.md`](core-code.md) N2-4。
 
 **概念**：测度（匿名）与窗口（个体）是同一个"分辨率连续谱"的两端。**共演单元 = 身份敏感交互（parent/child/spouse）的连通闭包**；分辨率 `level`：`0`=聚合（coarse），`1`=个体（resolved）。被观测/被认识者保持高分辨率，否则随注意力衰减溶回统计。
 

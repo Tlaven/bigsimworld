@@ -23,10 +23,12 @@
 | ρ（rho） | 已遗忘的身份质量 = 收编时 `Σ(1 + 关系度)`（关系度 = `neighbors` 大小）；coarsen 增、dissolve 记入累计 | `float ≥ 0` | `IdentityMassRho` | | 不是"簇成员数"（取死字段 `relatives` 的旧后果，已修） | — |
 | 显要（notability） | 自身财富 ≥ 全人口高位分位阈值的个体；**不逐出、不粗化** | `WealthNotability`；`SIM_NOTABLE_FRACTION`（默认 `0.01`） | | 不是"注意力高"（两者取 max，但含义不同） | — |
 | 桶（bucket） | 状态空间的一格；"占用桶" = 计数 > 0 的桶 | `int` 索引 | `occupied` | | — |
+| 计数中性 | 分辨率算子（`create`/`materialize`/`coarsen`/`merge`/`split`/`dissolve` 与窗口侧 `materialize`/`dematerialize`）只**移动**计数，不产生 / 销毁 | | 门禁 `bench.audit_ledger --resolution` | 不是"守恒"——恒等式里 `出生`/`死亡` 才是真正的源与汇 | — |
 | 段池（yearly_inherited） | 继承的年度分段池（gap 窗口 `u∈[a−50,a−18]`）；**整数桶支付 + 余量留池** | `dict[segment→float]` | | 不是 per-cell 账本（会注水） | — |
 | 分数桶位移 | 按小数部分把计数拆到相邻两桶——**禁止**（碎片化） | | | 正解 = 段池 + 整数桶 | — |
 | 广场（event_plaza） | 结识的配对场所（按 `n_cells` 分区） | `PeopleEvents` | | | — |
 | 关系漏斗 | `acquaintance(≤12) → familiarity(≤6) → friend(≤3) → spouse` | | | | — |
+| 可用性闭合 | 均值场婚配的成功率：单身者的可接触对象中"至少有一个单身"的概率（性别中立） | `q ≈ 1-(1-p_elig)^deg`（`deg=2.5`） | `transitions.marriage` | 不是 `r·min(M,F)`（欠婚）/ `r·(M+F)`（过婚） | — |
 | rare_stride | 稀有事件降频：每 K 个判定周期评估一次、单次概率 ×K | | `rare_stride=1` 逐位一致 | | — |
 | 收敛门槛 | 测度 vs 个体的验收阈值 | `gini_diff<0.02`、`wealth_ks<0.06`、`age_l1<0.06`、`married_diff<0.10` | | | — |
 | 确定性模式 | 设 `SIM_SEED` 即固定随机 + 跳过墙钟负载反馈 | | | 与"按机器吃满预算"互斥 | — |
