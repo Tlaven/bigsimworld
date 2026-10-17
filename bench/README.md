@@ -12,12 +12,14 @@
 | `bench.measure` | 逐步计时 + RSS 采样（avg/p50/p95/max） | `from bench.measure import measure_steps` |
 | `bench.run_scaling` | 人口规模扫描，输出扩展曲线 CSV | `python -m bench.run_scaling --engine legacy --sizes 1000 5000 10000 --steps 30 --warmup 5` |
 | `bench.profile_step` | cProfile 找热点 | `python -m bench.profile_step --n 10000 --steps 30 --top 20` |
-| `bench.fingerprint` | 分布指纹（年龄直方图/财富 21 分位/基尼/度/婚配） | 库函数 |
-| `bench.convergence` | 指纹对比 `compare_fingerprint` + 基线导出 / 测度-个体对照 / 窗口 N 无关性 | 见下 |
+| `bench.fingerprint` | 分布指纹（年龄直方图/财富 21 分位/基尼/**度**/婚配）。度由**真实关系**算；测度层**无图** ⇒ `degree_hist = None` | 库函数 |
+| `bench.convergence` | 指纹对比 `compare_fingerprint` + 基线导出 / 测度-个体对照 / **窗口-个体图对照** / 窗口 N 无关性 | 见下 |
 | `bench.diagnose_tail` | 财富分位偏差归因（KS vs p100 噪声、多种子） | `python -m bench.diagnose_tail --n 5000 --steps 8000 --seeds 1 7 42` |
 | `bench.audit_ledger` | 财富守恒审计（初始+收入+出生-蒸发 == 期末+池余） | `python -m bench.audit_ledger --n 5000 --steps 8000` |
 | `bench.audit_ledger --clusters` | 窗口+共演单元 的**分辨率守恒**审计（materialize/coarsen/dissolve/refill 逐一守恒） | `python -m bench.audit_ledger --clusters --n 3000 --steps 2000` |
 | `bench.cluster_inheritance` | 族内池 vs 全局池的继承集中度（"富族恒富"） | `python -m bench.cluster_inheritance --peers 120` |
+| `bench.cluster_fidelity` | **共演单元保真度 A/B**：coarse vs 保持 resolved（配对试验 + 跨 trial 汇总，误差包络） | `python -m bench.cluster_fidelity --members 8 --ticks 8000 --trials 40` |
+| `bench.diagnose_cluster_bias` | 保真度偏差**归因**：相位对照 / 规模扫描 / 消融（消融只作必要条件检查） | `python -m bench.diagnose_cluster_bias --ticks 8000 --trials 20` |
 
 结果写入 `bench/results/`；结果文件是**证据**，提交。
 
@@ -33,15 +35,28 @@ python -m bench.convergence --full-compare --sizes 2000 5000 10000 --steps 4000
 # 真个体窗口：N 无关性 + 窗口内真关系
 python -m bench.convergence --window --sizes 10000 100000 1000000 --capacity 1000 --steps 3000
 
+# 图保真度：窗口 ↔ 个体（双方都有图；测度层无图，别用它比"度分布"）
+python -m bench.convergence --graph-compare --sizes 1000 3000 --steps 1500 --capacity 1000
+
 # 改动继承/账本类算子之前与之后都跑这两条
 python -m bench.diagnose_tail --n 5000 --steps 8000 --seeds 1 7 42
 python -m bench.audit_ledger --n 5000 --steps 8000
 
 # 改动共演单元/分辨率层之后都跑这条（材料/粗化/回收/回填必须逐一守恒）
 python -m bench.audit_ledger --clusters --n 3000 --steps 2000 --capacity 300
+
+# 共演单元**保真度**：coarse vs 保持 resolved（配对 A/B + 跨 trial 噪声带；约 12s/20 trials）
+python -m bench.cluster_fidelity --members 8 --ticks 8000 --trials 40
+
+# 保真度偏差**归因**（相位对照 / 规模扫描 / 消融——消融只作必要条件检查）
+python -m bench.diagnose_cluster_bias --ticks 8000 --trials 20
 ```
 
 ## 当前权威数字（2026-10-12）
+
+> 基线文件 `bench/results/fingerprints/*.json` 曾于 **2026-10-17 因度指标修复而重新生成**
+> （旧文件的 `degree_hist` 是伪单桶 `[pop]`，见 `docs/history.md` Stage 1 编注）；
+> 生成命令 = `python -m bench.convergence --individual 1000 10000 100000 --steps 500`。
 
 **个体引擎（legacy）扩展性**：约线性且略超线性，~3.2KB/人（详细表见 `docs/history.md` Phase 1）。
 
@@ -53,6 +68,26 @@ python -m bench.audit_ledger --clusters --n 3000 --steps 2000 --capacity 300
 | 1,000,000 | 1.75 | 1,379 | 人口 1e6；内存 ∝ 占用桶数，不随 N/bins 增长 |
 
 **收敛水平（vs 完整个体引擎，N=5000, t=8000, 多种子）**：gini 差 ~0.01、KS 中位 2.73%、p70–p95 逐分位 ±1%；p100 相对偏差 +1.9% 属**有界采样噪声**（跨种子 ±0.6% 摆动），不作调优目标（归因方案见 `docs/history.md` Stage 7）。
+
+**共演单元保真度（coarse vs 保持 resolved，配对 A/B，`members=8`/40 trials，t=8000）**：
+
+| 指标 | mean(R−C) ± sd | R>C | 判定 |
+| --- | ---: | ---: | --- |
+| age_l1 | +0.2595 ± 0.0873 | 40/40 | **见下方修订：生产规模下该数字不可读作粗化误差** |
+| population | −0.35 ± 2.65 | 15/40 | 噪声级（`members=12` 时系统性：coarse 多 ~2.5 人） |
+| wealth_per_capita | +8991 ± 33245 | 24/40 | 噪声级 |
+| married_frac | +0.011 ± 0.182 | 23/40 | 噪声级 |
+| pool_frac | −0.0066 ± 0.0026 | 0/40 | coarse 侧恒有 ~0.7% 财富滞留继承段池 |
+
+> **修订（Stage 16 修订，见 `docs/history.md`）**：`age_l1` 在生产簇规模（≤12）上被**分箱离散 + 相位错位**
+> 主导，**不是**粗化误差。规模扫描（`bench.diagnose_cluster_bias`）：
+> `n=8 → 0.2556`、`25 → 0.1514`、`80 → 0.0899`、`200 → 0.0566`、`400 → 0.0454`（全部 20/20 同号，**衰减未平台化**）。
+> 相位对照：**t=600 时相位解释 100%**（`age_l1` 0.2361 → 0.0000）、**t=8000 时只剩 16%**（0.2556 → 0.2163）
+> ——**分解本身依赖时长**。真实系统性偏差 **≲0.05**（与门槛同阶）；而 `pop(R−C)` 随 n **放大**
+> （n=400: −18.25 ≈ **+4.6%**，coarse 系统性多产人）——**这条比 `age_l1` 更硬**。
+> 解读与"失败的方法"（单臂消融不是归因手段）见 `docs/history.md` Stage 16 修订。
+> **注意**：`members≤12` 时分布型指标（KS/gini/age 直方图）被离散噪声主导，**必须**用
+> **跨规模扫描 + 配对试验 + 多时长**判读；单点、单次、单时长读数不作结论。
 
 ## 守恒纪律（改动算子前必读）
 

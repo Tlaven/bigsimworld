@@ -1,7 +1,7 @@
 # SimuWorld — AI 协作记忆文件（L1）
 
 > 本文件由 `init-project-docs` 以**嫁接模式**生成：本仓库已有成体系文档，此处**不重述事实，只做定位 + 指针 + 约束**（遵循 E1 指针优先）。
-> 标 **［推断,待确认］** 的条目是从代码 / 既有文档 / 与作者会话**推断的证据草稿**，待作者拍板（集中在「开放问题」）。**当前无待确认项。**
+> 标 **［推断,待确认］** 的条目是从代码 / 既有文档 / 与作者会话**推断的证据草稿**，待作者拍板（集中在「开放问题」）。**当前有 4 条待确认项（见「开放问题」）。**
 >
 > 宿主：OpenCode → 本文件。若将来并存 Claude Code，请只加一行指针（`见 AGENTS.md`），**不要各写一份**。
 
@@ -17,10 +17,24 @@
   - **不做"家族物化"**（Stage 7 结论：不需要）；
   - 不设代码风格约束（`ruff` 只做运行时缺陷探测；风格不是本仓库质量基线，测量/实验优先）。
   - **不做跨共演单元的社会网络**（T3 已评估并搁置；**作者已确认"不做"**，2026-10-16）。
+  - **不做关系漏斗 / 广场 / 两个 driver 的重构**（`SimulationEngine`、`EventEngine`）——它们是**已冻结的公共面**（本主题期间不动；通道从不接触 driver）。
+  - **不做广场的"亲属避让"**（原检查读死字段 `relatives`，从未生效；字段已删，只保留同 id 保护。真要实现属独立决策——会改变个体引擎行为与已拟合常数）。
 
 ## 开放问题（未决）
 
-（当前无未决项。`scripts/` 已接入 CI：`.github/workflows/docs-guard.yml`——PR 时跑 `check-docs-sync --strict` + `check-doc-refs --strict`。）
+以下 3 条是 **ADR-003（交互通道）** 的未定点，待作者拍板（详见 [`docs/decisions/adr-003-interaction-channel.md`](docs/decisions/adr-003-interaction-channel.md) §选择）：
+
+1. **婚配维度 `marital` 是否可寻址**——推荐"双人析出"（顺带修物化丢婚配的保真 bug），备选"宣布为不可寻址维度"。
+2. **配额形态**——推荐"单簇单 tick 析出上限 = 常数 + 窗口 headroom"。
+3. **宽限期归属**——刚绑定的簇在 N tick 内不粗化：归**通道机制**还是**调度策略**。
+4. **是否给分辨率层设保真门槛、设多少**（Stage 16 + 修订）——首测 `age_l1 ≈ 0.25` **不可读作粗化误差**：
+   它是**分箱离散 + 相位错位**的产物（规模扫描：n=8→0.2556、200→0.0566、400→0.0454，衰减未平台化）；
+   且**分解本身随时长变**（相位贡献：t=600 时 100%、t=8000 时 16%）。
+   真实系统性偏差 **≲0.05**（与 `age_l1<0.06` 同阶）；而 `pop(R−C)` 随 n **放大**（n=400 时 ≈ **+4.6%**，
+   coarse 系统性多产人）——**这条更硬**。门槛属**范围**决策，故 `tests/test_cluster_fidelity.py` 目前
+   **只守结构、不设阈值**。**注意**：该层保真度在生产规模上不可单点判读，设计必须含**跨规模扫描 + 多时长**。
+
+（`scripts/` 已接入 CI：`.github/workflows/docs-guard.yml`——PR 时跑 `check-docs-sync --strict` + `check-doc-refs --strict`。）
 
 ## 常用命令
 
@@ -42,6 +56,7 @@ python -m bench.convergence --full-compare --sizes 2000 5000 10000 --steps 4000
 python -m bench.audit_ledger --n 5000 --steps 8000
 python -m bench.audit_ledger --clusters --n 3000 --steps 2000 --capacity 300     # 质量保持子集：整体恒等式
 python -m bench.audit_ledger --resolution --n 3000 --steps 2000 --capacity 300   # 生产口径：逐算子守恒门禁
+python -m bench.cluster_fidelity --members 8 --ticks 8000 --trials 40            # 共演单元保真度 A/B（配对 + 噪声带）
 
 # 文档检查器（手动；Windows 用 .ps1，bash 用 .sh）
 powershell -File scripts/check-docs-sync.ps1
@@ -55,6 +70,7 @@ powershell -File scripts/check-doc-refs.ps1
 > L2 架构层 = [`docs/architecture.md`](docs/architecture.md)（其事实细节指 `docs/engineering-spec.md` §1）—— **此处不新造重复事实**（遵循 E1 指针优先）。
 > 术语表 = [`docs/glossary.md`](docs/glossary.md)；决策 = [`docs/decisions/`](docs/decisions/README.md)；对账 = [`docs/reviews/`](docs/reviews/)。
 > 分辨率/共演单元层契约 = [`docs/cluster-contract.md`](docs/cluster-contract.md)。
+> 交互通道（L3，跨分辨率直接交互）= [`docs/modules/interaction-channel.md`](docs/modules/interaction-channel.md)。
 > 演进史 / 实测数字 / 被拒方案 = [`docs/history.md`](docs/history.md)。
 > 基准工具与当前权威数字 = [`bench/README.md`](bench/README.md)。
 > Web 页面 / SSE 契约 = [`web/README.md`](web/README.md)。

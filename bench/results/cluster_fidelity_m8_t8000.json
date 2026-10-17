@@ -1,0 +1,4757 @@
+{
+  "params": {
+    "members": 8,
+    "ticks": 8000,
+    "trials": 40,
+    "seed0": 1,
+    "checkpoints": null,
+    "capacity": null,
+    "out": "bench/results/cluster_fidelity_m8_t8000.json"
+  },
+  "checkpoints": [
+    2000,
+    4000,
+    6000,
+    8000
+  ],
+  "summary": {
+    "2000": {
+      "population": {
+        "mean": 0.9,
+        "sd": 1.4798648586948742,
+        "r_gt_c": 22,
+        "n": 40
+      },
+      "mean_age": {
+        "mean": -1.836525,
+        "sd": 4.557205711768452,
+        "r_gt_c": 18,
+        "n": 40
+      },
+      "married_frac": {
+        "mean": 0.14004,
+        "sd": 0.21614520582238228,
+        "r_gt_c": 30,
+        "n": 40
+      },
+      "gini_wealth": {
+        "mean": 0.059328,
+        "sd": 0.11795463371991793,
+        "r_gt_c": 22,
+        "n": 40
+      },
+      "wealth_per_capita": {
+        "mean": -4247.833620837701,
+        "sd": 9283.795147485991,
+        "r_gt_c": 18,
+        "n": 40
+      },
+      "pool_frac": {
+        "mean": 0.0,
+        "sd": 0.0,
+        "r_gt_c": 0,
+        "n": 40
+      },
+      "age_l1": {
+        "mean": 0.15625048562548563,
+        "sd": 0.08410509754612774,
+        "r_gt_c": 35,
+        "n": 40
+      }
+    },
+    "4000": {
+      "population": {
+        "mean": 0.125,
+        "sd": 2.0023423783159564,
+        "r_gt_c": 17,
+        "n": 40
+      },
+      "mean_age": {
+        "mean": 0.921925,
+        "sd": 5.237732474017263,
+        "r_gt_c": 22,
+        "n": 40
+      },
+      "married_frac": {
+        "mean": 0.09743974999999995,
+        "sd": 0.16612284489930185,
+        "r_gt_c": 26,
+        "n": 40
+      },
+      "gini_wealth": {
+        "mean": -0.015679249999999995,
+        "sd": 0.1295763289993103,
+        "r_gt_c": 19,
+        "n": 40
+      },
+      "wealth_per_capita": {
+        "mean": 2148.8389072176374,
+        "sd": 19243.661067306628,
+        "r_gt_c": 22,
+        "n": 40
+      },
+      "pool_frac": {
+        "mean": -0.00016358180802652692,
+        "sd": 0.0003031174199240754,
+        "r_gt_c": 0,
+        "n": 40
+      },
+      "age_l1": {
+        "mean": 0.15783841158841158,
+        "sd": 0.07661078374099857,
+        "r_gt_c": 37,
+        "n": 40
+      }
+    },
+    "6000": {
+      "population": {
+        "mean": -0.075,
+        "sd": 2.1022309578160057,
+        "r_gt_c": 13,
+        "n": 40
+      },
+      "mean_age": {
+        "mean": 2.365175,
+        "sd": 5.8786215428767825,
+        "r_gt_c": 27,
+        "n": 40
+      },
+      "married_frac": {
+        "mean": 0.047542749999999995,
+        "sd": 0.13076645319017222,
+        "r_gt_c": 23,
+        "n": 40
+      },
+      "gini_wealth": {
+        "mean": -0.0298065,
+        "sd": 0.12831751939135203,
+        "r_gt_c": 17,
+        "n": 40
+      },
+      "wealth_per_capita": {
+        "mean": 5744.639684099578,
+        "sd": 25822.962985406317,
+        "r_gt_c": 22,
+        "n": 40
+      },
+      "pool_frac": {
+        "mean": -0.0025619717359518816,
+        "sd": 0.0018894697499068189,
+        "r_gt_c": 0,
+        "n": 40
+      },
+      "age_l1": {
+        "mean": 0.24579569735819737,
+        "sd": 0.07556962857155072,
+        "r_gt_c": 40,
+        "n": 40
+      }
+    },
+    "8000": {
+      "population": {
+        "mean": -0.35,
+        "sd": 2.6509432283623124,
+        "r_gt_c": 15,
+        "n": 40
+      },
+      "mean_age": {
+        "mean": 2.232700000000001,
+        "sd": 6.22786605588142,
+        "r_gt_c": 24,
+        "n": 40
+      },
+      "married_frac": {
+        "mean": 0.010928750000000004,
+        "sd": 0.18201388934896562,
+        "r_gt_c": 23,
+        "n": 40
+      },
+      "gini_wealth": {
+        "mean": -0.041245,
+        "sd": 0.11945016561311249,
+        "r_gt_c": 16,
+        "n": 40
+      },
+      "wealth_per_capita": {
+        "mean": 8990.978560533831,
+        "sd": 33244.616536085145,
+        "r_gt_c": 24,
+        "n": 40
+      },
+      "pool_frac": {
+        "mean": -0.0065973938900249374,
+        "sd": 0.002646107342705549,
+        "r_gt_c": 0,
+        "n": 40
+      },
+      "age_l1": {
+        "mean": 0.2594875343095157,
+        "sd": 0.08733005164299697,
+        "r_gt_c": 40,
+        "n": 40
+      }
+    }
+  },
+  "per_trial": [
+    {
+      "2000": {
+        "resolved": {
+          "population": 8.0,
+          "mean_age": 39.75,
+          "married_frac": 0.75,
+          "gini_wealth": 0.01986,
+          "wealth_per_capita": 74215.926125,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 9.0,
+          "mean_age": 34.76,
+          "married_frac": 0.62246,
+          "gini_wealth": 0.13918,
+          "wealth_per_capita": 65395.886666666665,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": -1.0,
+          "mean_age": 4.990000000000002,
+          "married_frac": 0.12754,
+          "gini_wealth": -0.11932,
+          "wealth_per_capita": 8820.039458333333,
+          "pool_frac": 0.0,
+          "age_l1": 0.11111111111111113
+        },
+        "degree_l1": null
+      },
+      "4000": {
+        "resolved": {
+          "population": 9.0,
+          "mean_age": 40.556,
+          "married_frac": 0.75,
+          "gini_wealth": 0.11974,
+          "wealth_per_capita": 124969.7121111111,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 11.0,
+          "mean_age": 35.375,
+          "married_frac": 0.79512,
+          "gini_wealth": 0.25578,
+          "wealth_per_capita": 102302.67718181819,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": -2.0,
+          "mean_age": 5.180999999999997,
+          "married_frac": -0.04512000000000005,
+          "gini_wealth": -0.13604,
+          "wealth_per_capita": 22667.034929292917,
+          "pool_frac": 0.0,
+          "age_l1": 0.09999999999999995
+        },
+        "degree_l1": null
+      },
+      "6000": {
+        "resolved": {
+          "population": 10.0,
+          "mean_age": 41.8,
+          "married_frac": 0.66667,
+          "gini_wealth": 0.21671,
+          "wealth_per_capita": 162272.7409,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 12.0,
+          "mean_age": 35.471,
+          "married_frac": 0.85715,
+          "gini_wealth": 0.35548,
+          "wealth_per_capita": 134395.06956762922,
+          "pool_frac": 0.0013325097034589434
+        },
+        "diff": {
+          "population": -2.0,
+          "mean_age": 6.329000000000001,
+          "married_frac": -0.19047999999999998,
+          "gini_wealth": -0.13877,
+          "wealth_per_capita": 27877.67133237078,
+          "pool_frac": -0.0013325097034589434,
+          "age_l1": 0.27272727272727276
+        },
+        "degree_l1": null
+      },
+      "8000": {
+        "resolved": {
+          "population": 7.0,
+          "mean_age": 39.571,
+          "married_frac": 0.8,
+          "gini_wealth": 0.28983,
+          "wealth_per_capita": 195744.9707142857,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 12.0,
+          "mean_age": 36.9,
+          "married_frac": 0.75996,
+          "gini_wealth": 0.45291,
+          "wealth_per_capita": 152731.3811599804,
+          "pool_frac": 0.006852248167328835
+        },
+        "diff": {
+          "population": -5.0,
+          "mean_age": 2.6709999999999994,
+          "married_frac": 0.040040000000000076,
+          "gini_wealth": -0.16308,
+          "wealth_per_capita": 43013.589554305305,
+          "pool_frac": -0.006852248167328835,
+          "age_l1": 0.4545454545454545
+        },
+        "degree_l1": null
+      }
+    },
+    {
+      "2000": {
+        "resolved": {
+          "population": 10.0,
+          "mean_age": 33.6,
+          "married_frac": 0.75,
+          "gini_wealth": 0.22259,
+          "wealth_per_capita": 61160.108400000005,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 9.0,
+          "mean_age": 37.21,
+          "married_frac": 0.62246,
+          "gini_wealth": 0.11847,
+          "wealth_per_capita": 67157.46122222222,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 1.0,
+          "mean_age": -3.6099999999999994,
+          "married_frac": 0.12754,
+          "gini_wealth": 0.10412,
+          "wealth_per_capita": -5997.352822222216,
+          "pool_frac": 0.0,
+          "age_l1": 0.08888888888888885
+        },
+        "degree_l1": null
+      },
+      "4000": {
+        "resolved": {
+          "population": 10.0,
+          "mean_age": 39.0,
+          "married_frac": 1.0,
+          "gini_wealth": 0.22752,
+          "wealth_per_capita": 110960.1084,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 10.0,
+          "mean_age": 37.671,
+          "married_frac": 0.79512,
+          "gini_wealth": 0.23693,
+          "wealth_per_capita": 110060.56454310214,
+          "pool_frac": 0.001260119314105876
+        },
+        "diff": {
+          "population": 0.0,
+          "mean_age": 1.3290000000000006,
+          "married_frac": 0.20487999999999995,
+          "gini_wealth": -0.009410000000000002,
+          "wealth_per_capita": 899.543856897857,
+          "pool_frac": -0.001260119314105876,
+          "age_l1": 0.2
+        },
+        "degree_l1": null
+      },
+      "6000": {
+        "resolved": {
+          "population": 11.0,
+          "mean_age": 41.0,
+          "married_frac": 1.0,
+          "gini_wealth": 0.34583,
+          "wealth_per_capita": 133691.00763636365,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 11.0,
+          "mean_age": 35.917,
+          "married_frac": 0.83335,
+          "gini_wealth": 0.38869,
+          "wealth_per_capita": 127029.72536573293,
+          "pool_frac": 0.006355692802318426
+        },
+        "diff": {
+          "population": 0.0,
+          "mean_age": 5.082999999999998,
+          "married_frac": 0.16664999999999996,
+          "gini_wealth": -0.042859999999999954,
+          "wealth_per_capita": 6661.28227063072,
+          "pool_frac": -0.006355692802318426,
+          "age_l1": 0.26363636363636367
+        },
+        "degree_l1": null
+      },
+      "8000": {
+        "resolved": {
+          "population": 12.0,
+          "mean_age": 43.0,
+          "married_frac": 0.83333,
+          "gini_wealth": 0.42368,
+          "wealth_per_capita": 152300.09033333333,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 12.0,
+          "mean_age": 36.742,
+          "married_frac": 0.76879,
+          "gini_wealth": 0.47557,
+          "wealth_per_capita": 138429.06208645916,
+          "pool_frac": 0.008939934537394438
+        },
+        "diff": {
+          "population": 0.0,
+          "mean_age": 6.258000000000003,
+          "married_frac": 0.06454000000000004,
+          "gini_wealth": -0.05188999999999999,
+          "wealth_per_capita": 13871.028246874164,
+          "pool_frac": -0.008939934537394438,
+          "age_l1": 0.15909090909090912
+        },
+        "degree_l1": null
+      }
+    },
+    {
+      "2000": {
+        "resolved": {
+          "population": 9.0,
+          "mean_age": 36.111,
+          "married_frac": 1.0,
+          "gini_wealth": 0.12905,
+          "wealth_per_capita": 68492.909,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 9.0,
+          "mean_age": 34.956,
+          "married_frac": 0.62246,
+          "gini_wealth": 0.13716,
+          "wealth_per_capita": 68061.29755555555,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 0.0,
+          "mean_age": 1.154999999999994,
+          "married_frac": 0.37754,
+          "gini_wealth": -0.008110000000000006,
+          "wealth_per_capita": 431.6114444444538,
+          "pool_frac": 0.0,
+          "age_l1": 0.0
+        },
+        "degree_l1": null
+      },
+      "4000": {
+        "resolved": {
+          "population": 9.0,
+          "mean_age": 41.556,
+          "married_frac": 1.0,
+          "gini_wealth": 0.11952,
+          "wealth_per_capita": 127715.13122222223,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 11.0,
+          "mean_age": 34.497,
+          "married_frac": 0.79512,
+          "gini_wealth": 0.27722,
+          "wealth_per_capita": 104498.85681818183,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": -2.0,
+          "mean_age": 7.0589999999999975,
+          "married_frac": 0.20487999999999995,
+          "gini_wealth": -0.1577,
+          "wealth_per_capita": 23216.274404040407,
+          "pool_frac": 0.0,
+          "age_l1": 0.09999999999999998
+        },
+        "degree_l1": null
+      },
+      "6000": {
+        "resolved": {
+          "population": 11.0,
+          "mean_age": 39.091,
+          "married_frac": 1.0,
+          "gini_wealth": 0.29082,
+          "wealth_per_capita": 149221.47100000002,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 12.0,
+          "mean_age": 34.637,
+          "married_frac": 0.85715,
+          "gini_wealth": 0.3761,
+          "wealth_per_capita": 136071.66293828035,
+          "pool_frac": 0.0013737168653927738
+        },
+        "diff": {
+          "population": -1.0,
+          "mean_age": 4.454000000000001,
+          "married_frac": 0.14285000000000003,
+          "gini_wealth": -0.08527999999999997,
+          "wealth_per_capita": 13149.808061719668,
+          "pool_frac": -0.0013737168653927738,
+          "age_l1": 0.21212121212121213
+        },
+        "degree_l1": null
+      },
+      "8000": {
+        "resolved": {
+          "population": 11.0,
+          "mean_age": 38.909,
+          "married_frac": 0.66667,
+          "gini_wealth": 0.36078,
+          "wealth_per_capita": 175020.86409090908,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 13.0,
+          "mean_age": 37.195,
+          "married_frac": 0.76968,
+          "gini_wealth": 0.43983,
+          "wealth_per_capita": 154880.59061402304,
+          "pool_frac": 0.004199567276947028
+        },
+        "diff": {
+          "population": -2.0,
+          "mean_age": 1.7139999999999986,
+          "married_frac": -0.10301000000000005,
+          "gini_wealth": -0.07905000000000001,
+          "wealth_per_capita": 20140.27347688604,
+          "pool_frac": -0.004199567276947028,
+          "age_l1": 0.27972027972027974
+        },
+        "degree_l1": null
+      }
+    },
+    {
+      "2000": {
+        "resolved": {
+          "population": 10.0,
+          "mean_age": 31.2,
+          "married_frac": 1.0,
+          "gini_wealth": 0.21866,
+          "wealth_per_capita": 62623.3632,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 9.0,
+          "mean_age": 33.638,
+          "married_frac": 0.62246,
+          "gini_wealth": 0.13908,
+          "wealth_per_capita": 68950.18644444444,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 1.0,
+          "mean_age": -2.437999999999999,
+          "married_frac": 0.37754,
+          "gini_wealth": 0.07957999999999998,
+          "wealth_per_capita": -6326.823244444437,
+          "pool_frac": 0.0,
+          "age_l1": 0.08888888888888888
+        },
+        "degree_l1": null
+      },
+      "4000": {
+        "resolved": {
+          "population": 10.0,
+          "mean_age": 37.1,
+          "married_frac": 1.0,
+          "gini_wealth": 0.20908,
+          "wealth_per_capita": 116023.36319999999,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 10.0,
+          "mean_age": 34.839,
+          "married_frac": 0.79512,
+          "gini_wealth": 0.24444,
+          "wealth_per_capita": 115724.0882,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 0.0,
+          "mean_age": 2.261000000000003,
+          "married_frac": 0.20487999999999995,
+          "gini_wealth": -0.03536,
+          "wealth_per_capita": 299.2749999999942,
+          "pool_frac": 0.0,
+          "age_l1": 0.20000000000000004
+        },
+        "degree_l1": null
+      },
+      "6000": {
+        "resolved": {
+          "population": 11.0,
+          "mean_age": 38.727,
+          "married_frac": 1.0,
+          "gini_wealth": 0.29865,
+          "wealth_per_capita": 146475.78472727272,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 12.0,
+          "mean_age": 34.426,
+          "married_frac": 0.84792,
+          "gini_wealth": 0.3626,
+          "wealth_per_capita": 130950.86919284624,
+          "pool_frac": 0.0033182185974877172
+        },
+        "diff": {
+          "population": -1.0,
+          "mean_age": 4.300999999999995,
+          "married_frac": 0.15208,
+          "gini_wealth": -0.06394999999999995,
+          "wealth_per_capita": 15524.915534426487,
+          "pool_frac": -0.0033182185974877172,
+          "age_l1": 0.18181818181818182
+        },
+        "degree_l1": null
+      },
+      "8000": {
+        "resolved": {
+          "population": 11.0,
+          "mean_age": 38.455,
+          "married_frac": 0.57143,
+          "gini_wealth": 0.39961,
+          "wealth_per_capita": 162705.74381818183,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 13.0,
+          "mean_age": 34.341,
+          "married_frac": 0.75457,
+          "gini_wealth": 0.48009,
+          "wealth_per_capita": 138510.0822824588,
+          "pool_frac": 0.007647609720781411
+        },
+        "diff": {
+          "population": -2.0,
+          "mean_age": 4.113999999999997,
+          "married_frac": -0.18313999999999997,
+          "gini_wealth": -0.08048,
+          "wealth_per_capita": 24195.66153572302,
+          "pool_frac": -0.007647609720781411,
+          "age_l1": 0.18181818181818182
+        },
+        "degree_l1": null
+      }
+    },
+    {
+      "2000": {
+        "resolved": {
+          "population": 8.0,
+          "mean_age": 44.625,
+          "married_frac": 0.25,
+          "gini_wealth": 0.01533,
+          "wealth_per_capita": 76420.096875,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 9.0,
+          "mean_age": 40.503,
+          "married_frac": 0.62246,
+          "gini_wealth": 0.10379,
+          "wealth_per_capita": 67376.77433333333,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": -1.0,
+          "mean_age": 4.122,
+          "married_frac": -0.37246,
+          "gini_wealth": -0.08846,
+          "wealth_per_capita": 9043.322541666668,
+          "pool_frac": 0.0,
+          "age_l1": 0.22222222222222224
+        },
+        "degree_l1": null
+      },
+      "4000": {
+        "resolved": {
+          "population": 8.0,
+          "mean_age": 50.5,
+          "married_frac": 0.16667,
+          "gini_wealth": 0.02704,
+          "wealth_per_capita": 139545.096875,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 10.0,
+          "mean_age": 40.653,
+          "married_frac": 0.79512,
+          "gini_wealth": 0.22214,
+          "wealth_per_capita": 111995.43084389495,
+          "pool_frac": 0.0007048095024965067
+        },
+        "diff": {
+          "population": -2.0,
+          "mean_age": 9.847000000000001,
+          "married_frac": -0.6284500000000001,
+          "gini_wealth": -0.1951,
+          "wealth_per_capita": 27549.666031105036,
+          "pool_frac": -0.0007048095024965067,
+          "age_l1": 0.19999999999999996
+        },
+        "degree_l1": null
+      },
+      "6000": {
+        "resolved": {
+          "population": 7.0,
+          "mean_age": 54.429,
+          "married_frac": 0.8,
+          "gini_wealth": 0.07775,
+          "wealth_per_capita": 190362.2017142857,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 10.0,
+          "mean_age": 40.445,
+          "married_frac": 0.80991,
+          "gini_wealth": 0.35337,
+          "wealth_per_capita": 137991.09712430165,
+          "pool_frac": 0.006953205998770879
+        },
+        "diff": {
+          "population": -3.0,
+          "mean_age": 13.984000000000002,
+          "married_frac": -0.009909999999999974,
+          "gini_wealth": -0.27562000000000003,
+          "wealth_per_capita": 52371.104589984054,
+          "pool_frac": -0.006953205998770879,
+          "age_l1": 0.4571428571428571
+        },
+        "degree_l1": null
+      },
+      "8000": {
+        "resolved": {
+          "population": 7.0,
+          "mean_age": 59.857,
+          "married_frac": 1.0,
+          "gini_wealth": 0.12804,
+          "wealth_per_capita": 230219.34457142858,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 10.0,
+          "mean_age": 42.742,
+          "married_frac": 0.68886,
+          "gini_wealth": 0.42325,
+          "wealth_per_capita": 156917.35575349137,
+          "pool_frac": 0.01148973257186228
+        },
+        "diff": {
+          "population": -3.0,
+          "mean_age": 17.115000000000002,
+          "married_frac": 0.31113999999999997,
+          "gini_wealth": -0.29521000000000003,
+          "wealth_per_capita": 73301.9888179372,
+          "pool_frac": -0.01148973257186228,
+          "age_l1": 0.29999999999999993
+        },
+        "degree_l1": null
+      }
+    },
+    {
+      "2000": {
+        "resolved": {
+          "population": 9.0,
+          "mean_age": 35.889,
+          "married_frac": 0.75,
+          "gini_wealth": 0.11621,
+          "wealth_per_capita": 66916.81766666667,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 9.0,
+          "mean_age": 35.305,
+          "married_frac": 0.62246,
+          "gini_wealth": 0.11647,
+          "wealth_per_capita": 66611.58055555556,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 0.0,
+          "mean_age": 0.5840000000000032,
+          "married_frac": 0.12754,
+          "gini_wealth": -0.0002600000000000102,
+          "wealth_per_capita": 305.23711111111334,
+          "pool_frac": 0.0,
+          "age_l1": 0.2222222222222222
+        },
+        "degree_l1": null
+      },
+      "4000": {
+        "resolved": {
+          "population": 10.0,
+          "mean_age": 37.4,
+          "married_frac": 1.0,
+          "gini_wealth": 0.20759,
+          "wealth_per_capita": 112225.1359,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 11.0,
+          "mean_age": 35.797,
+          "married_frac": 0.79512,
+          "gini_wealth": 0.24068,
+          "wealth_per_capita": 103049.13681537993,
+          "pool_frac": 7.088672070111727e-05
+        },
+        "diff": {
+          "population": -1.0,
+          "mean_age": 1.6030000000000015,
+          "married_frac": 0.20487999999999995,
+          "gini_wealth": -0.03309000000000001,
+          "wealth_per_capita": 9175.999084620067,
+          "pool_frac": -7.088672070111727e-05,
+          "age_l1": 0.0
+        },
+        "degree_l1": null
+      },
+      "6000": {
+        "resolved": {
+          "population": 12.0,
+          "mean_age": 36.417,
+          "married_frac": 1.0,
+          "gini_wealth": 0.36904,
+          "wealth_per_capita": 130520.94658333332,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 12.0,
+          "mean_age": 35.592,
+          "married_frac": 0.84792,
+          "gini_wealth": 0.36274,
+          "wealth_per_capita": 128167.21591241995,
+          "pool_frac": 0.0031342583168418037
+        },
+        "diff": {
+          "population": 0.0,
+          "mean_age": 0.8250000000000028,
+          "married_frac": 0.15208,
+          "gini_wealth": 0.006299999999999972,
+          "wealth_per_capita": 2353.73067091337,
+          "pool_frac": -0.0031342583168418037,
+          "age_l1": 0.15151515151515155
+        },
+        "degree_l1": null
+      },
+      "8000": {
+        "resolved": {
+          "population": 11.0,
+          "mean_age": 39.273,
+          "married_frac": 0.8,
+          "gini_wealth": 0.39343,
+          "wealth_per_capita": 163665.97,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 12.0,
+          "mean_age": 36.555,
+          "married_frac": 0.76445,
+          "gini_wealth": 0.4592,
+          "wealth_per_capita": 149446.16270380138,
+          "pool_frac": 0.00749668487209815
+        },
+        "diff": {
+          "population": -1.0,
+          "mean_age": 2.7180000000000035,
+          "married_frac": 0.03555000000000008,
+          "gini_wealth": -0.06577,
+          "wealth_per_capita": 14219.807296198618,
+          "pool_frac": -0.00749668487209815,
+          "age_l1": 0.25
+        },
+        "degree_l1": null
+      }
+    },
+    {
+      "2000": {
+        "resolved": {
+          "population": 11.0,
+          "mean_age": 24.818,
+          "married_frac": 0.75,
+          "gini_wealth": 0.2801,
+          "wealth_per_capita": 55884.88609090909,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 9.0,
+          "mean_age": 28.843,
+          "married_frac": 0.62246,
+          "gini_wealth": 0.13002,
+          "wealth_per_capita": 67618.10888888889,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 2.0,
+          "mean_age": -4.024999999999999,
+          "married_frac": 0.12754,
+          "gini_wealth": 0.15008000000000002,
+          "wealth_per_capita": -11733.222797979804,
+          "pool_frac": 0.0,
+          "age_l1": 0.16161616161616157
+        },
+        "degree_l1": null
+      },
+      "4000": {
+        "resolved": {
+          "population": 12.0,
+          "mean_age": 27.917,
+          "married_frac": 1.0,
+          "gini_wealth": 0.33717,
+          "wealth_per_capita": 95644.47891666666,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 11.0,
+          "mean_age": 28.81,
+          "married_frac": 0.79512,
+          "gini_wealth": 0.29171,
+          "wealth_per_capita": 104148.43954545454,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 1.0,
+          "mean_age": -0.8929999999999971,
+          "married_frac": 0.20487999999999995,
+          "gini_wealth": 0.04546,
+          "wealth_per_capita": -8503.960628787885,
+          "pool_frac": 0.0,
+          "age_l1": 0.15909090909090912
+        },
+        "degree_l1": null
+      },
+      "6000": {
+        "resolved": {
+          "population": 14.0,
+          "mean_age": 28.714,
+          "married_frac": 1.0,
+          "gini_wealth": 0.43047,
+          "wealth_per_capita": 120052.4105,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 13.0,
+          "mean_age": 29.095,
+          "married_frac": 0.86343,
+          "gini_wealth": 0.39769,
+          "wealth_per_capita": 129433.66761538462,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 1.0,
+          "mean_age": -0.3810000000000002,
+          "married_frac": 0.13656999999999997,
+          "gini_wealth": 0.03278000000000003,
+          "wealth_per_capita": -9381.257115384622,
+          "pool_frac": 0.0,
+          "age_l1": 0.2032967032967033
+        },
+        "degree_l1": null
+      },
+      "8000": {
+        "resolved": {
+          "population": 15.0,
+          "mean_age": 32.2,
+          "married_frac": 0.9,
+          "gini_wealth": 0.46581,
+          "wealth_per_capita": 147315.58313333333,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 15.0,
+          "mean_age": 30.877,
+          "married_frac": 0.80919,
+          "gini_wealth": 0.47847,
+          "wealth_per_capita": 144705.54890423652,
+          "pool_frac": 0.0011891290431239262
+        },
+        "diff": {
+          "population": 0.0,
+          "mean_age": 1.323000000000004,
+          "married_frac": 0.09081000000000006,
+          "gini_wealth": -0.012660000000000005,
+          "wealth_per_capita": 2610.034229096811,
+          "pool_frac": -0.0011891290431239262,
+          "age_l1": 0.13333333333333333
+        },
+        "degree_l1": null
+      }
+    },
+    {
+      "2000": {
+        "resolved": {
+          "population": 10.0,
+          "mean_age": 29.1,
+          "married_frac": 0.75,
+          "gini_wealth": 0.21373,
+          "wealth_per_capita": 62650.9235,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 9.0,
+          "mean_age": 31.473,
+          "married_frac": 0.62246,
+          "gini_wealth": 0.13585,
+          "wealth_per_capita": 69173.66444444444,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 1.0,
+          "mean_age": -2.3729999999999976,
+          "married_frac": 0.12754,
+          "gini_wealth": 0.07788,
+          "wealth_per_capita": -6522.740944444442,
+          "pool_frac": 0.0,
+          "age_l1": 0.08888888888888885
+        },
+        "degree_l1": null
+      },
+      "4000": {
+        "resolved": {
+          "population": 13.0,
+          "mean_age": 27.0,
+          "married_frac": 0.75,
+          "gini_wealth": 0.39012,
+          "wealth_per_capita": 89193.01807692308,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 11.0,
+          "mean_age": 31.229,
+          "married_frac": 0.79512,
+          "gini_wealth": 0.28745,
+          "wealth_per_capita": 105416.2099090909,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 2.0,
+          "mean_age": -4.228999999999999,
+          "married_frac": -0.04512000000000005,
+          "gini_wealth": 0.10267000000000004,
+          "wealth_per_capita": -16223.191832167824,
+          "pool_frac": 0.0,
+          "age_l1": 0.13986013986013984
+        },
+        "degree_l1": null
+      },
+      "6000": {
+        "resolved": {
+          "population": 13.0,
+          "mean_age": 32.462,
+          "married_frac": 0.75,
+          "gini_wealth": 0.38819,
+          "wealth_per_capita": 130193.01807692308,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 13.0,
+          "mean_age": 31.528,
+          "married_frac": 0.86343,
+          "gini_wealth": 0.38521,
+          "wealth_per_capita": 130498.86930769231,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 0.0,
+          "mean_age": 0.9340000000000046,
+          "married_frac": -0.11343000000000003,
+          "gini_wealth": 0.0029799999999999827,
+          "wealth_per_capita": -305.851230769229,
+          "pool_frac": 0.0,
+          "age_l1": 0.15384615384615385
+        },
+        "degree_l1": null
+      },
+      "8000": {
+        "resolved": {
+          "population": 14.0,
+          "mean_age": 35.429,
+          "married_frac": 0.83333,
+          "gini_wealth": 0.44742,
+          "wealth_per_capita": 152893.51678571428,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 14.0,
+          "mean_age": 33.048,
+          "married_frac": 0.79246,
+          "gini_wealth": 0.47226,
+          "wealth_per_capita": 149559.55065513987,
+          "pool_frac": 0.0032366405900678278
+        },
+        "diff": {
+          "population": 0.0,
+          "mean_age": 2.3810000000000002,
+          "married_frac": 0.04086999999999996,
+          "gini_wealth": -0.02484000000000003,
+          "wealth_per_capita": 3333.9661305744085,
+          "pool_frac": -0.0032366405900678278,
+          "age_l1": 0.1333333333333333
+        },
+        "degree_l1": null
+      }
+    },
+    {
+      "2000": {
+        "resolved": {
+          "population": 12.0,
+          "mean_age": 26.083,
+          "married_frac": 1.0,
+          "gini_wealth": 0.34416,
+          "wealth_per_capita": 50934.713500000005,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 9.0,
+          "mean_age": 33.357,
+          "married_frac": 0.62246,
+          "gini_wealth": 0.11551,
+          "wealth_per_capita": 67496.19866666666,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 3.0,
+          "mean_age": -7.274000000000001,
+          "married_frac": 0.37754,
+          "gini_wealth": 0.22865000000000002,
+          "wealth_per_capita": -16561.48516666666,
+          "pool_frac": 0.0,
+          "age_l1": 0.2222222222222222
+        },
+        "degree_l1": null
+      },
+      "4000": {
+        "resolved": {
+          "population": 12.0,
+          "mean_age": 31.583,
+          "married_frac": 1.0,
+          "gini_wealth": 0.34738,
+          "wealth_per_capita": 93934.7135,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 10.0,
+          "mean_age": 33.677,
+          "married_frac": 0.79512,
+          "gini_wealth": 0.25369,
+          "wealth_per_capita": 112400.50369936964,
+          "pool_frac": 0.0006193530907640317
+        },
+        "diff": {
+          "population": 2.0,
+          "mean_age": -2.094000000000001,
+          "married_frac": 0.20487999999999995,
+          "gini_wealth": 0.09369,
+          "wealth_per_capita": -18465.790199369643,
+          "pool_frac": -0.0006193530907640317,
+          "age_l1": 0.23333333333333334
+        },
+        "degree_l1": null
+      },
+      "6000": {
+        "resolved": {
+          "population": 12.0,
+          "mean_age": 37.167,
+          "married_frac": 1.0,
+          "gini_wealth": 0.3837,
+          "wealth_per_capita": 128101.38016666665,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 12.0,
+          "mean_age": 32.65,
+          "married_frac": 0.83335,
+          "gini_wealth": 0.39418,
+          "wealth_per_capita": 124804.06889432335,
+          "pool_frac": 0.0040474065907076025
+        },
+        "diff": {
+          "population": 0.0,
+          "mean_age": 4.517000000000003,
+          "married_frac": 0.16664999999999996,
+          "gini_wealth": -0.01047999999999999,
+          "wealth_per_capita": 3297.3112723433005,
+          "pool_frac": -0.0040474065907076025,
+          "age_l1": 0.25
+        },
+        "degree_l1": null
+      },
+      "8000": {
+        "resolved": {
+          "population": 16.0,
+          "mean_age": 32.812,
+          "married_frac": 0.66667,
+          "gini_wealth": 0.53013,
+          "wealth_per_capita": 125513.535125,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 13.0,
+          "mean_age": 34.105,
+          "married_frac": 0.78919,
+          "gini_wealth": 0.47085,
+          "wealth_per_capita": 142538.3373408065,
+          "pool_frac": 0.005513369310416813
+        },
+        "diff": {
+          "population": 3.0,
+          "mean_age": -1.2929999999999993,
+          "married_frac": -0.12251999999999996,
+          "gini_wealth": 0.05928,
+          "wealth_per_capita": -17024.8022158065,
+          "pool_frac": -0.005513369310416813,
+          "age_l1": 0.34615384615384615
+        },
+        "degree_l1": null
+      }
+    },
+    {
+      "2000": {
+        "resolved": {
+          "population": 8.0,
+          "mean_age": 38.625,
+          "married_frac": 0.25,
+          "gini_wealth": 0.01159,
+          "wealth_per_capita": 77336.1205,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 9.0,
+          "mean_age": 33.746,
+          "married_frac": 0.62246,
+          "gini_wealth": 0.12693,
+          "wealth_per_capita": 68391.30555555556,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": -1.0,
+          "mean_age": 4.878999999999998,
+          "married_frac": -0.37246,
+          "gini_wealth": -0.11533999999999998,
+          "wealth_per_capita": 8944.814944444443,
+          "pool_frac": 0.0,
+          "age_l1": 0.20833333333333334
+        },
+        "degree_l1": null
+      },
+      "4000": {
+        "resolved": {
+          "population": 9.0,
+          "mean_age": 39.333,
+          "married_frac": 0.75,
+          "gini_wealth": 0.11615,
+          "wealth_per_capita": 128187.66266666666,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 11.0,
+          "mean_age": 34.205,
+          "married_frac": 0.79512,
+          "gini_wealth": 0.25349,
+          "wealth_per_capita": 104756.94572727272,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": -2.0,
+          "mean_age": 5.128,
+          "married_frac": -0.04512000000000005,
+          "gini_wealth": -0.13734,
+          "wealth_per_capita": 23430.71693939394,
+          "pool_frac": 0.0,
+          "age_l1": 0.09999999999999995
+        },
+        "degree_l1": null
+      },
+      "6000": {
+        "resolved": {
+          "population": 9.0,
+          "mean_age": 44.889,
+          "married_frac": 0.66667,
+          "gini_wealth": 0.15158,
+          "wealth_per_capita": 177743.2182222222,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 12.0,
+          "mean_age": 33.768,
+          "married_frac": 0.83694,
+          "gini_wealth": 0.37838,
+          "wealth_per_capita": 130531.6413342677,
+          "pool_frac": 0.003110446351940859
+        },
+        "diff": {
+          "population": -3.0,
+          "mean_age": 11.121000000000002,
+          "married_frac": -0.17027000000000003,
+          "gini_wealth": -0.2268,
+          "wealth_per_capita": 47211.57688795451,
+          "pool_frac": -0.003110446351940859,
+          "age_l1": 0.2222222222222222
+        },
+        "degree_l1": null
+      },
+      "8000": {
+        "resolved": {
+          "population": 9.0,
+          "mean_age": 43.222,
+          "married_frac": 1.0,
+          "gini_wealth": 0.26677,
+          "wealth_per_capita": 202567.14133333333,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 13.0,
+          "mean_age": 35.212,
+          "married_frac": 0.76267,
+          "gini_wealth": 0.46092,
+          "wealth_per_capita": 146391.3968246873,
+          "pool_frac": 0.005838404106514215
+        },
+        "diff": {
+          "population": -4.0,
+          "mean_age": 8.009999999999998,
+          "married_frac": 0.23733000000000004,
+          "gini_wealth": -0.19415,
+          "wealth_per_capita": 56175.74450864602,
+          "pool_frac": -0.005838404106514215,
+          "age_l1": 0.2222222222222222
+        },
+        "degree_l1": null
+      }
+    },
+    {
+      "2000": {
+        "resolved": {
+          "population": 11.0,
+          "mean_age": 30.909,
+          "married_frac": 0.5,
+          "gini_wealth": 0.28642,
+          "wealth_per_capita": 55303.990999999995,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 9.0,
+          "mean_age": 36.53,
+          "married_frac": 0.62246,
+          "gini_wealth": 0.1336,
+          "wealth_per_capita": 66725.89455555555,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 2.0,
+          "mean_age": -5.621000000000002,
+          "married_frac": -0.12246000000000001,
+          "gini_wealth": 0.15282,
+          "wealth_per_capita": -11421.90355555556,
+          "pool_frac": 0.0,
+          "age_l1": 0.26262626262626265
+        },
+        "degree_l1": null
+      },
+      "4000": {
+        "resolved": {
+          "population": 13.0,
+          "mean_age": 30.923,
+          "married_frac": 0.75,
+          "gini_wealth": 0.39093,
+          "wealth_per_capita": 87949.53084615385,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 11.0,
+          "mean_age": 35.76,
+          "married_frac": 0.79512,
+          "gini_wealth": 0.27508,
+          "wealth_per_capita": 103406.52845454546,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 2.0,
+          "mean_age": -4.837,
+          "married_frac": -0.04512000000000005,
+          "gini_wealth": 0.11585000000000001,
+          "wealth_per_capita": -15456.997608391612,
+          "pool_frac": 0.0,
+          "age_l1": 0.18461538461538463
+        },
+        "degree_l1": null
+      },
+      "6000": {
+        "resolved": {
+          "population": 13.0,
+          "mean_age": 36.538,
+          "married_frac": 0.85714,
+          "gini_wealth": 0.4062,
+          "wealth_per_capita": 124641.83853846154,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 12.0,
+          "mean_age": 35.974,
+          "married_frac": 0.85715,
+          "gini_wealth": 0.37533,
+          "wealth_per_capita": 133710.69433139937,
+          "pool_frac": 0.0016926918164456082
+        },
+        "diff": {
+          "population": 1.0,
+          "mean_age": 0.5640000000000001,
+          "married_frac": -9.99999999995449e-06,
+          "gini_wealth": 0.03087000000000001,
+          "wealth_per_capita": -9068.85579293783,
+          "pool_frac": -0.0016926918164456082,
+          "age_l1": 0.1474358974358974
+        },
+        "degree_l1": null
+      },
+      "8000": {
+        "resolved": {
+          "population": 14.0,
+          "mean_age": 39.214,
+          "married_frac": 0.57143,
+          "gini_wealth": 0.45583,
+          "wealth_per_capita": 148238.85007142858,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 12.0,
+          "mean_age": 40.184,
+          "married_frac": 0.77484,
+          "gini_wealth": 0.41075,
+          "wealth_per_capita": 165729.6564466067,
+          "pool_frac": 0.004253102884860803
+        },
+        "diff": {
+          "population": 2.0,
+          "mean_age": -0.9699999999999989,
+          "married_frac": -0.20340999999999998,
+          "gini_wealth": 0.04508000000000001,
+          "wealth_per_capita": -17490.80637517813,
+          "pool_frac": -0.004253102884860803,
+          "age_l1": 0.21428571428571427
+        },
+        "degree_l1": null
+      }
+    },
+    {
+      "2000": {
+        "resolved": {
+          "population": 8.0,
+          "mean_age": 40.625,
+          "married_frac": 0.5,
+          "gini_wealth": 0.01334,
+          "wealth_per_capita": 77979.138,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 9.0,
+          "mean_age": 35.545,
+          "married_frac": 0.62246,
+          "gini_wealth": 0.12547,
+          "wealth_per_capita": 68501.88744444444,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": -1.0,
+          "mean_age": 5.079999999999998,
+          "married_frac": -0.12246000000000001,
+          "gini_wealth": -0.11213,
+          "wealth_per_capita": 9477.250555555569,
+          "pool_frac": 0.0,
+          "age_l1": 0.3194444444444444
+        },
+        "degree_l1": null
+      },
+      "4000": {
+        "resolved": {
+          "population": 8.0,
+          "mean_age": 46.0,
+          "married_frac": 0.75,
+          "gini_wealth": 0.00794,
+          "wealth_per_capita": 144604.138,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 10.0,
+          "mean_age": 36.225,
+          "married_frac": 0.79512,
+          "gini_wealth": 0.24208,
+          "wealth_per_capita": 115324.73130000001,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": -2.0,
+          "mean_age": 9.774999999999999,
+          "married_frac": -0.04512000000000005,
+          "gini_wealth": -0.23414,
+          "wealth_per_capita": 29279.406699999992,
+          "pool_frac": 0.0,
+          "age_l1": 0.19999999999999996
+        },
+        "degree_l1": null
+      },
+      "6000": {
+        "resolved": {
+          "population": 8.0,
+          "mean_age": 51.625,
+          "married_frac": 0.83333,
+          "gini_wealth": 0.04851,
+          "wealth_per_capita": 200104.138,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 11.0,
+          "mean_age": 36.631,
+          "married_frac": 0.84792,
+          "gini_wealth": 0.34873,
+          "wealth_per_capita": 142697.9098158977,
+          "pool_frac": 0.0029214596070251085
+        },
+        "diff": {
+          "population": -3.0,
+          "mean_age": 14.994,
+          "married_frac": -0.014589999999999992,
+          "gini_wealth": -0.30022,
+          "wealth_per_capita": 57406.22818410231,
+          "pool_frac": -0.0029214596070251085,
+          "age_l1": 0.2727272727272727
+        },
+        "degree_l1": null
+      },
+      "8000": {
+        "resolved": {
+          "population": 8.0,
+          "mean_age": 57.125,
+          "married_frac": 1.0,
+          "gini_wealth": 0.10676,
+          "wealth_per_capita": 237604.138,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 12.0,
+          "mean_age": 37.86,
+          "married_frac": 0.7271,
+          "gini_wealth": 0.44434,
+          "wealth_per_capita": 145908.86392958247,
+          "pool_frac": 0.0085957772713139
+        },
+        "diff": {
+          "population": -4.0,
+          "mean_age": 19.265,
+          "married_frac": 0.27290000000000003,
+          "gini_wealth": -0.33758,
+          "wealth_per_capita": 91695.27407041754,
+          "pool_frac": -0.0085957772713139,
+          "age_l1": 0.33333333333333337
+        },
+        "degree_l1": null
+      }
+    },
+    {
+      "2000": {
+        "resolved": {
+          "population": 10.0,
+          "mean_age": 33.7,
+          "married_frac": 1.0,
+          "gini_wealth": 0.22807,
+          "wealth_per_capita": 60447.821200000006,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 9.0,
+          "mean_age": 37.135,
+          "married_frac": 0.62246,
+          "gini_wealth": 0.14892,
+          "wealth_per_capita": 66726.70855555555,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 1.0,
+          "mean_age": -3.434999999999995,
+          "married_frac": 0.37754,
+          "gini_wealth": 0.07915,
+          "wealth_per_capita": -6278.887355555547,
+          "pool_frac": 0.0,
+          "age_l1": 0.08888888888888885
+        },
+        "degree_l1": null
+      },
+      "4000": {
+        "resolved": {
+          "population": 12.0,
+          "mean_age": 33.25,
+          "married_frac": 1.0,
+          "gini_wealth": 0.3459,
+          "wealth_per_capita": 94873.18433333334,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 11.0,
+          "mean_age": 37.323,
+          "married_frac": 0.79512,
+          "gini_wealth": 0.25986,
+          "wealth_per_capita": 103392.08045454546,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 1.0,
+          "mean_age": -4.073,
+          "married_frac": 0.20487999999999995,
+          "gini_wealth": 0.08604,
+          "wealth_per_capita": -8518.896121212121,
+          "pool_frac": 0.0,
+          "age_l1": 0.13333333333333336
+        },
+        "degree_l1": null
+      },
+      "6000": {
+        "resolved": {
+          "population": 11.0,
+          "mean_age": 31.0,
+          "married_frac": 0.66667,
+          "gini_wealth": 0.44554,
+          "wealth_per_capita": 117430.00309090909,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 11.0,
+          "mean_age": 38.178,
+          "married_frac": 0.83694,
+          "gini_wealth": 0.35,
+          "wealth_per_capita": 142692.2051554493,
+          "pool_frac": 0.002659191385462665
+        },
+        "diff": {
+          "population": 0.0,
+          "mean_age": -7.177999999999997,
+          "married_frac": -0.17027000000000003,
+          "gini_wealth": 0.09554000000000001,
+          "wealth_per_capita": -25262.202064540223,
+          "pool_frac": -0.002659191385462665,
+          "age_l1": 0.18181818181818182
+        },
+        "degree_l1": null
+      },
+      "8000": {
+        "resolved": {
+          "population": 10.0,
+          "mean_age": 34.2,
+          "married_frac": 0.66667,
+          "gini_wealth": 0.50153,
+          "wealth_per_capita": 136436.79369999998,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 11.0,
+          "mean_age": 40.379,
+          "married_frac": 0.71814,
+          "gini_wealth": 0.42579,
+          "wealth_per_capita": 162571.86704631776,
+          "pool_frac": 0.00807461383182469
+        },
+        "diff": {
+          "population": -1.0,
+          "mean_age": -6.178999999999995,
+          "married_frac": -0.051470000000000016,
+          "gini_wealth": 0.07574000000000003,
+          "wealth_per_capita": -26135.073346317775,
+          "pool_frac": -0.00807461383182469,
+          "age_l1": 0.2
+        },
+        "degree_l1": null
+      }
+    },
+    {
+      "2000": {
+        "resolved": {
+          "population": 10.0,
+          "mean_age": 33.3,
+          "married_frac": 1.0,
+          "gini_wealth": 0.22019,
+          "wealth_per_capita": 60494.130900000004,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 9.0,
+          "mean_age": 36.698,
+          "married_frac": 0.62246,
+          "gini_wealth": 0.1327,
+          "wealth_per_capita": 66943.96844444444,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 1.0,
+          "mean_age": -3.3980000000000032,
+          "married_frac": 0.37754,
+          "gini_wealth": 0.08748999999999998,
+          "wealth_per_capita": -6449.837544444439,
+          "pool_frac": 0.0,
+          "age_l1": 0.18888888888888886
+        },
+        "degree_l1": null
+      },
+      "4000": {
+        "resolved": {
+          "population": 11.0,
+          "mean_age": 35.455,
+          "married_frac": 1.0,
+          "gini_wealth": 0.292,
+          "wealth_per_capita": 101994.66445454545,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 10.0,
+          "mean_age": 37.384,
+          "married_frac": 0.79512,
+          "gini_wealth": 0.24618,
+          "wealth_per_capita": 111905.88793245828,
+          "pool_frac": 0.0006075670701019884
+        },
+        "diff": {
+          "population": 1.0,
+          "mean_age": -1.929000000000002,
+          "married_frac": 0.20487999999999995,
+          "gini_wealth": 0.04581999999999997,
+          "wealth_per_capita": -9911.223477912834,
+          "pool_frac": -0.0006075670701019884,
+          "age_l1": 0.08181818181818183
+        },
+        "degree_l1": null
+      },
+      "6000": {
+        "resolved": {
+          "population": 11.0,
+          "mean_age": 35.091,
+          "married_frac": 0.8,
+          "gini_wealth": 0.37401,
+          "wealth_per_capita": 130026.41309090909,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 11.0,
+          "mean_age": 37.334,
+          "married_frac": 0.84792,
+          "gini_wealth": 0.34999,
+          "wealth_per_capita": 137515.58368895273,
+          "pool_frac": 0.0036805948091165118
+        },
+        "diff": {
+          "population": 0.0,
+          "mean_age": -2.243000000000002,
+          "married_frac": -0.04791999999999996,
+          "gini_wealth": 0.024019999999999986,
+          "wealth_per_capita": -7489.170598043638,
+          "pool_frac": -0.0036805948091165118,
+          "age_l1": 0.18181818181818182
+        },
+        "degree_l1": null
+      },
+      "8000": {
+        "resolved": {
+          "population": 9.0,
+          "mean_age": 34.667,
+          "married_frac": 0.25,
+          "gini_wealth": 0.4359,
+          "wealth_per_capita": 151613.6332222222,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 12.0,
+          "mean_age": 37.434,
+          "married_frac": 0.73191,
+          "gini_wealth": 0.46312,
+          "wealth_per_capita": 139978.3628285382,
+          "pool_frac": 0.009398955562032825
+        },
+        "diff": {
+          "population": -3.0,
+          "mean_age": -2.766999999999996,
+          "married_frac": -0.48190999999999995,
+          "gini_wealth": -0.027219999999999966,
+          "wealth_per_capita": 11635.270393684012,
+          "pool_frac": -0.009398955562032825,
+          "age_l1": 0.2727272727272727
+        },
+        "degree_l1": null
+      }
+    },
+    {
+      "2000": {
+        "resolved": {
+          "population": 8.0,
+          "mean_age": 40.0,
+          "married_frac": 0.5,
+          "gini_wealth": 0.01936,
+          "wealth_per_capita": 78647.909,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 9.0,
+          "mean_age": 35.833,
+          "married_frac": 0.62246,
+          "gini_wealth": 0.11525,
+          "wealth_per_capita": 69381.76222222223,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": -1.0,
+          "mean_age": 4.167000000000002,
+          "married_frac": -0.12246000000000001,
+          "gini_wealth": -0.09589,
+          "wealth_per_capita": 9266.146777777773,
+          "pool_frac": 0.0,
+          "age_l1": 0.11111111111111113
+        },
+        "degree_l1": null
+      },
+      "4000": {
+        "resolved": {
+          "population": 7.0,
+          "mean_age": 43.429,
+          "married_frac": 0.85714,
+          "gini_wealth": 0.01121,
+          "wealth_per_capita": 145465.01085714286,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 10.0,
+          "mean_age": 36.613,
+          "married_frac": 0.79512,
+          "gini_wealth": 0.23257,
+          "wealth_per_capita": 114079.22415500677,
+          "pool_frac": 0.0006149880096609798
+        },
+        "diff": {
+          "population": -3.0,
+          "mean_age": 6.8160000000000025,
+          "married_frac": 0.062019999999999964,
+          "gini_wealth": -0.22136,
+          "wealth_per_capita": 31385.786702136087,
+          "pool_frac": -0.0006149880096609798,
+          "age_l1": 0.29999999999999993
+        },
+        "degree_l1": null
+      },
+      "6000": {
+        "resolved": {
+          "population": 7.0,
+          "mean_age": 49.0,
+          "married_frac": 0.8,
+          "gini_wealth": 0.05843,
+          "wealth_per_capita": 196893.58228571428,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 11.0,
+          "mean_age": 35.133,
+          "married_frac": 0.82439,
+          "gini_wealth": 0.38094,
+          "wealth_per_capita": 131179.06003443126,
+          "pool_frac": 0.006068093889406935
+        },
+        "diff": {
+          "population": -4.0,
+          "mean_age": 13.866999999999997,
+          "married_frac": -0.024389999999999912,
+          "gini_wealth": -0.32251,
+          "wealth_per_capita": 65714.52225128302,
+          "pool_frac": -0.006068093889406935,
+          "age_l1": 0.36363636363636365
+        },
+        "degree_l1": null
+      },
+      "8000": {
+        "resolved": {
+          "population": 8.0,
+          "mean_age": 39.75,
+          "married_frac": 0.8,
+          "gini_wealth": 0.299,
+          "wealth_per_capita": 194427.45025,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 12.0,
+          "mean_age": 35.213,
+          "married_frac": 0.76683,
+          "gini_wealth": 0.48304,
+          "wealth_per_capita": 141725.7553739258,
+          "pool_frac": 0.008729610958818924
+        },
+        "diff": {
+          "population": -4.0,
+          "mean_age": 4.536999999999999,
+          "married_frac": 0.03317000000000003,
+          "gini_wealth": -0.18404000000000004,
+          "wealth_per_capita": 52701.69487607421,
+          "pool_frac": -0.008729610958818924,
+          "age_l1": 0.36363636363636365
+        },
+        "degree_l1": null
+      }
+    },
+    {
+      "2000": {
+        "resolved": {
+          "population": 10.0,
+          "mean_age": 28.6,
+          "married_frac": 1.0,
+          "gini_wealth": 0.21406,
+          "wealth_per_capita": 61526.292299999994,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 9.0,
+          "mean_age": 30.815,
+          "married_frac": 0.62246,
+          "gini_wealth": 0.14035,
+          "wealth_per_capita": 68062.55333333333,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 1.0,
+          "mean_age": -2.215,
+          "married_frac": 0.37754,
+          "gini_wealth": 0.07371,
+          "wealth_per_capita": -6536.261033333336,
+          "pool_frac": 0.0,
+          "age_l1": 0.15555555555555556
+        },
+        "degree_l1": null
+      },
+      "4000": {
+        "resolved": {
+          "population": 11.0,
+          "mean_age": 31.455,
+          "married_frac": 1.0,
+          "gini_wealth": 0.27978,
+          "wealth_per_capita": 104478.44754545455,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 11.0,
+          "mean_age": 30.407,
+          "married_frac": 0.79512,
+          "gini_wealth": 0.29618,
+          "wealth_per_capita": 104512.07590909091,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 0.0,
+          "mean_age": 1.0479999999999983,
+          "married_frac": 0.20487999999999995,
+          "gini_wealth": -0.016400000000000026,
+          "wealth_per_capita": -33.628363636365975,
+          "pool_frac": 0.0,
+          "age_l1": 0.09090909090909091
+        },
+        "degree_l1": null
+      },
+      "6000": {
+        "resolved": {
+          "population": 13.0,
+          "mean_age": 31.538,
+          "married_frac": 1.0,
+          "gini_wealth": 0.38922,
+          "wealth_per_capita": 129481.76330769231,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 13.0,
+          "mean_age": 30.12,
+          "married_frac": 0.86343,
+          "gini_wealth": 0.40698,
+          "wealth_per_capita": 129747.1843846154,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 0.0,
+          "mean_age": 1.4179999999999993,
+          "married_frac": 0.13656999999999997,
+          "gini_wealth": -0.017759999999999998,
+          "wealth_per_capita": -265.4210769230849,
+          "pool_frac": 0.0,
+          "age_l1": 0.15384615384615385
+        },
+        "degree_l1": null
+      },
+      "8000": {
+        "resolved": {
+          "population": 16.0,
+          "mean_age": 30.875,
+          "married_frac": 0.77778,
+          "gini_wealth": 0.50505,
+          "wealth_per_capita": 137391.4326875,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 15.0,
+          "mean_age": 32.433,
+          "married_frac": 0.80919,
+          "gini_wealth": 0.4749,
+          "wealth_per_capita": 144979.75401262718,
+          "pool_frac": 0.0011771966400149318
+        },
+        "diff": {
+          "population": 1.0,
+          "mean_age": -1.5579999999999998,
+          "married_frac": -0.03140999999999994,
+          "gini_wealth": 0.03015000000000001,
+          "wealth_per_capita": -7588.321325127181,
+          "pool_frac": -0.0011771966400149318,
+          "age_l1": 0.18333333333333335
+        },
+        "degree_l1": null
+      }
+    },
+    {
+      "2000": {
+        "resolved": {
+          "population": 9.0,
+          "mean_age": 35.444,
+          "married_frac": 0.75,
+          "gini_wealth": 0.13282,
+          "wealth_per_capita": 67887.74877777777,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 9.0,
+          "mean_age": 34.985,
+          "married_frac": 0.62246,
+          "gini_wealth": 0.13693,
+          "wealth_per_capita": 67281.4501111111,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 0.0,
+          "mean_age": 0.4590000000000032,
+          "married_frac": 0.12754,
+          "gini_wealth": -0.0041100000000000025,
+          "wealth_per_capita": 606.2986666666693,
+          "pool_frac": 0.0,
+          "age_l1": 0.1111111111111111
+        },
+        "degree_l1": null
+      },
+      "4000": {
+        "resolved": {
+          "population": 10.0,
+          "mean_age": 36.9,
+          "married_frac": 1.0,
+          "gini_wealth": 0.20982,
+          "wealth_per_capita": 114398.97390000001,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 10.0,
+          "mean_age": 35.861,
+          "married_frac": 0.79512,
+          "gini_wealth": 0.24547,
+          "wealth_per_capita": 114224.44750000001,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 0.0,
+          "mean_age": 1.0390000000000015,
+          "married_frac": 0.20487999999999995,
+          "gini_wealth": -0.03564999999999999,
+          "wealth_per_capita": 174.52640000000247,
+          "pool_frac": 0.0,
+          "age_l1": 0.0
+        },
+        "degree_l1": null
+      },
+      "6000": {
+        "resolved": {
+          "population": 10.0,
+          "mean_age": 42.7,
+          "married_frac": 1.0,
+          "gini_wealth": 0.23624,
+          "wealth_per_capita": 158398.9739,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 12.0,
+          "mean_age": 35.618,
+          "married_frac": 0.84792,
+          "gini_wealth": 0.35953,
+          "wealth_per_capita": 129932.59884427114,
+          "pool_frac": 0.0031589051907577686
+        },
+        "diff": {
+          "population": -2.0,
+          "mean_age": 7.082000000000001,
+          "married_frac": 0.15208,
+          "gini_wealth": -0.12329000000000001,
+          "wealth_per_capita": 28466.375055728873,
+          "pool_frac": -0.0031589051907577686,
+          "age_l1": 0.09090909090909093
+        },
+        "degree_l1": null
+      },
+      "8000": {
+        "resolved": {
+          "population": 10.0,
+          "mean_age": 48.0,
+          "married_frac": 1.0,
+          "gini_wealth": 0.28227,
+          "wealth_per_capita": 191698.9739,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 12.0,
+          "mean_age": 36.278,
+          "married_frac": 0.7591,
+          "gini_wealth": 0.46387,
+          "wealth_per_capita": 149090.50387180367,
+          "pool_frac": 0.007720437755893163
+        },
+        "diff": {
+          "population": -2.0,
+          "mean_age": 11.722000000000001,
+          "married_frac": 0.2409,
+          "gini_wealth": -0.18159999999999998,
+          "wealth_per_capita": 42608.470028196345,
+          "pool_frac": -0.007720437755893163,
+          "age_l1": 0.18181818181818182
+        },
+        "degree_l1": null
+      }
+    },
+    {
+      "2000": {
+        "resolved": {
+          "population": 12.0,
+          "mean_age": 26.667,
+          "married_frac": 1.0,
+          "gini_wealth": 0.34871,
+          "wealth_per_capita": 51197.075333333334,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 9.0,
+          "mean_age": 34.549,
+          "married_frac": 0.62246,
+          "gini_wealth": 0.13355,
+          "wealth_per_capita": 67835.22077777778,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 3.0,
+          "mean_age": -7.881999999999998,
+          "married_frac": 0.37754,
+          "gini_wealth": 0.21516000000000002,
+          "wealth_per_capita": -16638.145444444446,
+          "pool_frac": 0.0,
+          "age_l1": 0.22222222222222224
+        },
+        "degree_l1": null
+      },
+      "4000": {
+        "resolved": {
+          "population": 14.0,
+          "mean_age": 27.786,
+          "married_frac": 1.0,
+          "gini_wealth": 0.43514,
+          "wealth_per_capita": 81883.20742857143,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 11.0,
+          "mean_age": 34.727,
+          "married_frac": 0.79512,
+          "gini_wealth": 0.26014,
+          "wealth_per_capita": 104304.56136363637,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 3.0,
+          "mean_age": -6.940999999999995,
+          "married_frac": 0.20487999999999995,
+          "gini_wealth": 0.17500000000000004,
+          "wealth_per_capita": -22421.353935064937,
+          "pool_frac": 0.0,
+          "age_l1": 0.2285714285714286
+        },
+        "degree_l1": null
+      },
+      "6000": {
+        "resolved": {
+          "population": 14.0,
+          "mean_age": 29.0,
+          "married_frac": 0.83333,
+          "gini_wealth": 0.50693,
+          "wealth_per_capita": 104159.74178571429,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 12.0,
+          "mean_age": 34.743,
+          "married_frac": 0.85715,
+          "gini_wealth": 0.36939,
+          "wealth_per_capita": 131942.2406052011,
+          "pool_frac": 0.0023927194992271823
+        },
+        "diff": {
+          "population": 2.0,
+          "mean_age": -5.743000000000002,
+          "married_frac": -0.023819999999999952,
+          "gini_wealth": 0.13754,
+          "wealth_per_capita": -27782.49881948682,
+          "pool_frac": -0.0023927194992271823,
+          "age_l1": 0.24675324675324678
+        },
+        "degree_l1": null
+      },
+      "8000": {
+        "resolved": {
+          "population": 15.0,
+          "mean_age": 28.0,
+          "married_frac": 0.42857,
+          "gini_wealth": 0.59241,
+          "wealth_per_capita": 111706.87766666667,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 13.0,
+          "mean_age": 35.819,
+          "married_frac": 0.76991,
+          "gini_wealth": 0.46358,
+          "wealth_per_capita": 143827.68986164086,
+          "pool_frac": 0.006601797242030758
+        },
+        "diff": {
+          "population": 2.0,
+          "mean_age": -7.819000000000003,
+          "married_frac": -0.34134,
+          "gini_wealth": 0.12883,
+          "wealth_per_capita": -32120.81219497419,
+          "pool_frac": -0.006601797242030758,
+          "age_l1": 0.2833333333333333
+        },
+        "degree_l1": null
+      }
+    },
+    {
+      "2000": {
+        "resolved": {
+          "population": 9.0,
+          "mean_age": 37.333,
+          "married_frac": 1.0,
+          "gini_wealth": 0.1236,
+          "wealth_per_capita": 69802.71855555555,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 9.0,
+          "mean_age": 36.494,
+          "married_frac": 0.62246,
+          "gini_wealth": 0.13655,
+          "wealth_per_capita": 69172.40866666666,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 0.0,
+          "mean_age": 0.8389999999999986,
+          "married_frac": 0.37754,
+          "gini_wealth": -0.012950000000000003,
+          "wealth_per_capita": 630.3098888888926,
+          "pool_frac": 0.0,
+          "age_l1": 0.2222222222222222
+        },
+        "degree_l1": null
+      },
+      "4000": {
+        "resolved": {
+          "population": 11.0,
+          "mean_age": 35.182,
+          "married_frac": 1.0,
+          "gini_wealth": 0.27825,
+          "wealth_per_capita": 105565.86063636364,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 11.0,
+          "mean_age": 36.581,
+          "married_frac": 0.79512,
+          "gini_wealth": 0.25979,
+          "wealth_per_capita": 105396.25009090909,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 0.0,
+          "mean_age": -1.399000000000001,
+          "married_frac": 0.20487999999999995,
+          "gini_wealth": 0.018459999999999976,
+          "wealth_per_capita": 169.6105454545468,
+          "pool_frac": 0.0,
+          "age_l1": 0.08181818181818183
+        },
+        "degree_l1": null
+      },
+      "6000": {
+        "resolved": {
+          "population": 10.0,
+          "mean_age": 38.5,
+          "married_frac": 0.83333,
+          "gini_wealth": 0.3173,
+          "wealth_per_capita": 145140.7441,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 12.0,
+          "mean_age": 37.396,
+          "married_frac": 0.85715,
+          "gini_wealth": 0.34797,
+          "wealth_per_capita": 135663.91298442183,
+          "pool_frac": 0.0017582444181935615
+        },
+        "diff": {
+          "population": -2.0,
+          "mean_age": 1.1039999999999992,
+          "married_frac": -0.023819999999999952,
+          "gini_wealth": -0.030669999999999975,
+          "wealth_per_capita": 9476.831115578185,
+          "pool_frac": -0.0017582444181935615,
+          "age_l1": 0.2545454545454546
+        },
+        "degree_l1": null
+      },
+      "8000": {
+        "resolved": {
+          "population": 11.0,
+          "mean_age": 35.455,
+          "married_frac": 0.6,
+          "gini_wealth": 0.45801,
+          "wealth_per_capita": 144802.36354545454,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 12.0,
+          "mean_age": 39.546,
+          "married_frac": 0.73687,
+          "gini_wealth": 0.42827,
+          "wealth_per_capita": 154738.74023648872,
+          "pool_frac": 0.007278388407674267
+        },
+        "diff": {
+          "population": -1.0,
+          "mean_age": -4.091000000000001,
+          "married_frac": -0.13687000000000005,
+          "gini_wealth": 0.02973999999999999,
+          "wealth_per_capita": -9936.37669103418,
+          "pool_frac": -0.007278388407674267,
+          "age_l1": 0.36363636363636365
+        },
+        "degree_l1": null
+      }
+    },
+    {
+      "2000": {
+        "resolved": {
+          "population": 12.0,
+          "mean_age": 25.833,
+          "married_frac": 0.75,
+          "gini_wealth": 0.35247,
+          "wealth_per_capita": 50718.13458333333,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 9.0,
+          "mean_age": 33.332,
+          "married_frac": 0.62246,
+          "gini_wealth": 0.14124,
+          "wealth_per_capita": 66724.10966666666,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 3.0,
+          "mean_age": -7.499000000000002,
+          "married_frac": 0.12754,
+          "gini_wealth": 0.21123,
+          "wealth_per_capita": -16005.975083333324,
+          "pool_frac": 0.0,
+          "age_l1": 0.25
+        },
+        "degree_l1": null
+      },
+      "4000": {
+        "resolved": {
+          "population": 14.0,
+          "mean_age": 27.429,
+          "married_frac": 1.0,
+          "gini_wealth": 0.43692,
+          "wealth_per_capita": 81329.82964285715,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 11.0,
+          "mean_age": 33.11,
+          "married_frac": 0.79512,
+          "gini_wealth": 0.27724,
+          "wealth_per_capita": 103404.794,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 3.0,
+          "mean_age": -5.681000000000001,
+          "married_frac": 0.20487999999999995,
+          "gini_wealth": 0.15968,
+          "wealth_per_capita": -22074.964357142846,
+          "pool_frac": 0.0,
+          "age_l1": 0.3
+        },
+        "degree_l1": null
+      },
+      "6000": {
+        "resolved": {
+          "population": 15.0,
+          "mean_age": 30.933,
+          "married_frac": 1.0,
+          "gini_wealth": 0.48852,
+          "wealth_per_capita": 107574.50766666667,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 12.0,
+          "mean_age": 33.054,
+          "married_frac": 0.85715,
+          "gini_wealth": 0.38765,
+          "wealth_per_capita": 132389.66627840596,
+          "pool_frac": 0.0019519060840381898
+        },
+        "diff": {
+          "population": 3.0,
+          "mean_age": -2.121000000000002,
+          "married_frac": 0.14285000000000003,
+          "gini_wealth": 0.10087000000000002,
+          "wealth_per_capita": -24815.158611739287,
+          "pool_frac": -0.0019519060840381898,
+          "age_l1": 0.31666666666666665
+        },
+        "degree_l1": null
+      },
+      "8000": {
+        "resolved": {
+          "population": 15.0,
+          "mean_age": 36.533,
+          "married_frac": 0.875,
+          "gini_wealth": 0.49454,
+          "wealth_per_capita": 137974.50766666667,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 13.0,
+          "mean_age": 34.89,
+          "married_frac": 0.77772,
+          "gini_wealth": 0.46009,
+          "wealth_per_capita": 152149.49556091745,
+          "pool_frac": 0.004187077403148772
+        },
+        "diff": {
+          "population": 2.0,
+          "mean_age": 1.6430000000000007,
+          "married_frac": 0.09728000000000003,
+          "gini_wealth": 0.03444999999999998,
+          "wealth_per_capita": -14174.987894250778,
+          "pool_frac": -0.004187077403148772,
+          "age_l1": 0.25641025641025644
+        },
+        "degree_l1": null
+      }
+    },
+    {
+      "2000": {
+        "resolved": {
+          "population": 11.0,
+          "mean_age": 28.273,
+          "married_frac": 0.75,
+          "gini_wealth": 0.28721,
+          "wealth_per_capita": 54868.613000000005,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 9.0,
+          "mean_age": 33.883,
+          "married_frac": 0.62246,
+          "gini_wealth": 0.13944,
+          "wealth_per_capita": 66618.10888888889,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 2.0,
+          "mean_age": -5.610000000000003,
+          "married_frac": 0.12754,
+          "gini_wealth": 0.14777,
+          "wealth_per_capita": -11749.495888888887,
+          "pool_frac": 0.0,
+          "age_l1": 0.16161616161616157
+        },
+        "degree_l1": null
+      },
+      "4000": {
+        "resolved": {
+          "population": 11.0,
+          "mean_age": 34.0,
+          "married_frac": 1.0,
+          "gini_wealth": 0.2804,
+          "wealth_per_capita": 103595.88572727273,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 11.0,
+          "mean_age": 33.876,
+          "married_frac": 0.79512,
+          "gini_wealth": 0.27315,
+          "wealth_per_capita": 103314.23136363635,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 0.0,
+          "mean_age": 0.12400000000000233,
+          "married_frac": 0.20487999999999995,
+          "gini_wealth": 0.007249999999999979,
+          "wealth_per_capita": 281.65436363637855,
+          "pool_frac": 0.0,
+          "age_l1": 0.17272727272727273
+        },
+        "degree_l1": null
+      },
+      "6000": {
+        "resolved": {
+          "population": 14.0,
+          "mean_age": 31.214,
+          "married_frac": 1.0,
+          "gini_wealth": 0.43987,
+          "wealth_per_capita": 117611.05307142857,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 13.0,
+          "mean_age": 33.787,
+          "married_frac": 0.85715,
+          "gini_wealth": 0.37848,
+          "wealth_per_capita": 126094.85475268938,
+          "pool_frac": 0.0008867620929027944
+        },
+        "diff": {
+          "population": 1.0,
+          "mean_age": -2.5730000000000004,
+          "married_frac": 0.14285000000000003,
+          "gini_wealth": 0.06139,
+          "wealth_per_capita": -8483.801681260811,
+          "pool_frac": -0.0008867620929027944,
+          "age_l1": 0.26190476190476186
+        },
+        "degree_l1": null
+      },
+      "8000": {
+        "resolved": {
+          "population": 16.0,
+          "mean_age": 32.5,
+          "married_frac": 0.85714,
+          "gini_wealth": 0.52986,
+          "wealth_per_capita": 128847.1714375,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 13.0,
+          "mean_age": 36.076,
+          "married_frac": 0.78048,
+          "gini_wealth": 0.45317,
+          "wealth_per_capita": 152740.1711950759,
+          "pool_frac": 0.004588715022832473
+        },
+        "diff": {
+          "population": 3.0,
+          "mean_age": -3.5760000000000005,
+          "married_frac": 0.07666000000000006,
+          "gini_wealth": 0.07668999999999998,
+          "wealth_per_capita": -23892.999757575904,
+          "pool_frac": -0.004588715022832473,
+          "age_l1": 0.2767857142857143
+        },
+        "degree_l1": null
+      }
+    },
+    {
+      "2000": {
+        "resolved": {
+          "population": 12.0,
+          "mean_age": 29.167,
+          "married_frac": 1.0,
+          "gini_wealth": 0.34421,
+          "wealth_per_capita": 51510.928916666664,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 9.0,
+          "mean_age": 38.256,
+          "married_frac": 0.62246,
+          "gini_wealth": 0.1233,
+          "wealth_per_capita": 67832.85733333333,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 3.0,
+          "mean_age": -9.088999999999999,
+          "married_frac": 0.37754,
+          "gini_wealth": 0.22091,
+          "wealth_per_capita": -16321.92841666667,
+          "pool_frac": 0.0,
+          "age_l1": 0.22222222222222224
+        },
+        "degree_l1": null
+      },
+      "4000": {
+        "resolved": {
+          "population": 13.0,
+          "mean_age": 32.231,
+          "married_frac": 1.0,
+          "gini_wealth": 0.39979,
+          "wealth_per_capita": 86625.47284615386,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 10.0,
+          "mean_age": 38.417,
+          "married_frac": 0.79512,
+          "gini_wealth": 0.24697,
+          "wealth_per_capita": 112686.31221064387,
+          "pool_frac": 0.0006273975006983703
+        },
+        "diff": {
+          "population": 3.0,
+          "mean_age": -6.186,
+          "married_frac": 0.20487999999999995,
+          "gini_wealth": 0.15281999999999998,
+          "wealth_per_capita": -26060.839364490006,
+          "pool_frac": -0.0006273975006983703,
+          "age_l1": 0.20769230769230768
+        },
+        "degree_l1": null
+      },
+      "6000": {
+        "resolved": {
+          "population": 15.0,
+          "mean_age": 33.0,
+          "married_frac": 1.0,
+          "gini_wealth": 0.49874,
+          "wealth_per_capita": 104742.07646666668,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 11.0,
+          "mean_age": 39.073,
+          "married_frac": 0.84792,
+          "gini_wealth": 0.34234,
+          "wealth_per_capita": 139511.67569679182,
+          "pool_frac": 0.003248850052942465
+        },
+        "diff": {
+          "population": 4.0,
+          "mean_age": -6.073,
+          "married_frac": 0.15208,
+          "gini_wealth": 0.15640000000000004,
+          "wealth_per_capita": -34769.59923012514,
+          "pool_frac": -0.003248850052942465,
+          "age_l1": 0.2181818181818182
+        },
+        "degree_l1": null
+      },
+      "8000": {
+        "resolved": {
+          "population": 14.0,
+          "mean_age": 32.429,
+          "married_frac": 0.6,
+          "gini_wealth": 0.61688,
+          "wealth_per_capita": 103319.60092857142,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 11.0,
+          "mean_age": 41.14,
+          "married_frac": 0.69768,
+          "gini_wealth": 0.4222,
+          "wealth_per_capita": 155820.30948334397,
+          "pool_frac": 0.0092291693782846
+        },
+        "diff": {
+          "population": 3.0,
+          "mean_age": -8.710999999999999,
+          "married_frac": -0.09767999999999999,
+          "gini_wealth": 0.19467999999999996,
+          "wealth_per_capita": -52500.708554772544,
+          "pool_frac": -0.0092291693782846,
+          "age_l1": 0.38961038961038963
+        },
+        "degree_l1": null
+      }
+    },
+    {
+      "2000": {
+        "resolved": {
+          "population": 8.0,
+          "mean_age": 38.0,
+          "married_frac": 1.0,
+          "gini_wealth": 0.01812,
+          "wealth_per_capita": 76705.952625,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 9.0,
+          "mean_age": 33.863,
+          "married_frac": 0.62246,
+          "gini_wealth": 0.11857,
+          "wealth_per_capita": 67828.69255555555,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": -1.0,
+          "mean_age": 4.1370000000000005,
+          "married_frac": 0.37754,
+          "gini_wealth": -0.10045,
+          "wealth_per_capita": 8877.260069444455,
+          "pool_frac": 0.0,
+          "age_l1": 0.11111111111111113
+        },
+        "degree_l1": null
+      },
+      "4000": {
+        "resolved": {
+          "population": 9.0,
+          "mean_age": 39.222,
+          "married_frac": 1.0,
+          "gini_wealth": 0.12036,
+          "wealth_per_capita": 127183.069,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 10.0,
+          "mean_age": 34.717,
+          "married_frac": 0.79512,
+          "gini_wealth": 0.23521,
+          "wealth_per_capita": 114446.06459691792,
+          "pool_frac": 7.021033834772643e-05
+        },
+        "diff": {
+          "population": -1.0,
+          "mean_age": 4.505000000000003,
+          "married_frac": 0.20487999999999995,
+          "gini_wealth": -0.11485000000000001,
+          "wealth_per_capita": 12737.004403082086,
+          "pool_frac": -7.021033834772643e-05,
+          "age_l1": 0.09999999999999996
+        },
+        "degree_l1": null
+      },
+      "6000": {
+        "resolved": {
+          "population": 11.0,
+          "mean_age": 37.0,
+          "married_frac": 1.0,
+          "gini_wealth": 0.32091,
+          "wealth_per_capita": 141331.6019090909,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 11.0,
+          "mean_age": 33.782,
+          "married_frac": 0.83335,
+          "gini_wealth": 0.37681,
+          "wealth_per_capita": 136158.53349383533,
+          "pool_frac": 0.004217186640063141
+        },
+        "diff": {
+          "population": 0.0,
+          "mean_age": 3.2180000000000035,
+          "married_frac": 0.16664999999999996,
+          "gini_wealth": -0.055900000000000005,
+          "wealth_per_capita": 5173.068415255577,
+          "pool_frac": -0.004217186640063141,
+          "age_l1": 0.1818181818181818
+        },
+        "degree_l1": null
+      },
+      "8000": {
+        "resolved": {
+          "population": 9.0,
+          "mean_age": 37.222,
+          "married_frac": 1.0,
+          "gini_wealth": 0.36641,
+          "wealth_per_capita": 173085.1861111111,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 12.0,
+          "mean_age": 33.785,
+          "married_frac": 0.76604,
+          "gini_wealth": 0.4852,
+          "wealth_per_capita": 145517.68914558293,
+          "pool_frac": 0.008261630041739194
+        },
+        "diff": {
+          "population": -3.0,
+          "mean_age": 3.4370000000000047,
+          "married_frac": 0.23395999999999995,
+          "gini_wealth": -0.11879,
+          "wealth_per_capita": 27567.496965528175,
+          "pool_frac": -0.008261630041739194,
+          "age_l1": 0.1818181818181818
+        },
+        "degree_l1": null
+      }
+    },
+    {
+      "2000": {
+        "resolved": {
+          "population": 9.0,
+          "mean_age": 37.444,
+          "married_frac": 0.75,
+          "gini_wealth": 0.12031,
+          "wealth_per_capita": 68361.37522222222,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 9.0,
+          "mean_age": 36.971,
+          "married_frac": 0.62246,
+          "gini_wealth": 0.1265,
+          "wealth_per_capita": 67614.78344444445,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 0.0,
+          "mean_age": 0.4730000000000061,
+          "married_frac": 0.12754,
+          "gini_wealth": -0.006190000000000001,
+          "wealth_per_capita": 746.5917777777795,
+          "pool_frac": 0.0,
+          "age_l1": 0.0
+        },
+        "degree_l1": null
+      },
+      "4000": {
+        "resolved": {
+          "population": 9.0,
+          "mean_age": 43.0,
+          "married_frac": 0.75,
+          "gini_wealth": 0.1159,
+          "wealth_per_capita": 127583.59744444446,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 10.0,
+          "mean_age": 38.356,
+          "married_frac": 0.79512,
+          "gini_wealth": 0.22454,
+          "wealth_per_capita": 114513.4382,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": -1.0,
+          "mean_age": 4.643999999999998,
+          "married_frac": -0.04512000000000005,
+          "gini_wealth": -0.10863999999999999,
+          "wealth_per_capita": 13070.159244444454,
+          "pool_frac": 0.0,
+          "age_l1": 0.09999999999999996
+        },
+        "degree_l1": null
+      },
+      "6000": {
+        "resolved": {
+          "population": 11.0,
+          "mean_age": 40.364,
+          "married_frac": 1.0,
+          "gini_wealth": 0.3044,
+          "wealth_per_capita": 144750.2160909091,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 11.0,
+          "mean_age": 39.484,
+          "married_frac": 0.84792,
+          "gini_wealth": 0.31408,
+          "wealth_per_capita": 143387.5200274903,
+          "pool_frac": 0.0026688821387894214
+        },
+        "diff": {
+          "population": 0.0,
+          "mean_age": 0.8799999999999955,
+          "married_frac": 0.15208,
+          "gini_wealth": -0.009680000000000022,
+          "wealth_per_capita": 1362.6960634187853,
+          "pool_frac": -0.0026688821387894214,
+          "age_l1": 0.3636363636363636
+        },
+        "degree_l1": null
+      },
+      "8000": {
+        "resolved": {
+          "population": 9.0,
+          "mean_age": 41.0,
+          "married_frac": 0.66667,
+          "gini_wealth": 0.37189,
+          "wealth_per_capita": 163789.4311111111,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 11.0,
+          "mean_age": 39.727,
+          "married_frac": 0.68625,
+          "gini_wealth": 0.43157,
+          "wealth_per_capita": 146558.9574918298,
+          "pool_frac": 0.012006699768035669
+        },
+        "diff": {
+          "population": -2.0,
+          "mean_age": 1.2730000000000032,
+          "married_frac": -0.019580000000000042,
+          "gini_wealth": -0.05968000000000001,
+          "wealth_per_capita": 17230.473619281314,
+          "pool_frac": -0.012006699768035669,
+          "age_l1": 0.23232323232323232
+        },
+        "degree_l1": null
+      }
+    },
+    {
+      "2000": {
+        "resolved": {
+          "population": 12.0,
+          "mean_age": 26.333,
+          "married_frac": 0.75,
+          "gini_wealth": 0.34943,
+          "wealth_per_capita": 49833.17216666666,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 9.0,
+          "mean_age": 33.993,
+          "married_frac": 0.62246,
+          "gini_wealth": 0.14086,
+          "wealth_per_capita": 66062.55333333333,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 3.0,
+          "mean_age": -7.660000000000004,
+          "married_frac": 0.12754,
+          "gini_wealth": 0.20857,
+          "wealth_per_capita": -16229.381166666666,
+          "pool_frac": 0.0,
+          "age_l1": 0.22222222222222224
+        },
+        "degree_l1": null
+      },
+      "4000": {
+        "resolved": {
+          "population": 16.0,
+          "mean_age": 24.375,
+          "married_frac": 0.75,
+          "gini_wealth": 0.50639,
+          "wealth_per_capita": 70749.879125,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 11.0,
+          "mean_age": 33.424,
+          "married_frac": 0.79512,
+          "gini_wealth": 0.28635,
+          "wealth_per_capita": 102868.52472727274,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 5.0,
+          "mean_age": -9.049,
+          "married_frac": -0.04512000000000005,
+          "gini_wealth": 0.22004,
+          "wealth_per_capita": -32118.645602272736,
+          "pool_frac": 0.0,
+          "age_l1": 0.29999999999999993
+        },
+        "degree_l1": null
+      },
+      "6000": {
+        "resolved": {
+          "population": 17.0,
+          "mean_age": 28.471,
+          "married_frac": 0.71429,
+          "gini_wealth": 0.53315,
+          "wealth_per_capita": 97646.94505882353,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 13.0,
+          "mean_age": 34.342,
+          "married_frac": 0.86343,
+          "gini_wealth": 0.36578,
+          "wealth_per_capita": 128328.70346153846,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 4.0,
+          "mean_age": -5.870999999999999,
+          "married_frac": -0.14914000000000005,
+          "gini_wealth": 0.16737000000000002,
+          "wealth_per_capita": -30681.758402714928,
+          "pool_frac": 0.0,
+          "age_l1": 0.3382352941176471
+        },
+        "degree_l1": null
+      },
+      "8000": {
+        "resolved": {
+          "population": 17.0,
+          "mean_age": 34.118,
+          "married_frac": 0.66667,
+          "gini_wealth": 0.5439,
+          "wealth_per_capita": 123235.18035294118,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 13.0,
+          "mean_age": 36.8,
+          "married_frac": 0.74587,
+          "gini_wealth": 0.43687,
+          "wealth_per_capita": 156716.09084604474,
+          "pool_frac": 0.0038339045793496034
+        },
+        "diff": {
+          "population": 4.0,
+          "mean_age": -2.681999999999995,
+          "married_frac": -0.07920000000000005,
+          "gini_wealth": 0.10703000000000007,
+          "wealth_per_capita": -33480.910493103554,
+          "pool_frac": -0.0038339045793496034,
+          "age_l1": 0.2436974789915966
+        },
+        "degree_l1": null
+      }
+    },
+    {
+      "2000": {
+        "resolved": {
+          "population": 11.0,
+          "mean_age": 30.455,
+          "married_frac": 1.0,
+          "gini_wealth": 0.2934,
+          "wealth_per_capita": 56262.46172727273,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 9.0,
+          "mean_age": 36.294,
+          "married_frac": 0.62246,
+          "gini_wealth": 0.14764,
+          "wealth_per_capita": 68173.66444444444,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 2.0,
+          "mean_age": -5.838999999999999,
+          "married_frac": 0.37754,
+          "gini_wealth": 0.14576,
+          "wealth_per_capita": -11911.202717171713,
+          "pool_frac": 0.0,
+          "age_l1": 0.1717171717171717
+        },
+        "degree_l1": null
+      },
+      "4000": {
+        "resolved": {
+          "population": 13.0,
+          "mean_age": 31.077,
+          "married_frac": 1.0,
+          "gini_wealth": 0.39328,
+          "wealth_per_capita": 88606.69838461537,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 11.0,
+          "mean_age": 36.313,
+          "married_frac": 0.79512,
+          "gini_wealth": 0.26859,
+          "wealth_per_capita": 104581.2789090909,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 2.0,
+          "mean_age": -5.236000000000001,
+          "married_frac": 0.20487999999999995,
+          "gini_wealth": 0.12469000000000002,
+          "wealth_per_capita": -15974.580524475532,
+          "pool_frac": 0.0,
+          "age_l1": 0.1846153846153846
+        },
+        "degree_l1": null
+      },
+      "6000": {
+        "resolved": {
+          "population": 14.0,
+          "mean_age": 34.071,
+          "married_frac": 1.0,
+          "gini_wealth": 0.43431,
+          "wealth_per_capita": 119920.50564285714,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 12.0,
+          "mean_age": 38.933,
+          "married_frac": 0.86343,
+          "gini_wealth": 0.31061,
+          "wealth_per_capita": 140562.51816666668,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 2.0,
+          "mean_age": -4.862000000000002,
+          "married_frac": 0.13656999999999997,
+          "gini_wealth": 0.12369999999999998,
+          "wealth_per_capita": -20642.012523809535,
+          "pool_frac": 0.0,
+          "age_l1": 0.33766233766233766
+        },
+        "degree_l1": null
+      },
+      "8000": {
+        "resolved": {
+          "population": 16.0,
+          "mean_age": 34.812,
+          "married_frac": 0.66667,
+          "gini_wealth": 0.53155,
+          "wealth_per_capita": 121242.9424375,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 11.0,
+          "mean_age": 40.983,
+          "married_frac": 0.60145,
+          "gini_wealth": 0.39868,
+          "wealth_per_capita": 162913.73605157578,
+          "pool_frac": 0.008894694798527952
+        },
+        "diff": {
+          "population": 5.0,
+          "mean_age": -6.170999999999999,
+          "married_frac": 0.06521999999999994,
+          "gini_wealth": 0.13287,
+          "wealth_per_capita": -41670.79361407578,
+          "pool_frac": -0.008894694798527952,
+          "age_l1": 0.2708333333333333
+        },
+        "degree_l1": null
+      }
+    },
+    {
+      "2000": {
+        "resolved": {
+          "population": 10.0,
+          "mean_age": 31.7,
+          "married_frac": 0.75,
+          "gini_wealth": 0.21477,
+          "wealth_per_capita": 60905.940800000004,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 9.0,
+          "mean_age": 34.102,
+          "married_frac": 0.62246,
+          "gini_wealth": 0.13763,
+          "wealth_per_capita": 67395.88666666666,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 1.0,
+          "mean_age": -2.4019999999999975,
+          "married_frac": 0.12754,
+          "gini_wealth": 0.07713999999999999,
+          "wealth_per_capita": -6489.945866666654,
+          "pool_frac": 0.0,
+          "age_l1": 0.18888888888888886
+        },
+        "degree_l1": null
+      },
+      "4000": {
+        "resolved": {
+          "population": 10.0,
+          "mean_age": 37.4,
+          "married_frac": 0.75,
+          "gini_wealth": 0.20785,
+          "wealth_per_capita": 114505.94080000001,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 11.0,
+          "mean_age": 34.1,
+          "married_frac": 0.79512,
+          "gini_wealth": 0.27169,
+          "wealth_per_capita": 103950.11027272727,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": -1.0,
+          "mean_age": 3.299999999999997,
+          "married_frac": -0.04512000000000005,
+          "gini_wealth": -0.06383999999999998,
+          "wealth_per_capita": 10555.830527272745,
+          "pool_frac": 0.0,
+          "age_l1": 0.2
+        },
+        "degree_l1": null
+      },
+      "6000": {
+        "resolved": {
+          "population": 10.0,
+          "mean_age": 42.9,
+          "married_frac": 0.66667,
+          "gini_wealth": 0.21189,
+          "wealth_per_capita": 165505.9408,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 12.0,
+          "mean_age": 35.059,
+          "married_frac": 0.85758,
+          "gini_wealth": 0.35309,
+          "wealth_per_capita": 138772.31261330596,
+          "pool_frac": 0.00039043532737634165
+        },
+        "diff": {
+          "population": -2.0,
+          "mean_age": 7.841000000000001,
+          "married_frac": -0.19091000000000002,
+          "gini_wealth": -0.14120000000000002,
+          "wealth_per_capita": 26733.628186694055,
+          "pool_frac": -0.00039043532737634165,
+          "age_l1": 0.33333333333333337
+        },
+        "degree_l1": null
+      },
+      "8000": {
+        "resolved": {
+          "population": 10.0,
+          "mean_age": 41.9,
+          "married_frac": 0.6,
+          "gini_wealth": 0.32058,
+          "wealth_per_capita": 184945.6945,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 13.0,
+          "mean_age": 36.551,
+          "married_frac": 0.73756,
+          "gini_wealth": 0.44775,
+          "wealth_per_capita": 148609.72381153528,
+          "pool_frac": 0.005918553363853163
+        },
+        "diff": {
+          "population": -3.0,
+          "mean_age": 5.348999999999997,
+          "married_frac": -0.13756000000000002,
+          "gini_wealth": -0.12717,
+          "wealth_per_capita": 36335.97068846473,
+          "pool_frac": -0.005918553363853163,
+          "age_l1": 0.26153846153846155
+        },
+        "degree_l1": null
+      }
+    },
+    {
+      "2000": {
+        "resolved": {
+          "population": 13.0,
+          "mean_age": 22.077,
+          "married_frac": 1.0,
+          "gini_wealth": 0.39228,
+          "wealth_per_capita": 46667.37353846154,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 9.0,
+          "mean_age": 30.925,
+          "married_frac": 0.62246,
+          "gini_wealth": 0.13372,
+          "wealth_per_capita": 66951.44222222222,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 4.0,
+          "mean_age": -8.847999999999999,
+          "married_frac": 0.37754,
+          "gini_wealth": 0.25856,
+          "wealth_per_capita": -20284.068683760677,
+          "pool_frac": 0.0,
+          "age_l1": 0.2735042735042735
+        },
+        "degree_l1": null
+      },
+      "4000": {
+        "resolved": {
+          "population": 15.0,
+          "mean_age": 24.667,
+          "married_frac": 1.0,
+          "gini_wealth": 0.47059,
+          "wealth_per_capita": 75978.39039999999,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 11.0,
+          "mean_age": 30.78,
+          "married_frac": 0.79512,
+          "gini_wealth": 0.28643,
+          "wealth_per_capita": 103598.02809090908,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 4.0,
+          "mean_age": -6.1129999999999995,
+          "married_frac": 0.20487999999999995,
+          "gini_wealth": 0.18416,
+          "wealth_per_capita": -27619.63769090909,
+          "pool_frac": 0.0,
+          "age_l1": 0.24242424242424243
+        },
+        "degree_l1": null
+      },
+      "6000": {
+        "resolved": {
+          "population": 17.0,
+          "mean_age": 26.706,
+          "married_frac": 1.0,
+          "gini_wealth": 0.53158,
+          "wealth_per_capita": 98510.34447058823,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 13.0,
+          "mean_age": 31.05,
+          "married_frac": 0.86343,
+          "gini_wealth": 0.38639,
+          "wealth_per_capita": 128961.88492307693,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 4.0,
+          "mean_age": -4.344000000000001,
+          "married_frac": 0.13656999999999997,
+          "gini_wealth": 0.14519000000000004,
+          "wealth_per_capita": -30451.540452488698,
+          "pool_frac": 0.0,
+          "age_l1": 0.33484162895927605
+        },
+        "degree_l1": null
+      },
+      "8000": {
+        "resolved": {
+          "population": 19.0,
+          "mean_age": 29.421,
+          "married_frac": 0.88889,
+          "gini_wealth": 0.58957,
+          "wealth_per_capita": 112403.99242105264,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 14.0,
+          "mean_age": 32.481,
+          "married_frac": 0.79246,
+          "gini_wealth": 0.47646,
+          "wealth_per_capita": 148194.72704364176,
+          "pool_frac": 0.0032232796211505922
+        },
+        "diff": {
+          "population": 5.0,
+          "mean_age": -3.0600000000000023,
+          "married_frac": 0.0964299999999999,
+          "gini_wealth": 0.11311000000000004,
+          "wealth_per_capita": -35790.73462258912,
+          "pool_frac": -0.0032232796211505922,
+          "age_l1": 0.22105263157894733
+        },
+        "degree_l1": null
+      }
+    },
+    {
+      "2000": {
+        "resolved": {
+          "population": 9.0,
+          "mean_age": 33.556,
+          "married_frac": 0.5,
+          "gini_wealth": 0.12458,
+          "wealth_per_capita": 69104.96655555555,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 9.0,
+          "mean_age": 32.89,
+          "married_frac": 0.62246,
+          "gini_wealth": 0.13108,
+          "wealth_per_capita": 68281.4501111111,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 0.0,
+          "mean_age": 0.6659999999999968,
+          "married_frac": -0.12246000000000001,
+          "gini_wealth": -0.006500000000000006,
+          "wealth_per_capita": 823.5164444444526,
+          "pool_frac": 0.0,
+          "age_l1": 0.0
+        },
+        "degree_l1": null
+      },
+      "4000": {
+        "resolved": {
+          "population": 10.0,
+          "mean_age": 35.2,
+          "married_frac": 1.0,
+          "gini_wealth": 0.20546,
+          "wealth_per_capita": 115394.4699,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 11.0,
+          "mean_age": 32.744,
+          "married_frac": 0.79512,
+          "gini_wealth": 0.27405,
+          "wealth_per_capita": 104679.25572727273,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": -1.0,
+          "mean_age": 2.456000000000003,
+          "married_frac": 0.20487999999999995,
+          "gini_wealth": -0.06859000000000001,
+          "wealth_per_capita": 10715.214172727268,
+          "pool_frac": 0.0,
+          "age_l1": 0.0
+        },
+        "degree_l1": null
+      },
+      "6000": {
+        "resolved": {
+          "population": 10.0,
+          "mean_age": 40.7,
+          "married_frac": 1.0,
+          "gini_wealth": 0.22615,
+          "wealth_per_capita": 163694.4699,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 13.0,
+          "mean_age": 32.137,
+          "married_frac": 0.85715,
+          "gini_wealth": 0.39774,
+          "wealth_per_capita": 124531.6873396812,
+          "pool_frac": 0.00166729786642926
+        },
+        "diff": {
+          "population": -3.0,
+          "mean_age": 8.563000000000002,
+          "married_frac": 0.14285000000000003,
+          "gini_wealth": -0.17159,
+          "wealth_per_capita": 39162.782560318796,
+          "pool_frac": -0.00166729786642926,
+          "age_l1": 0.20769230769230768
+        },
+        "degree_l1": null
+      },
+      "8000": {
+        "resolved": {
+          "population": 13.0,
+          "mean_age": 36.385,
+          "married_frac": 0.85714,
+          "gini_wealth": 0.41388,
+          "wealth_per_capita": 162457.28453846154,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 14.0,
+          "mean_age": 34.552,
+          "married_frac": 0.80315,
+          "gini_wealth": 0.45933,
+          "wealth_per_capita": 147247.03686451432,
+          "pool_frac": 0.0026540990567897466
+        },
+        "diff": {
+          "population": -1.0,
+          "mean_age": 1.8329999999999984,
+          "married_frac": 0.05398999999999998,
+          "gini_wealth": -0.04544999999999999,
+          "wealth_per_capita": 15210.247673947219,
+          "pool_frac": -0.0026540990567897466,
+          "age_l1": 0.19230769230769235
+        },
+        "degree_l1": null
+      }
+    },
+    {
+      "2000": {
+        "resolved": {
+          "population": 9.0,
+          "mean_age": 31.778,
+          "married_frac": 0.5,
+          "gini_wealth": 0.13407,
+          "wealth_per_capita": 69323.23355555555,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 9.0,
+          "mean_age": 31.419,
+          "married_frac": 0.62246,
+          "gini_wealth": 0.1364,
+          "wealth_per_capita": 68833.80277777778,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 0.0,
+          "mean_age": 0.3589999999999982,
+          "married_frac": -0.12246000000000001,
+          "gini_wealth": -0.0023299999999999987,
+          "wealth_per_capita": 489.43077777777216,
+          "pool_frac": 0.0,
+          "age_l1": 0.1111111111111111
+        },
+        "degree_l1": null
+      },
+      "4000": {
+        "resolved": {
+          "population": 9.0,
+          "mean_age": 37.333,
+          "married_frac": 1.0,
+          "gini_wealth": 0.12997,
+          "wealth_per_capita": 127656.56688888889,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 11.0,
+          "mean_age": 31.497,
+          "married_frac": 0.79512,
+          "gini_wealth": 0.27592,
+          "wealth_per_capita": 104885.20350065026,
+          "pool_frac": 6.767702779007052e-05
+        },
+        "diff": {
+          "population": -2.0,
+          "mean_age": 5.8359999999999985,
+          "married_frac": 0.20487999999999995,
+          "gini_wealth": -0.14595,
+          "wealth_per_capita": 22771.363388238635,
+          "pool_frac": -6.767702779007052e-05,
+          "age_l1": 0.09999999999999996
+        },
+        "degree_l1": null
+      },
+      "6000": {
+        "resolved": {
+          "population": 12.0,
+          "mean_age": 32.417,
+          "married_frac": 1.0,
+          "gini_wealth": 0.36757,
+          "wealth_per_capita": 134742.42516666665,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 12.0,
+          "mean_age": 31.28,
+          "married_frac": 0.85715,
+          "gini_wealth": 0.39511,
+          "wealth_per_capita": 132811.85698921062,
+          "pool_frac": 0.0020360737763992845
+        },
+        "diff": {
+          "population": 0.0,
+          "mean_age": 1.1370000000000005,
+          "married_frac": 0.14285000000000003,
+          "gini_wealth": -0.02754000000000001,
+          "wealth_per_capita": 1930.5681774560362,
+          "pool_frac": -0.0020360737763992845,
+          "age_l1": 0.16666666666666669
+        },
+        "degree_l1": null
+      },
+      "8000": {
+        "resolved": {
+          "population": 13.0,
+          "mean_age": 35.538,
+          "married_frac": 0.83333,
+          "gini_wealth": 0.43256,
+          "wealth_per_capita": 157608.39246153846,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 14.0,
+          "mean_age": 32.579,
+          "married_frac": 0.7963,
+          "gini_wealth": 0.47816,
+          "wealth_per_capita": 142332.55855674736,
+          "pool_frac": 0.0038436511305064286
+        },
+        "diff": {
+          "population": -1.0,
+          "mean_age": 2.958999999999996,
+          "married_frac": 0.03703000000000001,
+          "gini_wealth": -0.045599999999999974,
+          "wealth_per_capita": 15275.8339047911,
+          "pool_frac": -0.0038436511305064286,
+          "age_l1": 0.3076923076923077
+        },
+        "degree_l1": null
+      }
+    },
+    {
+      "2000": {
+        "resolved": {
+          "population": 11.0,
+          "mean_age": 27.364,
+          "married_frac": 0.75,
+          "gini_wealth": 0.28467,
+          "wealth_per_capita": 56134.47236363636,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 9.0,
+          "mean_age": 32.678,
+          "married_frac": 0.62246,
+          "gini_wealth": 0.13846,
+          "wealth_per_capita": 67729.22,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 2.0,
+          "mean_age": -5.3139999999999965,
+          "married_frac": 0.12754,
+          "gini_wealth": 0.14620999999999998,
+          "wealth_per_capita": -11594.747636363638,
+          "pool_frac": 0.0,
+          "age_l1": 0.2525252525252525
+        },
+        "degree_l1": null
+      },
+      "4000": {
+        "resolved": {
+          "population": 12.0,
+          "mean_age": 30.583,
+          "married_frac": 0.75,
+          "gini_wealth": 0.3391,
+          "wealth_per_capita": 95706.59966666666,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 11.0,
+          "mean_age": 32.782,
+          "married_frac": 0.79512,
+          "gini_wealth": 0.27521,
+          "wealth_per_capita": 104225.00281818182,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 1.0,
+          "mean_age": -2.198999999999998,
+          "married_frac": -0.04512000000000005,
+          "gini_wealth": 0.06389,
+          "wealth_per_capita": -8518.403151515158,
+          "pool_frac": 0.0,
+          "age_l1": 0.15000000000000002
+        },
+        "degree_l1": null
+      },
+      "6000": {
+        "resolved": {
+          "population": 12.0,
+          "mean_age": 35.917,
+          "married_frac": 0.71429,
+          "gini_wealth": 0.34196,
+          "wealth_per_capita": 138956.59966666668,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 12.0,
+          "mean_age": 33.614,
+          "married_frac": 0.85758,
+          "gini_wealth": 0.36104,
+          "wealth_per_capita": 139021.53862515363,
+          "pool_frac": 0.0003956554192796219
+        },
+        "diff": {
+          "population": 0.0,
+          "mean_age": 2.3030000000000044,
+          "married_frac": -0.14329000000000003,
+          "gini_wealth": -0.01908000000000004,
+          "wealth_per_capita": -64.93895848694956,
+          "pool_frac": -0.0003956554192796219,
+          "age_l1": 0.16666666666666669
+        },
+        "degree_l1": null
+      },
+      "8000": {
+        "resolved": {
+          "population": 12.0,
+          "mean_age": 41.583,
+          "married_frac": 0.66667,
+          "gini_wealth": 0.37202,
+          "wealth_per_capita": 170706.59966666668,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 13.0,
+          "mean_age": 35.015,
+          "married_frac": 0.76205,
+          "gini_wealth": 0.4553,
+          "wealth_per_capita": 150468.48556559047,
+          "pool_frac": 0.005548446451647804
+        },
+        "diff": {
+          "population": -1.0,
+          "mean_age": 6.567999999999998,
+          "married_frac": -0.09538000000000002,
+          "gini_wealth": -0.08327999999999997,
+          "wealth_per_capita": 20238.114101076208,
+          "pool_frac": -0.005548446451647804,
+          "age_l1": 0.23076923076923073
+        },
+        "degree_l1": null
+      }
+    },
+    {
+      "2000": {
+        "resolved": {
+          "population": 9.0,
+          "mean_age": 34.0,
+          "married_frac": 0.75,
+          "gini_wealth": 0.12671,
+          "wealth_per_capita": 68133.65955555555,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 9.0,
+          "mean_age": 33.304,
+          "married_frac": 0.62246,
+          "gini_wealth": 0.12797,
+          "wealth_per_capita": 67722.85399999999,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 0.0,
+          "mean_age": 0.695999999999998,
+          "married_frac": 0.12754,
+          "gini_wealth": -0.0012600000000000111,
+          "wealth_per_capita": 410.805555555562,
+          "pool_frac": 0.0,
+          "age_l1": 0.0
+        },
+        "degree_l1": null
+      },
+      "4000": {
+        "resolved": {
+          "population": 9.0,
+          "mean_age": 39.222,
+          "married_frac": 0.75,
+          "gini_wealth": 0.11941,
+          "wealth_per_capita": 127466.99288888888,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 11.0,
+          "mean_age": 33.814,
+          "married_frac": 0.79512,
+          "gini_wealth": 0.25308,
+          "wealth_per_capita": 104210.03081818181,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": -2.0,
+          "mean_age": 5.408000000000001,
+          "married_frac": -0.04512000000000005,
+          "gini_wealth": -0.13367,
+          "wealth_per_capita": 23256.96207070707,
+          "pool_frac": 0.0,
+          "age_l1": 0.09999999999999996
+        },
+        "degree_l1": null
+      },
+      "6000": {
+        "resolved": {
+          "population": 10.0,
+          "mean_age": 40.6,
+          "married_frac": 0.83333,
+          "gini_wealth": 0.24139,
+          "wealth_per_capita": 157920.2936,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 12.0,
+          "mean_age": 33.001,
+          "married_frac": 0.83694,
+          "gini_wealth": 0.38545,
+          "wealth_per_capita": 128681.01511365887,
+          "pool_frac": 0.0034446698548916193
+        },
+        "diff": {
+          "population": -2.0,
+          "mean_age": 7.599000000000004,
+          "married_frac": -0.003610000000000002,
+          "gini_wealth": -0.14406000000000002,
+          "wealth_per_capita": 29239.278486341136,
+          "pool_frac": -0.0034446698548916193,
+          "age_l1": 0.23333333333333334
+        },
+        "degree_l1": null
+      },
+      "8000": {
+        "resolved": {
+          "population": 10.0,
+          "mean_age": 39.6,
+          "married_frac": 0.71429,
+          "gini_wealth": 0.34491,
+          "wealth_per_capita": 180590.0098,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 13.0,
+          "mean_age": 34.842,
+          "married_frac": 0.78206,
+          "gini_wealth": 0.4612,
+          "wealth_per_capita": 145313.08376041328,
+          "pool_frac": 0.005807649991349
+        },
+        "diff": {
+          "population": -3.0,
+          "mean_age": 4.758000000000003,
+          "married_frac": -0.06777,
+          "gini_wealth": -0.11629,
+          "wealth_per_capita": 35276.92603958672,
+          "pool_frac": -0.005807649991349,
+          "age_l1": 0.3384615384615385
+        },
+        "degree_l1": null
+      }
+    },
+    {
+      "2000": {
+        "resolved": {
+          "population": 8.0,
+          "mean_age": 44.0,
+          "married_frac": 0.5,
+          "gini_wealth": 0.02825,
+          "wealth_per_capita": 76181.111125,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 9.0,
+          "mean_age": 39.314,
+          "married_frac": 0.62246,
+          "gini_wealth": 0.12664,
+          "wealth_per_capita": 67383.30255555555,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": -1.0,
+          "mean_age": 4.686,
+          "married_frac": -0.12246000000000001,
+          "gini_wealth": -0.09839,
+          "wealth_per_capita": 8797.808569444445,
+          "pool_frac": 0.0,
+          "age_l1": 0.11111111111111113
+        },
+        "degree_l1": null
+      },
+      "4000": {
+        "resolved": {
+          "population": 8.0,
+          "mean_age": 49.625,
+          "married_frac": 0.71429,
+          "gini_wealth": 0.034,
+          "wealth_per_capita": 140056.111125,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 10.0,
+          "mean_age": 38.752,
+          "married_frac": 0.79512,
+          "gini_wealth": 0.25815,
+          "wealth_per_capita": 112332.72640990981,
+          "pool_frac": 0.0005859673490841851
+        },
+        "diff": {
+          "population": -2.0,
+          "mean_age": 10.872999999999998,
+          "married_frac": -0.08083000000000007,
+          "gini_wealth": -0.22415,
+          "wealth_per_capita": 27723.384715090186,
+          "pool_frac": -0.0005859673490841851,
+          "age_l1": 0.2
+        },
+        "degree_l1": null
+      },
+      "6000": {
+        "resolved": {
+          "population": 9.0,
+          "mean_age": 49.667,
+          "married_frac": 0.66667,
+          "gini_wealth": 0.18481,
+          "wealth_per_capita": 169827.65433333334,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 11.0,
+          "mean_age": 38.389,
+          "married_frac": 0.83335,
+          "gini_wealth": 0.37378,
+          "wealth_per_capita": 134651.0715387852,
+          "pool_frac": 0.0043194936455338145
+        },
+        "diff": {
+          "population": -2.0,
+          "mean_age": 11.277999999999999,
+          "married_frac": -0.16668000000000005,
+          "gini_wealth": -0.18897,
+          "wealth_per_capita": 35176.58279454813,
+          "pool_frac": -0.0043194936455338145,
+          "age_l1": 0.2525252525252525
+        },
+        "degree_l1": null
+      },
+      "8000": {
+        "resolved": {
+          "population": 9.0,
+          "mean_age": 55.111,
+          "married_frac": 1.0,
+          "gini_wealth": 0.22445,
+          "wealth_per_capita": 209049.87655555556,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 11.0,
+          "mean_age": 41.934,
+          "married_frac": 0.75586,
+          "gini_wealth": 0.41907,
+          "wealth_per_capita": 162130.76193520424,
+          "pool_frac": 0.007256445427571108
+        },
+        "diff": {
+          "population": -2.0,
+          "mean_age": 13.177,
+          "married_frac": 0.24414000000000002,
+          "gini_wealth": -0.19462,
+          "wealth_per_capita": 46919.11462035132,
+          "pool_frac": -0.007256445427571108,
+          "age_l1": 0.19999999999999996
+        },
+        "degree_l1": null
+      }
+    },
+    {
+      "2000": {
+        "resolved": {
+          "population": 8.0,
+          "mean_age": 39.0,
+          "married_frac": 0.75,
+          "gini_wealth": 0.02645,
+          "wealth_per_capita": 76232.064875,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 9.0,
+          "mean_age": 35.005,
+          "married_frac": 0.62246,
+          "gini_wealth": 0.12655,
+          "wealth_per_capita": 67274.555,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": -1.0,
+          "mean_age": 3.9949999999999974,
+          "married_frac": 0.12754,
+          "gini_wealth": -0.1001,
+          "wealth_per_capita": 8957.509875000003,
+          "pool_frac": 0.0,
+          "age_l1": 0.11111111111111113
+        },
+        "degree_l1": null
+      },
+      "4000": {
+        "resolved": {
+          "population": 9.0,
+          "mean_age": 40.111,
+          "married_frac": 1.0,
+          "gini_wealth": 0.12307,
+          "wealth_per_capita": 127095.16877777778,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 11.0,
+          "mean_age": 35.219,
+          "married_frac": 0.79512,
+          "gini_wealth": 0.25056,
+          "wealth_per_capita": 103843.24072727273,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": -2.0,
+          "mean_age": 4.891999999999996,
+          "married_frac": 0.20487999999999995,
+          "gini_wealth": -0.12749,
+          "wealth_per_capita": 23251.928050505056,
+          "pool_frac": 0.0,
+          "age_l1": 0.09999999999999996
+        },
+        "degree_l1": null
+      },
+      "6000": {
+        "resolved": {
+          "population": 12.0,
+          "mean_age": 34.833,
+          "married_frac": 1.0,
+          "gini_wealth": 0.37589,
+          "wealth_per_capita": 130154.70991666667,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 12.0,
+          "mean_age": 33.883,
+          "married_frac": 0.83335,
+          "gini_wealth": 0.39537,
+          "wealth_per_capita": 125727.96547275725,
+          "pool_frac": 0.004005995968067867
+        },
+        "diff": {
+          "population": 0.0,
+          "mean_age": 0.9499999999999957,
+          "married_frac": 0.16664999999999996,
+          "gini_wealth": -0.019479999999999997,
+          "wealth_per_capita": 4426.744443909425,
+          "pool_frac": -0.004005995968067867,
+          "age_l1": 0.33333333333333337
+        },
+        "degree_l1": null
+      },
+      "8000": {
+        "resolved": {
+          "population": 14.0,
+          "mean_age": 35.0,
+          "married_frac": 1.0,
+          "gini_wealth": 0.48669,
+          "wealth_per_capita": 140132.6085,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 13.0,
+          "mean_age": 35.677,
+          "married_frac": 0.78909,
+          "gini_wealth": 0.46664,
+          "wealth_per_capita": 143272.4363426982,
+          "pool_frac": 0.005702839626173722
+        },
+        "diff": {
+          "population": 1.0,
+          "mean_age": -0.6769999999999996,
+          "married_frac": 0.21091000000000004,
+          "gini_wealth": 0.020050000000000012,
+          "wealth_per_capita": -3139.8278426981997,
+          "pool_frac": -0.005702839626173722,
+          "age_l1": 0.17857142857142858
+        },
+        "degree_l1": null
+      }
+    },
+    {
+      "2000": {
+        "resolved": {
+          "population": 11.0,
+          "mean_age": 31.636,
+          "married_frac": 1.0,
+          "gini_wealth": 0.28474,
+          "wealth_per_capita": 55454.12245454545,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 9.0,
+          "mean_age": 38.219,
+          "married_frac": 0.62246,
+          "gini_wealth": 0.12112,
+          "wealth_per_capita": 67163.81077777778,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 2.0,
+          "mean_age": -6.583000000000002,
+          "married_frac": 0.37754,
+          "gini_wealth": 0.16362,
+          "wealth_per_capita": -11709.688323232323,
+          "pool_frac": 0.0,
+          "age_l1": 0.2525252525252525
+        },
+        "degree_l1": null
+      },
+      "4000": {
+        "resolved": {
+          "population": 11.0,
+          "mean_age": 37.091,
+          "married_frac": 1.0,
+          "gini_wealth": 0.28353,
+          "wealth_per_capita": 102999.577,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 10.0,
+          "mean_age": 39.209,
+          "married_frac": 0.79512,
+          "gini_wealth": 0.22184,
+          "wealth_per_capita": 113837.41509691792,
+          "pool_frac": 7.058572887546983e-05
+        },
+        "diff": {
+          "population": 1.0,
+          "mean_age": -2.118000000000002,
+          "married_frac": 0.20487999999999995,
+          "gini_wealth": 0.061689999999999995,
+          "wealth_per_capita": -10837.838096917912,
+          "pool_frac": -7.058572887546983e-05,
+          "age_l1": 0.17272727272727273
+        },
+        "degree_l1": null
+      },
+      "6000": {
+        "resolved": {
+          "population": 12.0,
+          "mean_age": 39.333,
+          "married_frac": 1.0,
+          "gini_wealth": 0.37655,
+          "wealth_per_capita": 127249.61225,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 11.0,
+          "mean_age": 39.295,
+          "married_frac": 0.83335,
+          "gini_wealth": 0.33554,
+          "wealth_per_capita": 135638.05918752047,
+          "pool_frac": 0.004512988532635956
+        },
+        "diff": {
+          "population": 1.0,
+          "mean_age": 0.0379999999999967,
+          "married_frac": 0.16664999999999996,
+          "gini_wealth": 0.04100999999999999,
+          "wealth_per_capita": -8388.446937520464,
+          "pool_frac": -0.004512988532635956,
+          "age_l1": 0.2272727272727273
+        },
+        "degree_l1": null
+      },
+      "8000": {
+        "resolved": {
+          "population": 12.0,
+          "mean_age": 44.917,
+          "married_frac": 0.8,
+          "gini_wealth": 0.41784,
+          "wealth_per_capita": 149832.94558333335,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 11.0,
+          "mean_age": 40.439,
+          "married_frac": 0.73085,
+          "gini_wealth": 0.43287,
+          "wealth_per_capita": 147956.86127466193,
+          "pool_frac": 0.01073309837548687
+        },
+        "diff": {
+          "population": 1.0,
+          "mean_age": 4.4780000000000015,
+          "married_frac": 0.06915000000000004,
+          "gini_wealth": -0.015029999999999988,
+          "wealth_per_capita": 1876.0843086714158,
+          "pool_frac": -0.01073309837548687,
+          "age_l1": 0.2272727272727273
+        },
+        "degree_l1": null
+      }
+    },
+    {
+      "2000": {
+        "resolved": {
+          "population": 12.0,
+          "mean_age": 30.25,
+          "married_frac": 1.0,
+          "gini_wealth": 0.34092,
+          "wealth_per_capita": 50777.33733333333,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 9.0,
+          "mean_age": 39.018,
+          "married_frac": 0.62246,
+          "gini_wealth": 0.11065,
+          "wealth_per_capita": 67273.29922222222,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 3.0,
+          "mean_age": -8.768,
+          "married_frac": 0.37754,
+          "gini_wealth": 0.23027,
+          "wealth_per_capita": -16495.961888888894,
+          "pool_frac": 0.0,
+          "age_l1": 0.2222222222222222
+        },
+        "degree_l1": null
+      },
+      "4000": {
+        "resolved": {
+          "population": 12.0,
+          "mean_age": 35.833,
+          "married_frac": 1.0,
+          "gini_wealth": 0.33742,
+          "wealth_per_capita": 95277.33733333333,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 10.0,
+          "mean_age": 40.124,
+          "married_frac": 0.79512,
+          "gini_wealth": 0.21108,
+          "wealth_per_capita": 114205.11740000002,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 2.0,
+          "mean_age": -4.291000000000004,
+          "married_frac": 0.20487999999999995,
+          "gini_wealth": 0.12634,
+          "wealth_per_capita": -18927.780066666688,
+          "pool_frac": 0.0,
+          "age_l1": 0.2666666666666667
+        },
+        "degree_l1": null
+      },
+      "6000": {
+        "resolved": {
+          "population": 13.0,
+          "mean_age": 38.462,
+          "married_frac": 1.0,
+          "gini_wealth": 0.42828,
+          "wealth_per_capita": 116179.0806153846,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 11.0,
+          "mean_age": 40.103,
+          "married_frac": 0.83335,
+          "gini_wealth": 0.33582,
+          "wealth_per_capita": 132218.29448618015,
+          "pool_frac": 0.005623221520113657
+        },
+        "diff": {
+          "population": 2.0,
+          "mean_age": -1.6409999999999982,
+          "married_frac": 0.16664999999999996,
+          "gini_wealth": 0.09245999999999999,
+          "wealth_per_capita": -16039.213870795546,
+          "pool_frac": -0.005623221520113657,
+          "age_l1": 0.3153846153846154
+        },
+        "degree_l1": null
+      },
+      "8000": {
+        "resolved": {
+          "population": 11.0,
+          "mean_age": 40.091,
+          "married_frac": 0.28571,
+          "gini_wealth": 0.43021,
+          "wealth_per_capita": 135256.67772727273,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 10.0,
+          "mean_age": 41.747,
+          "married_frac": 0.70364,
+          "gini_wealth": 0.42373,
+          "wealth_per_capita": 159485.1925130206,
+          "pool_frac": 0.0113910914511532
+        },
+        "diff": {
+          "population": 1.0,
+          "mean_age": -1.6559999999999988,
+          "married_frac": -0.41793,
+          "gini_wealth": 0.006479999999999986,
+          "wealth_per_capita": -24228.51478574786,
+          "pool_frac": -0.0113910914511532,
+          "age_l1": 0.4343434343434343
+        },
+        "degree_l1": null
+      }
+    },
+    {
+      "2000": {
+        "resolved": {
+          "population": 9.0,
+          "mean_age": 38.444,
+          "married_frac": 0.75,
+          "gini_wealth": 0.14055,
+          "wealth_per_capita": 68696.35477777777,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 9.0,
+          "mean_age": 37.483,
+          "married_frac": 0.62246,
+          "gini_wealth": 0.15115,
+          "wealth_per_capita": 68061.29755555555,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 0.0,
+          "mean_age": 0.9610000000000056,
+          "married_frac": 0.12754,
+          "gini_wealth": -0.010599999999999998,
+          "wealth_per_capita": 635.0572222222254,
+          "pool_frac": 0.0,
+          "age_l1": 0.0
+        },
+        "degree_l1": null
+      },
+      "4000": {
+        "resolved": {
+          "population": 9.0,
+          "mean_age": 44.0,
+          "married_frac": 1.0,
+          "gini_wealth": 0.1274,
+          "wealth_per_capita": 127918.57699999999,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 11.0,
+          "mean_age": 37.473,
+          "married_frac": 0.79512,
+          "gini_wealth": 0.26557,
+          "wealth_per_capita": 104486.64700000001,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": -2.0,
+          "mean_age": 6.527000000000001,
+          "married_frac": 0.20487999999999995,
+          "gini_wealth": -0.13816999999999996,
+          "wealth_per_capita": 23431.92999999998,
+          "pool_frac": 0.0,
+          "age_l1": 0.09999999999999998
+        },
+        "degree_l1": null
+      },
+      "6000": {
+        "resolved": {
+          "population": 10.0,
+          "mean_age": 44.9,
+          "married_frac": 1.0,
+          "gini_wealth": 0.22865,
+          "wealth_per_capita": 163726.7193,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 12.0,
+          "mean_age": 38.711,
+          "married_frac": 0.85715,
+          "gini_wealth": 0.34069,
+          "wealth_per_capita": 136122.9743797582,
+          "pool_frac": 0.0013043515534431626
+        },
+        "diff": {
+          "population": -2.0,
+          "mean_age": 6.189,
+          "married_frac": 0.14285000000000003,
+          "gini_wealth": -0.11204,
+          "wealth_per_capita": 27603.744920241792,
+          "pool_frac": -0.0013043515534431626,
+          "age_l1": 0.16363636363636364
+        },
+        "degree_l1": null
+      },
+      "8000": {
+        "resolved": {
+          "population": 9.0,
+          "mean_age": 48.444,
+          "married_frac": 0.6,
+          "gini_wealth": 0.27318,
+          "wealth_per_capita": 197629.50577777775,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 11.0,
+          "mean_age": 42.111,
+          "married_frac": 0.72431,
+          "gini_wealth": 0.40532,
+          "wealth_per_capita": 165881.7116566538,
+          "pool_frac": 0.007681543390281189
+        },
+        "diff": {
+          "population": -2.0,
+          "mean_age": 6.3330000000000055,
+          "married_frac": -0.12431000000000003,
+          "gini_wealth": -0.13214000000000004,
+          "wealth_per_capita": 31747.794121123967,
+          "pool_frac": -0.007681543390281189,
+          "age_l1": 0.09999999999999996
+        },
+        "degree_l1": null
+      }
+    },
+    {
+      "2000": {
+        "resolved": {
+          "population": 10.0,
+          "mean_age": 31.1,
+          "married_frac": 0.5,
+          "gini_wealth": 0.21634,
+          "wealth_per_capita": 61702.1994,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 9.0,
+          "mean_age": 33.664,
+          "married_frac": 0.62246,
+          "gini_wealth": 0.143,
+          "wealth_per_capita": 68173.66444444444,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 1.0,
+          "mean_age": -2.564,
+          "married_frac": -0.12246000000000001,
+          "gini_wealth": 0.07334000000000002,
+          "wealth_per_capita": -6471.465044444441,
+          "pool_frac": 0.0,
+          "age_l1": 0.08888888888888886
+        },
+        "degree_l1": null
+      },
+      "4000": {
+        "resolved": {
+          "population": 12.0,
+          "mean_age": 30.833,
+          "married_frac": 0.75,
+          "gini_wealth": 0.34122,
+          "wealth_per_capita": 95835.16616666666,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 11.0,
+          "mean_age": 33.469,
+          "married_frac": 0.79512,
+          "gini_wealth": 0.28041,
+          "wealth_per_capita": 104590.84054545454,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 1.0,
+          "mean_age": -2.636000000000003,
+          "married_frac": -0.04512000000000005,
+          "gini_wealth": 0.06081000000000003,
+          "wealth_per_capita": -8755.67437878788,
+          "pool_frac": 0.0,
+          "age_l1": 0.15000000000000002
+        },
+        "degree_l1": null
+      },
+      "6000": {
+        "resolved": {
+          "population": 16.0,
+          "mean_age": 28.0,
+          "married_frac": 0.71429,
+          "gini_wealth": 0.50369,
+          "wealth_per_capita": 105126.374625,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 13.0,
+          "mean_age": 34.154,
+          "married_frac": 0.86343,
+          "gini_wealth": 0.36431,
+          "wealth_per_capita": 129788.60553846153,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 3.0,
+          "mean_age": -6.1540000000000035,
+          "married_frac": -0.14914000000000005,
+          "gini_wealth": 0.13937999999999995,
+          "wealth_per_capita": -24662.230913461535,
+          "pool_frac": 0.0,
+          "age_l1": 0.2708333333333333
+        },
+        "degree_l1": null
+      },
+      "8000": {
+        "resolved": {
+          "population": 17.0,
+          "mean_age": 31.882,
+          "married_frac": 1.0,
+          "gini_wealth": 0.55562,
+          "wealth_per_capita": 121001.29376470589,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 13.0,
+          "mean_age": 35.926,
+          "married_frac": 0.76205,
+          "gini_wealth": 0.45225,
+          "wealth_per_capita": 152125.24197673445,
+          "pool_frac": 0.0053524524924346275
+        },
+        "diff": {
+          "population": 4.0,
+          "mean_age": -4.0440000000000005,
+          "married_frac": 0.23795,
+          "gini_wealth": 0.10337000000000002,
+          "wealth_per_capita": -31123.94821202857,
+          "pool_frac": -0.0053524524924346275,
+          "age_l1": 0.20588235294117646
+        },
+        "degree_l1": null
+      }
+    },
+    {
+      "2000": {
+        "resolved": {
+          "population": 12.0,
+          "mean_age": 27.333,
+          "married_frac": 0.75,
+          "gini_wealth": 0.34178,
+          "wealth_per_capita": 50563.939000000006,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 9.0,
+          "mean_age": 35.037,
+          "married_frac": 0.62246,
+          "gini_wealth": 0.11282,
+          "wealth_per_capita": 66940.6431111111,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": 3.0,
+          "mean_age": -7.704000000000001,
+          "married_frac": 0.12754,
+          "gini_wealth": 0.22895999999999997,
+          "wealth_per_capita": -16376.704111111096,
+          "pool_frac": 0.0,
+          "age_l1": 0.22222222222222224
+        },
+        "degree_l1": null
+      },
+      "4000": {
+        "resolved": {
+          "population": 12.0,
+          "mean_age": 32.833,
+          "married_frac": 0.71429,
+          "gini_wealth": 0.34394,
+          "wealth_per_capita": 93813.939,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 10.0,
+          "mean_age": 35.461,
+          "married_frac": 0.79512,
+          "gini_wealth": 0.24369,
+          "wealth_per_capita": 111890.17525500676,
+          "pool_frac": 0.0006270197972865991
+        },
+        "diff": {
+          "population": 2.0,
+          "mean_age": -2.628,
+          "married_frac": -0.08083000000000007,
+          "gini_wealth": 0.10025000000000003,
+          "wealth_per_capita": -18076.236255006763,
+          "pool_frac": -0.0006270197972865991,
+          "age_l1": 0.23333333333333336
+        },
+        "degree_l1": null
+      },
+      "6000": {
+        "resolved": {
+          "population": 15.0,
+          "mean_age": 31.067,
+          "married_frac": 1.0,
+          "gini_wealth": 0.5023,
+          "wealth_per_capita": 102784.48453333332,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 12.0,
+          "mean_age": 34.595,
+          "married_frac": 0.83335,
+          "gini_wealth": 0.37733,
+          "wealth_per_capita": 124317.31890783312,
+          "pool_frac": 0.004115974446106513
+        },
+        "diff": {
+          "population": 3.0,
+          "mean_age": -3.5279999999999987,
+          "married_frac": 0.16664999999999996,
+          "gini_wealth": 0.12496999999999997,
+          "wealth_per_capita": -21532.8343744998,
+          "pool_frac": -0.004115974446106513,
+          "age_l1": 0.2848484848484849
+        },
+        "degree_l1": null
+      },
+      "8000": {
+        "resolved": {
+          "population": 14.0,
+          "mean_age": 34.786,
+          "married_frac": 0.88889,
+          "gini_wealth": 0.50546,
+          "wealth_per_capita": 126901.30471428572,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 12.0,
+          "mean_age": 35.485,
+          "married_frac": 0.76215,
+          "gini_wealth": 0.47125,
+          "wealth_per_capita": 146427.7629042948,
+          "pool_frac": 0.007985844335583631
+        },
+        "diff": {
+          "population": 2.0,
+          "mean_age": -0.6989999999999981,
+          "married_frac": 0.12673999999999996,
+          "gini_wealth": 0.03421000000000002,
+          "wealth_per_capita": -19526.45819000907,
+          "pool_frac": -0.007985844335583631,
+          "age_l1": 0.488095238095238
+        },
+        "degree_l1": null
+      }
+    },
+    {
+      "2000": {
+        "resolved": {
+          "population": 8.0,
+          "mean_age": 38.0,
+          "married_frac": 0.5,
+          "gini_wealth": 0.01893,
+          "wealth_per_capita": 75984.692,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 9.0,
+          "mean_age": 33.558,
+          "married_frac": 0.62246,
+          "gini_wealth": 0.1244,
+          "wealth_per_capita": 67053.82377777778,
+          "pool_frac": 0.0
+        },
+        "diff": {
+          "population": -1.0,
+          "mean_age": 4.442,
+          "married_frac": -0.12246000000000001,
+          "gini_wealth": -0.10547,
+          "wealth_per_capita": 8930.868222222212,
+          "pool_frac": 0.0,
+          "age_l1": 0.18055555555555555
+        },
+        "degree_l1": null
+      },
+      "4000": {
+        "resolved": {
+          "population": 8.0,
+          "mean_age": 43.625,
+          "married_frac": 1.0,
+          "gini_wealth": 0.02404,
+          "wealth_per_capita": 140234.692,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 11.0,
+          "mean_age": 33.867,
+          "married_frac": 0.79512,
+          "gini_wealth": 0.25888,
+          "wealth_per_capita": 101824.76558521138,
+          "pool_frac": 0.0006166908711481556
+        },
+        "diff": {
+          "population": -3.0,
+          "mean_age": 9.758000000000003,
+          "married_frac": 0.20487999999999995,
+          "gini_wealth": -0.23484,
+          "wealth_per_capita": 38409.92641478863,
+          "pool_frac": -0.0006166908711481556,
+          "age_l1": 0.2
+        },
+        "degree_l1": null
+      },
+      "6000": {
+        "resolved": {
+          "population": 10.0,
+          "mean_age": 39.3,
+          "married_frac": 1.0,
+          "gini_wealth": 0.24889,
+          "wealth_per_capita": 155387.7536,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 12.0,
+          "mean_age": 32.554,
+          "married_frac": 0.83694,
+          "gini_wealth": 0.39617,
+          "wealth_per_capita": 125835.82485624775,
+          "pool_frac": 0.003731768676507807
+        },
+        "diff": {
+          "population": -2.0,
+          "mean_age": 6.745999999999995,
+          "married_frac": 0.16305999999999998,
+          "gini_wealth": -0.14728000000000002,
+          "wealth_per_capita": 29551.928743752243,
+          "pool_frac": -0.003731768676507807,
+          "age_l1": 0.26153846153846155
+        },
+        "degree_l1": null
+      },
+      "8000": {
+        "resolved": {
+          "population": 10.0,
+          "mean_age": 45.0,
+          "married_frac": 1.0,
+          "gini_wealth": 0.28022,
+          "wealth_per_capita": 195387.7536,
+          "pool_frac": 0.0
+        },
+        "coarse": {
+          "population": 13.0,
+          "mean_age": 33.375,
+          "married_frac": 0.78507,
+          "gini_wealth": 0.48616,
+          "wealth_per_capita": 143103.39427079324,
+          "pool_frac": 0.005561669144098952
+        },
+        "diff": {
+          "population": -3.0,
+          "mean_age": 11.625,
+          "married_frac": 0.21492999999999995,
+          "gini_wealth": -0.20593999999999996,
+          "wealth_per_capita": 52284.35932920675,
+          "pool_frac": -0.005561669144098952,
+          "age_l1": 0.28571428571428575
+        },
+        "degree_l1": null
+      }
+    }
+  ]
+}
