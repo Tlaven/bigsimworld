@@ -205,6 +205,43 @@ def test_rule_is_deterministic_in_long_run(monkeypatch):
     assert any(x[1] == "ok" for x in first), "长跑没有产出婚配 ⇒ 确定性断言是空的"
 
 
+# ------------------------------------------------------------------ 随机流隔离
+
+class _NullBindRule:
+    """对照：占 headroom（`emits_bind=True`）但不发意图——把"占名额"效应固定住。"""
+
+    name = "null_bind"
+    emits_bind = True
+
+    def offers(self, context):
+        return []
+
+
+def test_own_rng_does_not_perturb_window_stream(monkeypatch):
+    """对照组同为"占名额不发意图"时，规则用**自有**流 ⇒ 窗口个体事件流逐位一致。
+
+    （2026-10-18 校准发现两个混淆项：① 规则共用 `window.rng` 会改变个体事件随机流；
+    ② 只要注册了会 bind 的规则，`headroom_reserve` 就永久少留 `cap_per_tick` 个窗口名额。
+    本测试对 ① 做隔离；② 用"同为 emits_bind 的 null 规则"对齐。）
+    """
+    def run(rule):
+        random.seed(23)
+        engine = _engine(capacity=80, window=40, n=400, seed=5, rng=random.Random(23))
+        cluster = _cluster(engine)
+        _put(cluster, engine, count=50.0)
+        monkeypatch.setitem(RULES, rule.name, rule)
+        for _ in range(40):
+            engine.step()
+        return (len(engine.window.characters),
+                sum(1 for c in engine.window.characters.values()
+                    if c.relationships.get("spouse")),
+                engine.population())
+
+    null = run(_NullBindRule())
+    own = run(MarriageRule(rate=0.0, rng=random.Random("isolated")))
+    assert own == null, "自有流仍扰动了窗口个体事件流"
+
+
 # ------------------------------------------------------------------ 默认关
 
 def test_rule_is_not_registered_by_default():

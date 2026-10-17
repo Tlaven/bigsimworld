@@ -63,7 +63,10 @@ class SimulationRunner:
                 # 开启 = 新增婚配通量（ADR-007）⇒ 不再属于参照模型的近似。
                 if os.environ.get("SIM_CHANNEL_MARRIAGE", "0").strip().lower() in ("1", "true", "on", "yes"):
                     from app.core.measure.rules import register_marriage_rule
-                    register_marriage_rule()
+                    # 规则用**自有**随机流（确定性 + 不扰动窗口个体事件流，见 rules.py 注释）。
+                    rule_rng = (random.Random(f"channel-marriage:{self.seed}")
+                                if self.seed is not None else None)
+                    register_marriage_rule(rng=rule_rng)
                     logger.info("channel rule registered: cross_marriage (SIM_CHANNEL_MARRIAGE=1)")
         else:
             self.db_queues = init_db_queues()  # 初始化队列

@@ -33,13 +33,17 @@ class MarriageRule:
     kind = "spouse"              # `bind` 下的边名（见 N2-7 陷阱 7）
     emits_bind = True            # 会发 bind ⇒ `headroom_reserve` 照常预留窗口名额
 
-    def __init__(self, rate=None):
+    def __init__(self, rate=None, rng=None):
         self.rate = MARRIAGE_RATE if rate is None else float(rate)
+        # **规则自有的确定性随机流**（推荐）：与 `window.rng` 分开，否则"开关规则"会改变
+        # 个体事件的随机流，A/B 与校准都不可控（2026-10-18 实测：共流时四档 rate 给出同一个
+        # 被污染的数字）。`rng=None` 时退回 `context.rng`（惰性/兼容路径）。
+        self.rng = rng
 
     def offers(self, context):
         window = context.window
         store = context.store
-        rng = context.rng or getattr(window, "rng", None) or random
+        rng = self.rng or context.rng or getattr(window, "rng", None) or random
         space = window.space
 
         # ① 目标簇候选：每 tick 只扫一次 coarse 分布（避免"每个单身扫一遍簇"）
@@ -88,8 +92,8 @@ class MarriageRule:
         return intents
 
 
-def register_marriage_rule(rate=None) -> MarriageRule:
+def register_marriage_rule(rate=None, rng=None) -> MarriageRule:
     """把跨分辨率婚配规则注册进 `RULES`（幂等：同名键覆盖）。"""
-    rule = MarriageRule(rate=rate)
+    rule = MarriageRule(rate=rate, rng=rng)
     register(rule)
     return rule
