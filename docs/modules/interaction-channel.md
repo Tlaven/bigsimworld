@@ -2,9 +2,10 @@
 
 > 本文档定位：做**跨分辨率直接交互**模块工作时加载，可独立喂给 AI。
 > 三段式：[是什么] / [为什么] / [不变量]。模板来源 [`docs-templates/module-doc.md`](../../docs-templates/module-doc.md)。
-> **本期范围：通道的两个原子都已实现——身份侧 `bind`/`unbind`（N2-1/N2-4/N2-5）与质量侧 `transfer`（N2-6）**；
-> **交互规则仍不做**（`RULES` 为空）。婚配 / 结友 / 继承的**语义**不在本模块。
-> `transfer` 的决策与被拒方案见 [`adr-005`](../decisions/adr-005-transfer-quality-side.md)。
+> **本模块已交付：两个原子（身份侧 `bind`/`unbind` = N2-1/N2-4/N2-5；质量侧 `transfer` = N2-6）
+> + 第一条交互规则（跨分辨率婚配 = N2-7，默认关）**。
+> 规则**默认不注册**（`RULES` 空）⇒ 生产路径的权威数字不变；`SIM_CHANNEL_MARRIAGE=1` 才开启。
+> `transfer` 见 [`adr-005`](../decisions/adr-005-transfer-quality-side.md)，婚配规则见 [`adr-007`](../decisions/adr-007-cross-resolution-marriage.md)。
 
 ---
 
@@ -18,7 +19,7 @@
 对比现有**间接路径**（两跳、匿名、单向）：`C —overflow_fraction→ 全局测度 —materialize→ 窗口`。
 
 **它不做什么**：不定义任何交互语义。通道只保证"意图 → 守恒且确定的现实"这一转换是**正确、可对账、可复现**的；
-"什么意图、绑定后建什么边"由**交互规则**（第 9 缝，本期为空注册表）决定。
+"什么意图、绑定后建什么边"由**交互规则**（第 9 缝；默认空注册表，第一条见 N2-7）决定。
 
 **术语**（定义见 [`docs/glossary.md`](../glossary.md)，此处只引用）：
 交互通道、意图（Intent）、bind、unbind、extract、link、先扣后加律、谓词式寻址、可重建维度、通道账本、交互规则。
@@ -34,7 +35,7 @@
 | `unbind` | `bind` 的逆：`unlink`（断链）+ 把该角色折算回 **coarse**（按**当前**属性落桶，见 N2-4） | ✅ |
 | `extract` | 从 coarse `Measure` 按 `Match` 析出 `amount` 个整人并扣减（`_sample_cell` 的按谓词泛化；`amount=2` = N2-5 的成对析出） | ✅（第 0 步已交付） |
 | `link` | **边的唯一入口**：一次调用双向写 `relationships`（对称；非对称用 `reverse`）。**不记档**——`relation_record` 只由 `unlink(..., record=True)` 双向追加 | ✅（第 0 步已交付） |
-| `InteractionRule`（Protocol + `RULES` 注册表） | 规则缝：**只声明"发起什么意图"**；**建边由通道统一执行**（`link`），规则不碰边。签名（MVP）：`offers(context: ChannelContext) -> Iterable[Intent]` | ✅（空注册表） |
+| `InteractionRule`（Protocol + `RULES` 注册表） | 规则缝：**只声明"发起什么意图"**；**建边由通道统一执行**（`link`），规则不碰边。签名（MVP）：`offers(context: ChannelContext) -> Iterable[Intent]` | ✅（第一条规则 = N2-7 跨分辨率婚配，默认关） |
 | 通道账本（有界 `deque`，`maxlen=4096`） | 每条操作一条记录，供观测与对账 | ✅ |
 | **`transfer`（原子：无身份质量移动）** | 质量侧：继承 / 馈赠 / 族内再分配（C↔C 本期不做） | ✅（N2-6） |
 
@@ -88,6 +89,9 @@
 | 21 | 池随生命周期折叠：`coarsen` / `merge` / `dissolve`（**含 `yearly_inherited`**） | `measure/cluster.py`、`measure.py` |
 | 22 | 快照往返含 `transfer_pool` 与 `yearly_inherited` | `measure/measure.py` |
 | 23 | 财富审计：`bench.audit_transfer` + `tests/test_transfer.py` | `bench/`、`tests/` |
+| 24 | `ChannelContext.rng`（规则可做**确定性**抽样；= 唯一随机源 `window.rng`） | `measure/channel.py`、`measure/cluster.py` |
+| 25 | **第一条交互规则** `MarriageRule`（跨分辨率婚配，N2-7） | `measure/rules.py` |
+| 26 | 生产开关 `SIM_CHANNEL_MARRIAGE`（缺省 0 ⇒ 不注册 ⇒ 惰性不变） | `simulation/runner.py` |
 
 **惰性不变**：`RULES` 仍为空 ⇒ 生产里没有任何 `transfer` 意图 ⇒ 新路径不执行，池恒 0；
 `pytest` 与 `bench.audit_ledger --resolution/--clusters` 数字不退化。
@@ -188,8 +192,10 @@ class Intent:
   `Match(marital=1)` 合法，但**已婚者不得单独析出**——必须成对（见 N2-5）。
   规则：`Match` 引用 ∉ `RECONSTRUCTIBLE` 的维度 ⇒ 在 `compile` **抛错**（不变量 4）。
 
-### 决策 5：本期只做通道，不做规则
-"规则未知"恰好是对通道设计的**检验**：零规则 + 探针规则即可完整验收通道（见 [不变量] 的验收）。
+### 决策 5：先做通道，再做规则；第一条规则 = 跨分辨率婚配（ADR-007）
+通道建设期 `RULES` 为空——"规则未知"恰好是对通道设计的**检验**：零规则 + 探针规则即可完整验收通道。
+**2026-10-17 落地第一条真实规则**：[`adr-007`](../decisions/adr-007-cross-resolution-marriage.md) 的
+`MarriageRule`（R→C 婚配，默认关）。它只声明意图，守恒/建边/配额/宽限期全部由通道保证（N2-7）。
 
 ### 同构参考（不是等同）
 "两级互相耦合 + 守恒通量交换"在数值方法里有成熟同构：**自适应网格加密（AMR）的粗/细界面**。
@@ -271,7 +277,9 @@ class Intent:
 **N2-1 · `bind` 的先扣后加提交协议**
 
 1. **收集**：R 侧意图在 `window.step()` 之后由规则提供；C 侧意图在 `store.step_coarse()` 之后由规则提供。
-   两路都经 **`channel.submit(intent)`** 进本 tick 队列。**本期 `RULES` 为空 ⇒ 两条路都不产生意图**（通道惰性）。
+   两路都经 **`channel.submit(intent)`** 进本 tick 队列。**默认 `RULES` 为空 ⇒ 两条路都不产生意图**（通道惰性）；
+   开启 N2-7 后，R 侧意图由规则在 `_collect_intents` 产出（`store.step_coarse()` + `_settle_transfer_pools` **之后**、
+   `channel.run()` **之前**）——因此规则看到的 coarse 权重与同 tick 的 `extract` **同源**。
 2. **排序**：按 `(origin_side, origin_id, op, kind, scope_type, scope_id)` 升序（`origin_side`：`character`=0、`cluster`=1；
    `scope_type`：`cluster`=0、`window`=1）。字符串比大小即可（Python 元组比较），**唯一确定的处理序**。
 3. **去重**：同一 `(op, origin, kind, scope)` 只保留第一条（**含 `op`**——否则 bind 与 transfer 会互撞、
@@ -622,8 +630,82 @@ class ChannelRecord:
 14. **headroom 预留只对能发 `bind` 的规则成立**：当前 `headroom_reserve` 按"`RULES` 非空"预留
     `cap_per_tick`；若某规则只发 transfer，会白留名额。规则可声明 `emits_bind=False`（缺省 `True`）来避免。
 
-**范围声明**：本期只做 R↔C 的原子与结算；**C↔C、resolved 簇支付、交互规则**均不在内。
+**范围声明**：质量侧只做 R↔C 的原子与结算；**C↔C、resolved 簇支付**不在内（交互规则见 N2-7）。
 规则若要发起 transfer，必须显式 `Intent(op="transfer", kind=..., payload={"amount": A})`。
+
+**N2-7 · 第一条规则：跨分辨率婚配（`MarriageRule`，R→C）**（2026-10-17 拍板并实现）
+
+**为什么**：见 [`adr-007`](../decisions/adr-007-cross-resolution-marriage.md)。一句话——
+`FamilyKind` 的身份敏感边是 `parent/child/spouse`，而"窗口单身与族内单身成婚"是这条边**缺失的通量**；
+只有真个体能当发起方（coarse 没有"意愿"）。规则**只声明意图**，守恒/建边/配额/宽限期全部由通道保证。
+规格经 **1 轮 teach-back**（独立验证者；11 条缺口实现前补完），对账见
+[`../reviews/2026-10-17-marriage-teachback.md`](../reviews/2026-10-17-marriage-teachback.md)。
+
+**步骤级说明**
+
+1. **收集（每 tick 一次）**：规则 `offers(context)` 由 `_collect_intents` 调用，位置在
+   `store.step_coarse()` + `_settle_transfer_pools()` **之后**、`channel.run()` **之前** ⇒ 规则算出的 coarse 权重
+   与同 tick 的 `extract` **同源**（本 tick 内 coarse 不再演化）。
+   `ChannelContext` 携带 `tick / window / store / rng`（`rng` = `window.rng`，**唯一随机源**；不得用模块级 `random`）。
+2. **目标簇候选**（只算一次，避免"每个单身扫一遍簇"）：
+   - 取 `level==0` 且 `state["engine"]` 存在的簇；
+   - 编译一次 `pred = compile_match(Match(marital=0, age=(18, 59)), window.space)`；
+   - 权重 = `Σ mini.counts[i]`（`i ∈ occupied`、`counts[i] ≥ 1.0`、`pred(i)`）；权重 `> 0` 才是候选；
+   - 候选按 `cid` **升序**（确定性）；总权重 `> 0` 才继续。
+3. **对每个窗口角色**（按 `id` 升序）：
+   - 合格 = `18 ≤ age < 60` 且 `relationships["spouse"]` 为空（**性别中立**，不加 `gender` 约束）；
+   - 掷 `rng.random() < rate`（`rate` 缺省 = `transitions.MARRIAGE_RATE`）才发起；
+   - 在候选中用 `rng.random()` 做**计数加权抽样**（前缀和），定出 `cid`；
+   - 产出 `Intent(op="bind", kind="spouse", origin=("character", rid), scope=("cluster", cid),
+     match=Match(marital=0, age=(18, 59)))`。
+   - **不做"自家簇 / 亲属避让"**：coarse 簇的 `member_ids` 按契约**必为空**，不存在"发起者所属的 coarse 簇"；
+     个体引擎也没有亲属避让（`relatives` 检查已删）。这是刻意识别差异，不是遗漏。
+4. **执行**：完全交给通道（N2-1）——`extract(amount=1)` 先扣后加、`link(rid, new, "spouse")`、
+   配额 `cap_per_tick=8` / `cap_per_cluster=2`、窗口 headroom、宽限期 `recently_active[cid]`。
+   规则**不碰**边、不碰分布、不碰配额。
+5. **不重复婚配**（两条防线只针对**窗口发起方**）：
+   - 规则在 `window.step()` **之后**运行 ⇒ 本 tick 刚在窗口结婚的人已 `marital≠0`，`offers` 跳过；
+   - 规则结的婚下一 tick 也被窗口 `spouse_event`（要求 `not relationships['spouse']`）跳过。
+   - **粗侧对手方**由另两条机制保护：`step_coarse()` 的均值场婚配**先跑**，且 `bind` **先扣后加**把人移出分布
+     ⇒ 同一 tick 不会"一个人被嫁两次"。这两条防线不覆盖粗侧，别混用。
+6. **开关**：`SIM_CHANNEL_MARRIAGE`（缺省 `0`）；`=1` 时 runner `register(MarriageRule())`
+   （注册幂等）。**默认不注册 ⇒ `RULES` 空 ⇒ 通道惰性、全部权威数字不变。**
+7. **语义声明**：开启 = 新增一条婚配通量（窗口自己的婚配事件照常跑）⇒ **不**要求与纯个体引擎收敛；
+   `bench.convergence` / `bench.cluster_fidelity` 一律在默认（`RULES` 空）下跑。
+
+**精确例子**
+
+- 窗口有单身 `R`（30 岁）、coarse 族 `c` 有桶 `count=10 @ (age 30, marital 0)`、
+  `rate=1.0`、`rng` 命中 `c` ⇒ `bind` 析出 1 人 `N`（`count 10 → 9`），`R—N` 双向 `spouse` 边；
+  人头守恒；账本 1 条 `ok`（`kind="spouse"`）；`c` 进入宽限期（分辨率冻结）。
+- **计数加权抽样**：`c1`（cid 小）权重 3、`c2` 权重 7 ⇒ 前缀和 `u<0.3 → c1`，否则 `c2`；
+  同一 seed 落点固定。
+- **已婚跳过**：`R` 已有 `spouse` ⇒ `offers` 不给它产意图。
+- **无合格房源**：候选权重全 0（族内无 18–59 未婚桶）⇒ `offers` 返回 `[]`，账本零新记录（**不**产生 `dropped:no_match` 噪声）。
+- **默认关**：`RULES == {}` ⇒ 跑一整局账本零记录（同 `test_zero_rules_channel_is_inert`）。
+
+**验收**:`python -m pytest tests/test_rule_marriage.py -q` → 全绿，覆盖：建边 + 人头守恒、已婚后不再发起、
+**计数加权抽样确定性**（两簇不同权重、同 seed 落点一致）、**规则只发意图**（跑一局后边/分布与"只跑通道"逐位一致）、
+**分数桶不计权重**、无房源不产意图、默认关零记录。
+`python -m bench.channel_marriage --ticks 3000` → 打印 A/B（关 / 开）的跨婚配次数、窗口已婚比例、人口，
+  并断言开启状态下 `bench.audit_ledger`（人头）与 `--wealth`（逐算子 W）都不退化。
+**mutation**（证测试有效）：把"已婚跳过"删掉 ⇒ 重复婚配用例变红；把权重改成"含分数桶" ⇒ 分数桶用例变红；
+  让规则直接 `link`（绕过通道）⇒ "只发意图"用例变红。
+
+**陷阱**
+
+1. **规则不得建边、不得改分布**：只有通道能 `link` / `extract`；规则写这两样 = 绕过守恒。
+2. **必须用 `context.rng`**：模块级 `random` 会破坏"同 seed 同发展"（不变量 5）。
+3. **候选序与抽样都要显式排序**：`store.clusters` 是 dict、`window.characters` 是 dict——不得依赖迭代序。
+4. **别把"开启"当成"收敛验证通过"**：开启是新语义（多一条婚配通量）；门槛只在 `RULES` 空下有效。
+5. **别在规则里读 `mini.counts` 之外的可变状态做写操作**：规则是**只读**的（`ChannelContext` 只给引用，
+   职责上不得写）。
+6. **房源权重用 `count ≥ 1.0`**：`extract` 只从整人桶取；把分数残留算进权重会让意图频繁 `dropped:no_match`。
+7. **`kind` 在不同 `op` 下身份不同**：`bind` 下 `kind` = **边名**（这里 `"spouse"`）；`transfer` 下 `kind` 只是标签；
+   `RULES` 的键（`"cross_marriage"`）是**规则名**——三者别混。
+8. **规则婚姻的生命周期**：终止 = 死亡 / `dematerialize`（容量逐出），**不是** `unbind`（`unbind` 的语义是"折算回粗侧"）。
+   析出的配偶**不进 `member_ids`**、也不建 `acquaintance` 网 ⇒ 只有 1 条 `spouse` 边（嵌入度 2，高于浮层单身但低于有网络者），
+   容量吃紧时可能较早退场——MVP 接受，记为边界。
 
 **N2-2 · 谓词式寻址与可重建维度守卫**
 
