@@ -54,6 +54,9 @@ class Measure:
         # 通道池（质量侧 transfer 的量化残差/流动性）：**每个粗侧各自持有**（全局 + 每个簇的 mini）。
         # 归属规则与不变量见 docs/decisions/adr-005-transfer-quality-side.md 与 L3 N2-6。
         self.transfer_pool = 0.0
+        # 折算残差（符号账）：具名个体折回桶中心时的 `wealth − 桶中心`（可正可负）。
+        # **不可花费**——只用于财富恒等式；见 docs/decisions/adr-006-conversion-residual.md / L4 N2-5。
+        self.conversion_residual = 0.0
 
     # ---------------------------------------------------------------- 基本
 
@@ -82,8 +85,12 @@ class Measure:
         return total
 
     def wealth(self):
-        """全部财富 = 分布质量 + 通道池 + 继承段池（审计口径，见 N2-6 不变量 9）。"""
-        return self.mass() + self.transfer_pool + float(sum(self.yearly_inherited.values()))
+        """全部财富（**审计口径**，不是可花费量）= 分布质量 + 通道池 + 折算残差 + 继承段池。
+
+        恒等式与符号约定见 `docs/decisions/adr-006-conversion-residual.md`。
+        """
+        return (self.mass() + self.transfer_pool + self.conversion_residual
+                + float(sum(self.yearly_inherited.values())))
 
     def iter_occupied(self):
         for index in self.occupied:
@@ -133,6 +140,7 @@ def measure_to_payload(measure):
         "cells": [[index, round(float(measure.counts[index]), 6)]
                   for index in measure.occupied if measure.counts[index] > 0],
         "transfer_pool": round(float(measure.transfer_pool), 6),
+        "conversion_residual": round(float(measure.conversion_residual), 6),
         "inherited": [[int(age), round(float(amount), 6)]
                       for age, amount in sorted(measure.yearly_inherited.items())
                       if amount > 0],
@@ -140,26 +148,41 @@ def measure_to_payload(measure):
 
 
 def measure_from_payload(payload, space):
-    """反序列化；缺池字段的旧档按 0 读（兼容，不抛错）。"""
+    """反序列化；缺账字段的旧档按 0 读（兼容，不抛错）。"""
     measure = Measure(space)
     for index, count in payload["cells"]:
         measure.add(int(index), float(count))
     measure.transfer_pool = float(payload.get("transfer_pool", 0.0))
+    measure.conversion_residual = float(payload.get("conversion_residual", 0.0))
     for age, amount in payload.get("inherited", []):
         measure.yearly_inherited[int(age)] = float(amount)
     return measure
 
 
-def fold_pools(source, target):
-    """把 ``source`` 的两个质量池并进 ``target`` 并清空 source（逐段相加）。
+def record_conversion(measure, space, wealth):
+    """记一次"精确财富 → 桶中心"的折算残差（符号账）：`+= wealth − 桶中心`。
 
+    **只在具名个体离场、其财富改由桶表示时调用**（`dematerialize` / `coarsen` / `unbind`）。
+    `materialize` / `bind` / `extract` 是"移走 c、造出 c"的精确点，**不得**调用。
+    正 = 该测度欠世界（把高于桶中心的个体折低了）；见 `docs/core-code.md` N2-5 / ADR-006。
+    """
+    bucket = space.wealth_bucket(wealth)
+    measure.conversion_residual += float(wealth) - space.wealth_value(bucket)
+
+
+def fold_pools(source, target):
+    """把 ``source`` 的质量账并进 ``target`` 并清空 source。
+
+    三样都要折：`transfer_pool`（逐值）、`yearly_inherited`（逐段）、`conversion_residual`（逐值）。
     共演单元的生命周期算子（`coarsen`/`merge`/`dissolve`/`split`）必须调用它。
-    **只折 `counts` 会丢财富**——这是 ADR-005 记录并修掉的既有漏洞。
+    **只折 `counts` 会丢财富**——这是 ADR-005/006 记录并修掉的既有漏洞。
     """
     target.transfer_pool += float(source.transfer_pool)
+    target.conversion_residual += float(source.conversion_residual)
     for age, amount in source.yearly_inherited.items():
         target.yearly_inherited[age] = target.yearly_inherited.get(age, 0.0) + amount
     source.transfer_pool = 0.0
+    source.conversion_residual = 0.0
     source.yearly_inherited = {}
 
 

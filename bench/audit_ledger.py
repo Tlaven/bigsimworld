@@ -196,6 +196,81 @@ def run_resolution_probe(n=1500, steps=2500, capacity=250, seed=5, tol=1e-6):
     return worst
 
 
+def run_wealth_probe(n=1200, steps=2000, capacity=200, seed=5, tol_abs=1e-6, tol_rel=1e-9):
+    """分辨率折算的财富恒等式探针（ADR-006 / L4 N2-5）。
+
+    对每个分辨率算子（materialize / materialize_sample / coarsen / merge / split / dissolve /
+    dematerialize / refill 经 materialize_sample / channel.run / unbind）逐次断言
+
+        W = Σ_测度 wealth() + Σ_窗口 wealth
+
+    前后不变（`measure.wealth()` 已含桶质量 + 两个池 + 折算残差），容差
+    ``max(tol_abs, tol_rel·W)``（浮点级）。返回 ``{calls, worst_op, worst_dev}``；泄漏即抛错。
+    """
+    from app.core.measure.window import WindowEngine
+
+    space = StateSpace()
+    random.seed(seed)
+    mf = MeanFieldEngine(space=space, characters=make_characters(n, seed=seed))
+    engine = WindowEngine(mf, capacity=capacity, window=capacity, resolution=True)
+    window = engine.window
+    mgr = engine.resolution
+    store = mgr.store
+
+    def total():
+        acc = mf.measure.wealth()
+        for cluster in store.clusters.values():
+            inner = cluster.state.get("engine")
+            if inner is not None:
+                acc += inner.measure.wealth()
+        acc += sum(character.wealth for character in window.characters.values())
+        return acc
+
+    worst = {"calls": 0, "worst_op": None, "worst_dev": 0.0, "worst_tol": 0.0}
+
+    def instrument(obj, name):
+        original = getattr(obj, name)
+
+        def checked(*args, **kwargs):
+            before = total()
+            result = original(*args, **kwargs)
+            after = total()
+            dev = after - before
+            tol = max(tol_abs, tol_rel * max(1.0, abs(before)))
+            worst["calls"] += 1
+            if abs(dev) / tol > worst["worst_dev"] / max(worst["worst_tol"], tol):
+                worst["worst_op"] = f"{type(obj).__name__}.{name}"
+                worst["worst_dev"] = dev
+                worst["worst_tol"] = tol
+            if abs(dev) > tol:
+                raise RuntimeError(
+                    f"resolution wealth leak at {name}: ΔW={dev:+.6g} (tol {tol:.3g})")
+            return result
+
+        setattr(obj, name, checked)
+
+    targets = [(store, "materialize"), (store, "coarsen"), (store, "merge"),
+               (store, "dissolve"), (window, "materialize"),
+               (window, "materialize_sample"), (window, "dematerialize"),
+               (mgr.channel, "run"), (mgr.channel, "unbind")]
+    saved = [(obj, name, getattr(obj, name)) for obj, name in targets]
+    try:
+        for obj, name in targets:
+            instrument(obj, name)
+        for step in range(steps):
+            engine.step()
+            if step % 40 == 0:                     # 驱动 粗化 ⇄ 再物化 循环
+                level = 0.3 if (step // 40) % 2 == 0 else 1.0
+                for cid in list(store.clusters):
+                    mgr.set_attention(cid, level)
+    finally:
+        for obj, name, original in saved:
+            setattr(obj, name, original)
+    if worst["calls"] == 0:
+        raise RuntimeError("wealth probe exercised no operations")
+    return worst
+
+
 def main():
     parser = argparse.ArgumentParser(description="Wealth conservation audit for mean-field engine")
     parser.add_argument("--n", type=int, default=5000)
@@ -203,8 +278,18 @@ def main():
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--clusters", action="store_true", help="改跑 窗口+共演单元 的分辨率守恒审计")
     parser.add_argument("--resolution", action="store_true", help="改跑分辨率算子守恒探针（生产口径）")
+    parser.add_argument("--wealth", action="store_true",
+                        help="改跑分辨率折算的财富恒等式探针（ADR-006，逐算子 W）")
     parser.add_argument("--capacity", type=int, default=300)
     args = parser.parse_args()
+
+    if args.wealth:
+        result = run_wealth_probe(n=args.n, steps=args.steps, capacity=args.capacity, seed=args.seed)
+        print(f"resolution wealth ops checked = {result['calls']}")
+        print(f"worst = {result['worst_op']}   ΔW = {result['worst_dev']:+.3e}   "
+              f"tol = {result['worst_tol']:.3e}")
+        print("identity error = 0 (逐算子 W 中性，容差 = max(1e-6, 1e-9·W))")
+        return
 
     if args.resolution:
         result = run_resolution_probe(n=args.n, steps=args.steps, capacity=args.capacity, seed=args.seed)

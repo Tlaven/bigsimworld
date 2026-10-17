@@ -11,6 +11,7 @@ import random
 from collections import deque
 
 from app.core.generation.human import generate_character
+from app.core.measure.measure import record_conversion
 from app.core.person.character import Character
 from app.core.person.links import link, unlink
 from app.core.simulation.events import PeopleEvents
@@ -167,6 +168,8 @@ class IndividualWindow:
             self.space.wealth_bucket(character.wealth), marital,
         )
         self.measure.add(index, 1.0)
+        # 精确 wealth → 桶中心：差额记入折算残差（符号账，ADR-006 / N2-5）。**不可漏**。
+        record_conversion(self.measure, self.space, character.wealth)
         self.stats["dematerialized"] += 1
         return True
 

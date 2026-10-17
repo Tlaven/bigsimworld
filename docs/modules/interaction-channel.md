@@ -477,8 +477,11 @@ class ChannelRecord:
   - **R→C**：`origin=("character", rid)`、`scope=("cluster", cid)`；
   - **C→R**：`origin=("cluster", cid)`、`scope=("window",)` + `Match` 选**接收者**。
 - 粗侧池 = 该簇 `state["engine"].measure.transfer_pool`（**每个 Measure 一个**；全局测度也有，供 `dissolve` 汇入）。
-- `Measure.mass()` = `Σ count × 桶中心`；`Measure.wealth()` = `mass() + transfer_pool + Σ yearly_inherited`。
-  **可支付总额** = `mass() + transfer_pool`（`yearly_inherited` 是继承专用，不得挪用）；
+- `Measure.mass()` = `Σ count × 桶中心`；
+  `Measure.wealth()` = `mass() + transfer_pool + conversion_residual + Σ yearly_inherited`（**观测/审计口径**，
+  见 [`adr-006`](../decisions/adr-006-conversion-residual.md)）。
+  **可支付总额** = `mass() + transfer_pool`（`yearly_inherited` 是继承专用、`conversion_residual` 是**不可花费**的
+  符号账，两者都不得挪用）；
   **可清算量** = 其中 `wealth_bucket > 0` 的桶能向下整桶挪出的质量（bucket 0 不可清算）。
   `可支付总额 ≥ A` 只保证"总额够"；若可清算量 + 池 < A，仍是 `illiquid`。
 

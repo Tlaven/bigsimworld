@@ -25,7 +25,8 @@ from app.core.person.links import neighbors
 from app.core.measure.channel import ChannelContext, InteractionChannel, RULES
 from app.core.measure.engine import MeanFieldEngine
 from app.core.measure.measure import (fold_pools, measure_from_characters,
-                                      measure_from_payload, measure_to_payload)
+                                      measure_from_payload, measure_to_payload,
+                                      record_conversion)
 from app.core.measure.transitions import FULL_FLOWS, distribute_pool, inject_inherited
 from app.core.measure.transitions import settle_transfer_pool
 from app.core.measure.transitions import inheritance as _mf_inheritance
@@ -306,6 +307,10 @@ class ClusterStore:
         members = {mid: self.window.characters[mid]
                    for mid in cluster.member_ids if mid in self.window.characters}
         aggregate = kind.aggregate(members, self.space)
+        # 成员精确 wealth → 桶中心：差额逐个记入折算残差（ADR-006 / N2-5）。
+        # 注意：**不能**复用 `dematerialize`（那会同时把本人折回全局测度 ⇒ 双记）。
+        for character in members.values():
+            record_conversion(aggregate, self.space, character.wealth)
         # 物化后残留的 coarse 质量（未析出的分数残量）必须一并折回：否则再次粗化会以
         # 窗口成员重建聚合态，把这部分残留丢掉（守恒漏洞）。
         leftover = (cluster.state or {}).get("engine")

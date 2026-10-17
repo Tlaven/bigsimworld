@@ -21,6 +21,7 @@ from dataclasses import dataclass, field
 from typing import Iterable, Protocol
 
 from app.core.generation.human import generate_character
+from app.core.measure.measure import record_conversion
 from app.core.measure.transitions import _shift_age_wealth
 from app.core.person.links import link, unlink
 
@@ -504,11 +505,11 @@ class InteractionChannel:
 
         cluster = self.store.clusters.get(record.coarse_id)
         engine = cluster.state.get("engine") if cluster is not None else None
-        for _who, index in folded:
-            if engine is not None:              # 簇还在 ⇒ 折算回簇
-                engine.measure.add(index, 1.0)
-            else:                               # 簇已被回收 ⇒ 折算回全局测度（人头不变）
-                self.window.measure.add(index, 1.0)
+        for who, index in folded:
+            target = engine.measure if engine is not None else self.window.measure
+            target.add(index, 1.0)              # 簇在 ⇒ 折回簇；已回收 ⇒ 折回全局测度（人头不变）
+            # 精确 wealth → 桶中心：残差记到**同一个**目标测度（符号账，ADR-006 / N2-5）
+            record_conversion(target, self.window.space, who.wealth)
         if engine is not None:
             cluster.state["size"] = engine.measure.total()
 

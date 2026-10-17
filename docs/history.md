@@ -468,6 +468,47 @@ t=8000，`members=8`/40 trials 与 `members=12`/20 trials：
 | `python -m bench.audit_ledger --clusters --n 3000 --steps 2000` | `identity error = 0`，`rho = 2143` 与接入前一致 |
 | `coverage` | 88%（门槛 80） |
 
-**已知边界（未做，别当成 bug）**：全局 W 在**分辨率折算**处仍有 ≤ `w/2` 量化差（ADR-005 方案 H 的符号残差池未做）；
+**当时已知边界**：~~全局 W 在**分辨率折算**处仍有 ≤ `w/2` 量化差（方案 H 未做）~~ —— 同日 **Stage 18**
+已用符号残差账接管（[`adr-006`](decisions/adr-006-conversion-residual.md)），此处保留原文以见演进。
 C↔C / resolved 簇支付 / 规则注册表仍为空；账本是有界 deque，记录被挤出后 `unbind` 会失效（既有边界）。
 **惰性**：`RULES` 仍为空 ⇒ 生产路径与从前逐位一致（池恒 0）。
+
+### Stage 18 · 分辨率折算的财富残差（2026-10-17）
+
+Stage 17 把 `transfer` 的残差收进了通道池，但明确留了一处边界：`dematerialize` / `coarsen` / `unbind`
+把具名个体的**精确 wealth** 折回**桶中心**，差 `wealth − c`（≤ `w/2`，可正可负）**无人记账**——
+所以"财富守恒"只对 `transfer` 成立，对世界不成立（[`adr-005`](decisions/adr-005-transfer-quality-side.md) 方案 H）。
+本阶段把它补成 [`adr-006`](decisions/adr-006-conversion-residual.md)：每个 `Measure` 一个**符号**账
+`conversion_residual`（折算点记 `wealth − 桶中心`；正 = 欠世界），**不可花费**、只做审计。
+
+**折算点清单（穷尽性，逐路径确认）**：
+
+| 具名个体离场路径 | 入口 | 记残差？ |
+| --- | --- | --- |
+| 窗口容量逐出 / 回填收缩 | `IndividualWindow.dematerialize` | **记** |
+| 共演单元收编 | `ClusterStore.coarsen`（每个成员） | **记**（不得复用 `dematerialize`，会双记） |
+| 通道解绑折算 | `Channel.unbind`（每个折算者） | **记** |
+| 窗口内死亡 | 死亡/继承结算（90% 蒸发、10% 给子女） | 不记（不是桶折算） |
+| `split` / `merge` / `dissolve` | `fold_pools` | 只**折**已有残差，不记 |
+| `materialize` / `materialize_sample` / `ClusterStore.materialize` / `bind`+`extract` | — | **不记**（移走 `c`、造出 `c`，天然精确） |
+
+**teach-back（独立验证者，判"有缺口但可补"）抓到 10 条，全在实现前补完**，最值钱的三条：
+
+1. **符号重载**：文档里 `w` 既当桶宽又当个人财富（`w − c`）——例子一算就矛盾。统一为 `wealth − c`。
+2. **门禁算子清单不统一且不穷尽**（漏 `merge`/`split`/`bind`/`extract`）⇒ 写死清单与每算子期望值。
+3. **`Measure.wealth()` 是否含残差没定义** ⇒ 定为"审计口径，含残差"；并写死"可支付总额 = `mass() + transfer_pool`"
+   （残差与继承池都不可花）。
+
+**验收（本机实测，2026-10-17）**：
+
+| 项 | 结果 |
+| --- | --- |
+| `pytest -q` | **204 passed**（+12：`tests/test_conversion_residual.py`；`test_audit_ledger` 加 wealth 门禁） |
+| `python -m bench.audit_ledger --wealth --n 1500 --steps 2500 --capacity 250` | **45230** 次算子，worst `ΔW = +0.000e+00` |
+| `python -m bench.audit_transfer` | `identity error = +0.000e+00` |
+| `bench.audit_ledger --resolution` / `--clusters` | 不退化（人头口径未动） |
+| `coverage` | 通过 80 门槛 |
+
+**已知边界**：残差**永不结算**（不会变成任何人的钱；要给它结算规则属新 ADR）；旧快照（无该字段）恢复后
+W 有**一次性**断点（`measure_from_payload` 按 0 读，属兼容边界）；"量化残差"（transfer 清算超取）与
+"折算残差"（本阶段）近名不同义，glossary 已互相加反例引用。
