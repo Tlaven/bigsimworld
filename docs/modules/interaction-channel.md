@@ -4,7 +4,7 @@
 > 三段式：[是什么] / [为什么] / [不变量]。模板来源 [`docs-templates/module-doc.md`](../../docs-templates/module-doc.md)。
 > **本模块已交付：两个原子（身份侧 `bind`/`unbind` = N2-1/N2-4/N2-5；质量侧 `transfer` = N2-6）
 > + 第一条交互规则（跨分辨率婚配 = N2-7，默认关）+ 全局测度寻址（= N2-8）**。
-> 规则**默认不注册**（`RULES` 空）⇒ 生产路径的权威数字不变；`SIM_CHANNEL_MARRIAGE=1|mass` 才开启。
+> 规则**默认不注册**（`RULES` 空）⇒ 生产路径的权威数字不变；`SIM_CHANNEL_MARRIAGE=1|mass|both` 才开启。
 
 ---
 
@@ -29,7 +29,7 @@
 |---|---|---|
 | `Intent`（frozen dataclass） | 通道唯一输入形态：`op`（缺省 `"bind"`）/ `kind / origin / scope / match / payload` | ✅ |
 | `Match`（声明式谓词） | 可匹配性；**声明式**而非任意闭包。编译为**桶索引谓词**，两侧共用（见决策 4） | ✅ |
-| `InteractionChannel` | 收集意图 → 确定性排序 → 配额闸 → `bind` / `unbind` → 记账本 | ✅ |
+| `InteractionChannel` | 收集意图 → 确定性排序 → 发起者复检 + 配额闸 → `bind` / `unbind` → 记账本 | ✅ |
 | `bind` | 原子：`extract` + `link`（**有身份**，先扣后加） | ✅ |
 | `unbind` | `bind` 的逆：`unlink`（断链）+ 把该角色折算回 **coarse**（按**当前**属性落桶，见 N2-4） | ✅ |
 | `extract` | 从 coarse `Measure` 按 `Match` 析出 `amount` 个整人并扣减（`_sample_cell` 的按谓词泛化；`amount=2` = N2-5 的成对析出） | ✅（第 0 步已交付） |
@@ -282,7 +282,7 @@ class Intent:
    开启 N2-7 后，R 侧意图由规则在 `_collect_intents` 产出（`store.step_coarse()` + `_settle_transfer_pools` **之后**、
    `channel.run()` **之前**）——因此规则看到的 coarse 权重与同 tick 的 `extract` **同源**。
 2. **排序**：按 `(origin_side, origin_id, op, kind, scope_type, scope_id)` 升序（`origin_side`：`character`=0、`cluster`=1；
-   `scope_type`：`cluster`=0、`window`=1）。字符串比大小即可（Python 元组比较），**唯一确定的处理序**。
+   `scope_type`：`cluster`=0、`window`=1、`measure`=2（见 N2-8））。字符串比大小即可（Python 元组比较），**唯一确定的处理序**——多规则并存（`both`）时 `cluster` 意图先于 `measure` 意图。
 3. **去重**：同一 `(op, origin, kind, scope)` 只保留第一条（**含 `op`**——否则 bind 与 transfer 会互撞、
    transfer 的 `amount` 会被静默吞掉）；被去重的意图各记一条 `dropped:duplicate`（不变量 8：
    含丢弃在内**每条意图都有记录**）。同一 `(op, origin, kind, scope)` 同一 tick 只能发一次；
@@ -290,7 +290,7 @@ class Intent:
 4. **发起者复检 + 配额闸（`amount` 感知）** `[强制]`：`bind` 且 `origin="character"` 时**先复检发起者婚配态**——
    `relationships["spouse"]` 非空 ⇒ 丢弃（记 `dropped:initiator_married`；不耗配额、不 reserve）。
    多规则并存（`both`）时同一人可能被两条不同 `scope` 的意图命中：先成功者建边、后者在此被拒
-   （确定性处理序见第 2 步：`scope_type` 簇=0 < 全局测度=2）。单规则下不触发（规则在 `offers()` 已过滤）。
+   （确定性处理序见第 2 步；`scope_type` 簇=0 < 全局测度=2，取值见 N2-8）。单规则下不触发（规则在 `offers()` 已过滤）。
    随后是配额闸：设本次意图需要的析出量 `amount`（单人路径 = 1；婚配成对 = 2，见 N2-5）：
    `per_cluster + amount > cap_per_cluster` ⇒ 丢弃（记 `dropped:quota_cluster`）；
    `made_total + amount > cap_per_tick` ⇒ 丢弃（记 `dropped:quota_tick`）；
@@ -333,7 +333,8 @@ class ChannelRecord:
     tick: int
     status: str                 # "ok" | "unbound" | "dropped:duplicate" |
                                 # "dropped:quota_cluster" | "dropped:quota_tick" | "dropped:window" |
-                                # "dropped:stale" | "dropped:no_match" | "dropped:error" |
+                                # "dropped:stale" | "dropped:no_match" | "dropped:initiator_married" |
+                                # "dropped:error" |
                                 # transfer 专用：dropped:bad_op | dropped:bad_amount | dropped:unsupported_match |
                                 #               dropped:insufficient_funds | dropped:illiquid
     kind: str
@@ -706,6 +707,7 @@ class ChannelRecord:
 `python -m bench.channel_marriage --ticks 3000` → 打印 A/B（关 / 开）的跨婚配次数、窗口已婚比例、人口，
   并断言开启状态下 `bench.audit_ledger`（人头）与 `--wealth`（逐算子 W）都不退化。
 **大众目标侧**：意图 `scope` 恒为 `("measure",)`、无房源静默、非法 `target` 抛错（`test_mass_target_emits_measure_scope` / `test_mass_target_no_eligible_mass_is_silent` / `test_invalid_target_raises`）；**复跑** `python -m bench.calibrate_marriage --scope measure --family-pool 0 --population 1200 --capacity 240 --ticks 2000 --seeds 1 2 3 4 --rates 0.05 0.1 0.25 0.5 1.0` → 读数须与采纳时的测量读数一致（默认关 ⇒ 生产读数不受影响）。
+**`both` 并存**：双注册（`tests/test_rule_marriage.py::test_both_targets_register_side_by_side`）+ 守卫（`tests/test_channel.py::test_bind_rejects_married_initiator`：同发起者两条不同 `scope` 意图 ⇒ 恰 1 条 `ok` + 1 条 `dropped:initiator_married`）；**复跑** `python -m bench.channel_marriage --scope both` → 读数与采纳时一致。
 **mutation**（证测试有效）：把"已婚跳过"删掉 ⇒ 重复婚配用例变红；把权重改成"含分数桶" ⇒ 分数桶用例变红；
   让规则直接 `link`（绕过通道）⇒ "只发意图"用例变红。
 
@@ -723,7 +725,7 @@ class ChannelRecord:
 | 8 | 把规则婚姻的终止当成 `unbind` | 终止 = 死亡 / `dematerialize`（容量逐出）；`unbind` 的语义是"折算回粗侧" | N2-4 第 1–3 步（`unbind` 契约）+ `engineering-spec.md` §4（`dematerialize` 退场路径） |
 | 9 | 让多条规则并发却不给「一人一意图」守卫 | 同一 tick 同一人可被两条不同 `scope` 的意图各嫁一次（去重键含 `scope`，挡不住） | 通道 `bind` 前的**发起者婚配态复检**（`dropped:initiator_married`）+ 验收 `test_bind_rejects_married_initiator`；`target` 仅两值（非法值 `ValueError`） |
 | 10 | mass 模式跳过房源检查（无房源也掷骰产意图） | 纯噪声：`dropped:no_match` 灌账本 + 无谓消耗规则随机流 | 「候选侧」的 `offers → []` 规则 + `test_mass_target_no_eligible_mass_is_silent` |
-| 11 | 两条规则用同一注册名（`cross_marriage`）⇒ 后者覆盖前者 | `both` 实际只注册一条、通量减半且难察觉 | 注册名按目标侧取实例属性（`cross_marriage` / `mass_marriage`）+ 验收 `test_both_targets_register_side_by_side` |
+| 11 | 两条规则用同一注册名（`cross_marriage`）⇒ 后者覆盖前者 | `both` 实际只注册一条、通量减半且难察觉 | 注册名按目标侧取实例属性（`cross_marriage` / `mass_marriage`）+ 验收 `tests/test_rule_marriage.py::test_both_targets_register_side_by_side` |
 
 > **可达性与退场（说明，非错法）**：生产样态下 coarse 族几乎不含 18–59 未婚桶 ⇒ **簇侧**规则婚配的 crossings ≈ 0；让大众可达的**全局测度寻址**（N2-8）与**大众目标侧**（`target="measure"`，默认关；语义 = 新增婚配通量、非近似）均已落地。析出的配偶不进 `member_ids`、也不建 `acquaintance` 网 ⇒ 容量吃紧时可能较早退场——MVP 接受，记为边界。
 
@@ -866,6 +868,7 @@ class ChannelRecord:
 | `Match` 引用不可重建维度 | **抛错**（在 `compile`）——契约违例，不是运行期数据 | `test_match_rejects_unaddressable_dimension` |
 | transfer 坏输入（未知 `op` / 金额非正或非有限 / R→C 带 `Match`） | 丢弃（`dropped:bad_op` / `bad_amount` / `unsupported_match`），**不抛错** | `test_bad_amount_is_dropped_without_side_effect`、`test_unknown_op_is_dropped` |
 | 解析失败（簇不在 / 发起者离场 / 窗口侧无匹配） | 丢弃（`dropped:stale`；候选桶为空 ⇒ `dropped:no_match`，N2-1 第 6 步），不抛错 | `test_stale_scope_is_dropped`、`test_no_match_is_dropped_not_raised` |
+| 发起者已已婚（`both` 多规则并存） | 丢弃（`dropped:initiator_married`），**不耗配额、不 reserve** | `test_bind_rejects_married_initiator` |
 | 配额 / 窗口满 | 丢弃（`dropped:quota_cluster` / `quota_tick` / `window`） | `test_quota_per_cluster_limits_extraction`、`test_no_window_headroom_is_dropped` |
 | 析出期异常（`generate_character` / `attach` / `link`） | **逆序全撤 + 丢弃**（`dropped:error`）；不留幽灵、人头守恒 | `test_bind_rolls_back_fully_when_link_fails`、`test_paired_bind_rolls_back_both_when_link_fails` |
 | 金额不足 / 无流动性（transfer） | 丢弃（`insufficient_funds` / `illiquid`），**零副作用** | `test_r2c_insufficient_funds_is_zero_side_effect`、`test_c2r_illiquid_when_only_bucket_zero` |

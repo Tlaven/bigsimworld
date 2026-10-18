@@ -61,7 +61,7 @@
 | 换档纪律（驻留 / 滞回） | 分辨率切换的节流与阈值带：**驻留** = 同一簇两次换档的最小间隔（缺省 30 tick；只延迟、不放行、不否决）；**滞回** = 已 resolved 的簇在 `[theta_down, theta_base)` 保持（缺省无滞回、opt-in） | `ResolutionManager.min_dwell_ticks`；`WaterlinePolicy.theta_down` | 注意力在阈值附近抖动时不来回换档 | 只管 level 切换（`materialize`/`coarsen`）；`merge`/`split`/`dissolve` 不受约束 | — |
 | 误差触发（相位离散度） | 用"上次 resolved 观测的成员相位离散度"作 coarse 簇的**升级证据**：≥ 阈值 ⇒ 抬到 `theta_base`、被物化（缺省关） | `ResolutionManager.risk_alert` / `telemetry()["risk"]` | 同相异常（如整批同时出生）的簇被优先升级 | 生产样态内指示器近似常数（0.66–0.78）⇒ 缺省不启用 | — |
 | 宽限期（grace） | `bind` 触及的簇在 `grace_ticks` 内被**分辨率冻结**（不换档、不被回收），保护刚建好的关系 | `recently_active[cid] = tick`；`grace_ticks = 180` | 被 `bind` 触及的簇 | 不是"把注意力抬到门槛"（那会反过来物化该簇）；全局测度寻址**不登记**宽限 | — |
-| 社会凝视（endogenous attention） | 共演单元被窗口内**非成员**的**强关系**认识的程度 → [0,1] 注意力；与外部注意取 max | `_endogenous_attention`；runner 设 `endogenous_scale = max(6, capacity/25)` | 被认识多的族靠"被看见"维持 resolved | 不是外部观察者 pin（那是 `set_attention`）；只算 friend/spouse/parent/child | — |
+| 社会凝视（endogenous attention） | 共演单元被窗口内**非成员**的**强关系**认识的程度 → [0,1] 注意力；与外部注意取 max | `_endogenous_attention`；runner 设 `endogenous_scale = max(6, capacity/25)` | 被认识多的族靠"被看见"维持 resolved | 不是外部观察者 pin（那是 `set_attention`）；只算 friend/spouse/parent/child；**只对 resolved 簇刷新**（level 0 不刷新 ⇒ 降档后无回升源，生产样态下注意力结构性单向） | 内生凝视 / 内生注意力 |
 | 水位反馈（feedback） | runner 每 tick 按实测墙钟负载调 `budget_leaves`（超预算 ×0.9、有余量 ×1.05+1）；`SIM_SEED` 下跳过（确定性模式） | `WaterlinePolicy.feedback` / `ResolutionManager.feedback` | 机器快 ⇒ 保留更多叶子 | 不调阈值 `theta_base`（阈值固定 0.5） | — |
 
 ## 维护规则

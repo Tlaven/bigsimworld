@@ -19,7 +19,7 @@
   - **不做跨共演单元的社会网络**（T3 已评估并搁置；**作者已确认"不做"**，2026-10-16）。
   - **不做关系漏斗 / 广场 / 两个 driver 的重构**（`SimulationEngine`、`EventEngine`）——它们是**已冻结的公共面**（本主题期间不动；通道从不接触 driver）。
   - **`transfer` 只做 R↔C**（C↔C 族间再分配、resolved 簇支付不做）；折算残差**只记账、不结算**（ADR-006）——不要给它发明"把钱还给谁"的规则。
-  - **交互规则默认关**（`RULES` 空）：第一条 = 跨分辨率婚配（[`adr-007`](docs/decisions/adr-007-cross-resolution-marriage.md)；大众侧 [`adr-009`](docs/decisions/adr-009-mass-marriage.md)）——`SIM_CHANNEL_MARRIAGE` 单值互斥：`1` = 簇侧 / `mass` = 大众侧，缺省关。
+  - **交互规则默认关**（`RULES` 空）：第一条 = 跨分辨率婚配（[`adr-007`](docs/decisions/adr-007-cross-resolution-marriage.md)；大众侧 [`adr-009`](docs/decisions/adr-009-mass-marriage.md)；`both` 并存见 [`adr-012`](docs/decisions/adr-012-both-marriage-guard.md)）——`SIM_CHANNEL_MARRIAGE` 缺省关：`1` = 簇侧 / `mass` = 大众侧 / `both` = 并存（通道「一人一意图」守卫保护）。
     **开启 = 新增一条婚配通量，属模型扩展、不是对个体引擎的近似** ⇒ 收敛/保真门槛一律只在默认关闭下跑；开启后要另行校准。
   - **不做广场的"亲属避让"**（原检查读死字段 `relatives`，从未生效；字段已删，只保留同 id 保护。真要实现属独立决策——会改变个体引擎行为与已拟合常数）。
 
