@@ -20,8 +20,8 @@
 | `bench.audit_ledger --resolution` | 分辨率算子守恒探针（**生产口径**，coarse 流含 death/birth） | `python -m bench.audit_ledger --resolution --n 3000 --steps 2000` |
 | `bench.audit_ledger --wealth` | **分辨率折算的财富恒等式**（含池与折算残差，ADR-006）逐算子 W 探针 | `python -m bench.audit_ledger --wealth --n 1500 --steps 2500 --capacity 250` |
 | `bench.cluster_inheritance` | 族内池 vs 全局池的继承集中度（"富族恒富"） | `python -m bench.cluster_inheritance --peers 120` |
-| `bench.channel_marriage` | **跨分辨率婚配规则 A/B**（`RULES` 关 / 开）：跨婚配次数、已婚比例、逐次守恒；`--scope measure` = **大众婚配**（候选 = 全局测度） | `python -m bench.channel_marriage --ticks 1500` |
-| `bench.calibrate_marriage` | **婚配规则校准**：参照（个体引擎）vs measure 关/null/各 rate；null 臂隔离 headroom 与共流混淆；`--scope measure` = **大众婚配测量臂**（候选 = 全局测度） | `python -m bench.calibrate_marriage --population 1200 --ticks 2000 --seeds 1 2 3 4` |
+| `bench.channel_marriage` | **跨分辨率婚配规则 A/B**（`RULES` 关 / 开）：跨婚配次数、已婚比例、逐次守恒；`--scope measure` = 大众婚配（候选 = 全局测度）；`--scope both` = 两条并存（adr-012；crossings 按族/众拆分） | `python -m bench.channel_marriage --ticks 1500` |
+| `bench.calibrate_marriage` | **婚配规则校准**：参照（个体引擎）vs measure 关/null/各 rate；null 臂隔离 headroom 与共流混淆；`--scope measure` = 大众靶；`--scope both` = 两条并存（汇总表含族/众拆分） | `python -m bench.calibrate_marriage --population 1200 --ticks 2000 --seeds 1 2 3 4` |
 | `bench.audit_transfer` | **质量侧 transfer 的财富恒等**：R→C / C→R / 清算 / 投递 / 生命周期折叠逐次核对 W | `python -m bench.audit_transfer` |
 | `bench.cluster_fidelity` | **共演单元保真度 A/B**：coarse vs 保持 resolved（配对试验 + 跨 trial 汇总，误差包络） | `python -m bench.cluster_fidelity --members 8 --ticks 8000 --trials 40` |
 | `bench.cluster_fidelity --gate` | **分层门槛**（ADR-004）：跨规模（n≥400）趋势 + `pop` 相对偏差；违反 ⇒ exit 1（CI 慢跑） | `python -m bench.cluster_fidelity --gate` |
@@ -72,6 +72,7 @@ python -m bench.diagnose_cluster_bias --ticks 8000 --trials 20
 python -m bench.calibrate_marriage --scope measure --family-pool 0 --population 1200 --capacity 240 \
     --ticks 2000 --seeds 1 2 3 4 --rates 0.05 0.1 0.25 0.5 1.0
 python -m bench.channel_marriage --scope measure --seed-family 0 --ticks 3000 --population 1200 --capacity 240
+python -m bench.channel_marriage --scope both --ticks 3000 --population 1200 --capacity 240   # 两条并存（adr-012）
 
 # 换档动力学（描述性；四臂对照：noop / 缺省驻留 30 / 滞回 / 驻留 60）
 python -m bench.resolution_switch --ticks 600

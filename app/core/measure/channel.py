@@ -280,6 +280,12 @@ class InteractionChannel:
             return self._process_transfer(intent, tick, cluster, counterpart, mini, drop)
 
         initiator = counterpart
+        # 「一人一意图」守卫（adr-012）：`bind` 且 `origin="character"` 时复检发起者婚配态。
+        # 多规则并存（`both`）时同一人可能被两条不同 `scope` 的意图命中；按 N2-1 第 2 步的
+        # 确定性顺序依次处理（簇侧先于全局测度）：先成功者建边、后者在此被拒。
+        # 单规则下不触发（规则在 `offers()` 时已过滤）。
+        if intent.origin[0] == "character" and initiator.relationships.get("spouse"):
+            return drop("dropped:initiator_married")
         # 配额闸（**`amount` 感知**，必须在 reserve 之前；N2-1 第 4 步）
         # 按"1 个"判会让双人析出在只剩 1 个名额时挤进来，事后 += 2 直接破坏不变量 7。
         # `cap_per_cluster` 只管簇寻址；全局测度豁免它（无簇语义，N2-8 第 3 步），`cap_per_tick`/headroom 仍是硬上界。

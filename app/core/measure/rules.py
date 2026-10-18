@@ -32,9 +32,10 @@ class MarriageRule:
     只发 `bind` 意图；由通道 `extract(amount=1)` + `link(..., "spouse")` 落地。
     """
 
-    name = "cross_marriage"      # `RULES` 的键（规则名）
     kind = "spouse"              # `bind` 下的边名（见 N2-7 陷阱 7）
     emits_bind = True            # 会发 bind ⇒ `headroom_reserve` 照常预留窗口名额
+    # `RULES` 的键（规则名）**按目标侧区分**（adr-012）：同名注册会互相覆盖，`both` 需要两键并存。
+    NAMES = {"cluster": "cross_marriage", "measure": "mass_marriage"}
 
     TARGETS = ("cluster", "measure")
 
@@ -42,6 +43,7 @@ class MarriageRule:
         if target not in self.TARGETS:
             raise ValueError(f"unknown marriage target: {target!r}（只支持 {self.TARGETS}）")
         self.target = target
+        self.name = self.NAMES[target]
         self.rate = MARRIAGE_RATE if rate is None else float(rate)
         # **规则自有的确定性随机流**（推荐）：与 `window.rng` 分开，否则"开关规则"会改变
         # 个体事件的随机流，A/B 与校准都不可控（2026-10-18 实测：共流时四档 rate 给出同一个

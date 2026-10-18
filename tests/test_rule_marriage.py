@@ -246,6 +246,7 @@ def test_own_rng_does_not_perturb_window_stream(monkeypatch):
 
 def test_rule_is_not_registered_by_default():
     assert "cross_marriage" not in channel_mod.RULES
+    assert "mass_marriage" not in channel_mod.RULES
 
 
 # ------------------------------------------------------------------ 大众目标侧（target="measure"）
@@ -288,3 +289,19 @@ def test_mass_target_no_eligible_mass_is_silent(monkeypatch):
 def test_invalid_target_raises():
     with pytest.raises(ValueError):
         MarriageRule(target="both")
+
+
+def test_both_targets_register_side_by_side():
+    """adr-012：注册名按目标侧区分 ⇒ 两条规则可在 `RULES` 并存（`both` 的注册层前提）。"""
+    from app.core.measure.rules import register_marriage_rule
+
+    cluster_rule = register_marriage_rule(rate=0.0)
+    mass_rule = register_marriage_rule(rate=0.0, target="measure")
+    try:
+        assert cluster_rule.name == "cross_marriage"
+        assert mass_rule.name == "mass_marriage"
+        assert RULES["cross_marriage"] is cluster_rule
+        assert RULES["mass_marriage"] is mass_rule
+    finally:
+        RULES.pop("cross_marriage", None)
+        RULES.pop("mass_marriage", None)

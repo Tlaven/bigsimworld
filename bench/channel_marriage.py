@@ -65,10 +65,14 @@ def _wealth(engine):
 def _run(ticks, seed, capacity, population, enable, rate=None, seed_family=0,
          scope="cluster", verbose=True):
     engine = _build(seed, capacity, population, seed_family=seed_family)
-    rule = None
+    rules = []
     if enable:
-        rule = MarriageRule(rate=rate, target="measure" if scope == "measure" else "cluster")
-        RULES[rule.name] = rule
+        targets = {"cluster": ("cluster",), "measure": ("measure",),
+                   "both": ("cluster", "measure")}[scope]
+        for target in targets:
+            rules.append(MarriageRule(rate=rate, target=target))
+        for rule in rules:
+            RULES[rule.name] = rule
     channel = engine.resolution.channel
     worst = {"pop": 0.0, "wealth": 0.0, "calls": 0}
     original_run = channel.run
@@ -91,11 +95,13 @@ def _run(ticks, seed, capacity, population, enable, rate=None, seed_family=0,
         for _ in range(ticks):
             engine.step()
     finally:
-        if rule is not None:
+        for rule in rules:
             RULES.pop(rule.name, None)
 
     ledger = list(channel.ledger)
     crossings = [r for r in ledger if r.status == "ok" and r.kind == "spouse"]
+    crossings_cluster = sum(1 for r in crossings if r.scope[0] == "cluster")
+    crossings_measure = sum(1 for r in crossings if r.scope[0] == "measure")
     married = sum(1 for c in engine.window.characters.values()
                   if c.relationships.get("spouse"))
     drops = {}
@@ -104,6 +110,8 @@ def _run(ticks, seed, capacity, population, enable, rate=None, seed_family=0,
             drops[record.status] = drops.get(record.status, 0) + 1
     result = {
         "crossings": len(crossings),
+        "crossings_cluster": crossings_cluster,
+        "crossings_measure": crossings_measure,
         "married_frac": married / max(1, len(engine.window.characters)),
         "population": _population(engine),
         "window": len(engine.window.characters),
@@ -114,7 +122,8 @@ def _run(ticks, seed, capacity, population, enable, rate=None, seed_family=0,
         "calls": worst["calls"],
     }
     if verbose:
-        print(f"  crossings={result['crossings']:<5} married_frac={result['married_frac']:.3f} "
+        print(f"  crossings={result['crossings']}（族 {crossings_cluster} / 众 {crossings_measure}） "
+              f"married_frac={result['married_frac']:.3f} "
               f"pop={result['population']:.0f} window={result['window']} "
               f"clusters={result['clusters']} drops={drops or '{}'}")
         print(f"  channel ops={result['calls']}  worst |Δpop|={worst['pop']:.2e}  "
@@ -131,8 +140,9 @@ def main():
     parser.add_argument("--rate", type=float, default=None, help="覆盖 MARRIAGE_RATE")
     parser.add_argument("--seed-family", type=int, default=50,
                         help="预置 coarse 族的未婚成年人数（A/B 两臂相同；0 = 不预置）")
-    parser.add_argument("--scope", choices=["cluster", "measure"], default="cluster",
-                        help="婚配候选侧：cluster=coarse 簇（生产规则）；measure=全局测度（大众探针）")
+    parser.add_argument("--scope", choices=["cluster", "measure", "both"], default="cluster",
+                        help="婚配候选侧：cluster=coarse 簇（生产规则）；measure=全局测度（大众）；"
+                             "both=两条并存（adr-012）")
     args = parser.parse_args()
 
     print(f"ticks={args.ticks} capacity={args.capacity} population={args.population} "

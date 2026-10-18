@@ -907,3 +907,53 @@ def test_channel_long_run_ledger_is_deterministic(probe_rules):
     first, second = run(), run()
     assert first, "长跑未产生任何账本记录 ⇒ 确定性断言是空的"
     assert first == second
+
+
+# ------------------------------------------------------------------ 「一人一意图」守卫（adr-012）
+
+def test_bind_rejects_married_initiator():
+    """多规则并发：同一发起者被簇侧与全局测度两条意图命中 ⇒ 只成一次婚（守卫拒第二条）。
+
+    adr-012：`bind` 执行前复检发起者婚配态（`dropped:initiator_married`）；
+    确定性处理序（簇侧 `scope_type=0` 先于全局测度 `=2`）。"""
+    engine = _engine()
+    mgr = engine.resolution
+    channel = mgr.channel
+    window = engine.window
+    cluster, _cell = _coarse_cluster(engine)          # 未婚成年桶（30,0,10,0）×1.0
+
+    initiator = next(c for c in window.characters.values()
+                     if 18 <= c.age < 60 and not c.relationships.get("spouse"))
+    match = Match(marital=0, age=(18, 59))
+
+    class _OneIntentRule:
+        emits_bind = True
+
+        def __init__(self, name, scope):
+            self.name = name
+            self._scope = scope
+
+        def offers(self, context):
+            return [Intent("spouse", ("character", initiator.id), self._scope, match)]
+
+    saved = dict(RULES)
+    RULES.clear()
+    RULES["t_cluster"] = _OneIntentRule("t_cluster", ("cluster", cluster.id))
+    RULES["t_measure"] = _OneIntentRule("t_measure", ("measure",))
+    try:
+        for rule in RULES.values():
+            for intent in rule.offers(None):
+                channel.submit(intent)
+        pop0 = engine.population()
+        report = channel.run(_ctx(engine))
+    finally:
+        RULES.clear()
+        RULES.update(saved)
+
+    ok = [r for r in channel.ledger if r.status == "ok"]
+    dropped = [r for r in channel.ledger if r.status == "dropped:initiator_married"]
+    assert len(ok) == 1 and ok[0].scope[0] == "cluster"      # 簇侧先处理、先成功
+    assert len(dropped) == 1 and dropped[0].scope[0] == "measure"
+    assert report["made"] == 1
+    assert engine.population() == pytest.approx(pop0)         # 人头守恒
+    assert len(initiator.relationships.get("spouse", ())) == 1

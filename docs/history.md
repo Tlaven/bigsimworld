@@ -688,3 +688,11 @@ Stage 20 的校准把"可达性"钉成了瓶颈：生产样态下 crossings = 0�
 - **修复（遍历序纪律）**：`transitions.py` 全部 `occupied` 循环与 `moves` 插入按索引升序；`measure.py`（`sum`/`mass`/快照 `cells`）按索引序；`window.materialize_sample` 候选按索引序。规则入 `engineering-spec.md` §9 与 `bench/README` 守恒纪律第 6 条。
 - **重基线（stash A/B）**：`convergence --full-compare` **新旧逐行一致**；`diagnose_tail` KS 中位 1.90%→2.23%（seed 42 的尾部随遍历序移动，门槛内）；`audit_ledger` −1.6e-5（−0.0000%）；`--clusters` 0.0000%。`bench/README` 收敛权威行同步为最新复测。
 - 对账：[`reviews/2026-10-18-iteration-order-hardening.md`](reviews/2026-10-18-iteration-order-hardening.md)（含未覆盖项登记：`ClusterStore` 成员集合里的浮点累加路径）。
+
+### Stage 30 · `both` 形态（簇 + 大众并存）+「一人一意图」守卫（ADR-012）（2026-10-18）
+
+- **前置解除**：ADR-009 方案 C 的推迟条件（守卫）落地——通道 `bind` 前复检发起者婚配态（`dropped:initiator_married`，不耗配额）；确定性竞争序（簇侧先于全局测度）。
+- **注册层**：`MarriageRule` 名字按目标侧（`cross_marriage` / `mass_marriage`，实例属性）；`both` 下两键并存、各用独立派生流；`SIM_CHANNEL_MARRIAGE=both`；bench 两工具加 `--scope both`（crossings 族/众拆分）。
+- **测试 +2**（守卫单测：同发起者双意图 ⇒ 一 ok + 一 `initiator_married`；双注册并存）——`pytest 238 passed`。
+- **验收**：`channel_marriage` 三 scope（族 16 / 众 18 / both 16[5+11]；逐次 identity ≤1.5e-8）；守卫实测未触发（重叠概率低，由单测强制覆盖）；`calibrate --scope both` 1× 语义效应 +1.94pp（vs null）；`audit_ledger --clusters` 0.0000%；默认关 ⇒ 生产读数不变。
+- 对账：[`reviews/2026-10-18-both-marriage.md`](reviews/2026-10-18-both-marriage.md)。

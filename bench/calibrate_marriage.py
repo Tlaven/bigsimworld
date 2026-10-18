@@ -139,29 +139,40 @@ def run_measure(population, capacity, ticks, seed, rate=None, null_rule=False,
     engine = WindowEngine(mf, capacity=capacity, window=capacity, resolution=True,
                           rng=random.Random(seed))
     _seed_family_pool(engine, family_pool, engine.window.space)
-    rule = None
+    rules = []
     if null_rule:
-        rule = _NullRule()
+        rules = [_NullRule()]
     elif rate is not None:
-        # 规则用**自有**流（不与窗口个体事件争 rng），否则 A/B 被随机流偏移污染（2026-10-18）。
-        target = "measure" if scope == "measure" else "cluster"
-        rule = MarriageRule(rate=rate, rng=random.Random(f"calib-marriage:{seed}"), target=target)
-    if rule is not None:
+        targets = {"cluster": ("cluster",), "measure": ("measure",),
+                   "both": ("cluster", "measure")}[scope]
+        for target in targets:
+            # 规则用**自有**流（不与窗口个体事件争 rng），否则 A/B 被随机流偏移污染（2026-10-18）；
+            # `both` 下两条规则各用独立派生流（adr-012）；单值模式沿用原种子串。
+            suffix = f":{target}" if scope == "both" else ""
+            rules.append(MarriageRule(rate=rate,
+                                      rng=random.Random(f"calib-marriage:{seed}{suffix}"),
+                                      target=target))
+    for rule in rules:
         RULES[rule.name] = rule
     try:
         for _ in range(ticks):
             engine.step()
         stats = measure_stats(engine)
-        crossings = sum(1 for r in engine.resolution.channel.ledger
-                        if r.status == "ok" and r.kind == "spouse")
+        ok_spouse = [r for r in engine.resolution.channel.ledger
+                     if r.status == "ok" and r.kind == "spouse"]
+        crossings = len(ok_spouse)
+        crossings_cluster = sum(1 for r in ok_spouse if r.scope[0] == "cluster")
+        crossings_measure = sum(1 for r in ok_spouse if r.scope[0] == "measure")
         drops = {}
         for record in engine.resolution.channel.ledger:
             if record.status.startswith("dropped"):
                 drops[record.status] = drops.get(record.status, 0) + 1
     finally:
-        if rule is not None:
+        for rule in rules:
             RULES.pop(rule.name, None)
     stats["crossings"] = crossings
+    stats["crossings_cluster"] = crossings_cluster
+    stats["crossings_measure"] = crossings_measure
     stats["drops"] = drops
     if verbose:
         if null_rule:
@@ -173,7 +184,8 @@ def run_measure(population, capacity, ticks, seed, rate=None, null_rule=False,
         print(f"  measure {label:<22} pop={stats['population']:.0f} "
               f"married_frac(adults)={stats['married_frac_adults']:.4f} "
               f"window_married={stats['window_married']}/{stats['window']} "
-              f"clusters={stats['clusters']} crossings={crossings} "
+              f"clusters={stats['clusters']} crossings={crossings}"
+              f"（族 {crossings_cluster} / 众 {crossings_measure}） "
               f"drops={drops or '{}'}")
     return stats
 
@@ -188,9 +200,9 @@ def main():
                         help="相对 MARRIAGE_RATE 的倍数（默认 0.25 0.5 1 2）")
     parser.add_argument("--family-pool", type=int, default=200,
                         help="measure 臂预置的 coarse 族未婚成年人数（合成代理；0=不预置）")
-    parser.add_argument("--scope", choices=["cluster", "measure"], default="cluster",
-                        help="婚配候选侧：cluster=coarse 簇（生产规则）；"
-                             "measure=全局测度（大众婚配测量臂）")
+    parser.add_argument("--scope", choices=["cluster", "measure", "both"], default="cluster",
+                        help="婚配候选侧：cluster=coarse 簇（生产规则）；measure=全局测度（大众婚配）；"
+                             "both=两条并存（adr-012；通道「一人一意图」守卫）")
     args = parser.parse_args()
     multipliers = args.rates or [0.25, 0.5, 1.0, 2.0]
 
@@ -216,12 +228,15 @@ def main():
     off_mf = mean(off, "married_frac_adults")
     null_mf = mean(null, "married_frac_adults")
     print(f"\n参考（个体引擎）已婚比例(成年人) = {ref_mf:.4f}")
-    print(f"{'arm':<24}{'married_frac':>14}{'Δ vs ref':>12}{'Δ vs null':>12}{'crossings':>12}")
+    print(f"{'arm':<24}{'married_frac':>14}{'Δ vs ref':>12}{'Δ vs null':>12}"
+          f"{'crossings':>12}{'族':>6}{'众':>6}")
     for label, rows_ in ([("off（生产口径）", off), ("null（占名额不发意图）", null)]
                          + [(f"{m:.2f}× MARRIAGE_RATE", arms[m]) for m in multipliers]):
         mf = mean(rows_, "married_frac_adults")
         print(f"{label:<24}{mf:>14.4f}{mf - ref_mf:>+12.4f}{mf - null_mf:>+12.4f}"
-              f"{mean(rows_, 'crossings'):>12.1f}")
+              f"{mean(rows_, 'crossings'):>12.1f}"
+              f"{mean(rows_, 'crossings_cluster'):>6.1f}"
+              f"{mean(rows_, 'crossings_measure'):>6.1f}")
     print()
     print(f"→ headroom 效应（null − off）      = {null_mf - off_mf:+.4f}"
           "（只注册规则、不发意图就会有的偏移）")
