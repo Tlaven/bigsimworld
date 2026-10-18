@@ -65,8 +65,9 @@ class ResolutionPolicy(Protocol):
                  attention: dict[int, float],
                  budget: float) -> dict[int, int]: ...
         # 返回 {cluster_id: target_level}
-        # MVP = 水位线：level = 1 if attention[cid] >= theta else 0
-        # theta 由外部（runner）按实测 load 反馈调整
+        # MVP = 水位线：未 resolved 的簇 attention >= theta_up 升级；
+        # 已 resolved 的簇 attention >= theta_down 保持（可选滞回；theta_down 缺省 = theta_up）
+        # theta_up 由外部（runner）按实测 load 反馈调整
 ```
 
 ### 缝 3 · `RhoMetric`
@@ -128,9 +129,28 @@ register(FamilyKind())   # MVP 唯一实现
 4. `merge` / `split` 是通用算子；切法 / 策略单独注入（MVP 不接自动策略，只留算子）。
 5. 分辨率变化只经 `on_resolve` / `on_coarsen` 钩子，不改核心。
 
-## 8. 阶段计划
+## 8. 阶段计划（现状）
 
-- **Phase 0（本契约）**：resolved ↔ coarse 切换、单 kind、水位线调度、ρ 代理、快照守恒。
-- **Phase 1**：族级继承模型（全局池 → 族内池，验"富族恒富"）。
-- **Phase 2**：开放合并 / 分裂算子。
-- **Phase 3**：接自动策略（切法、水位反馈、防分层）。
+- **Phase 0（已实现）**：resolved ↔ coarse 切换、单 kind、水位线调度、ρ 代理、快照守恒。
+- **Phase 1（已实现）**：族级继承模型（族内池 + `overflow_fraction` 溢出口）。
+- **Phase 2（已实现）**：合并 / 分裂自动策略（连通分量合并、断连切分；切法策略仍留白）。
+- **Phase 3（部分）**：水位反馈已接；显要保护、宽限冻结、社会凝视已落地。**换档纪律**（滞回 / 最小驻留）与**通量遥测**（只读）已就位、缺省 No-Op（见 §9）；"误差触发"与"物化被卡的行为修复"未做（见 §9）。
+
+## 9. 换档一致性账
+
+**问法**：换档（`materialize` / `coarsen` / `merge` / `split` / `dissolve`，及窗口侧物化/退场）在**哪个量**上会偏离、被**什么**测、**成本**多少。性质分三类分开记（**严格守恒** / **统计近似** / **不可比**），另有观测账：
+
+| 量 | 性质 | 仪器 | 已知边界 / 成本 |
+| --- | --- | --- | --- |
+| 计数（人头） | **严格守恒**（分辨率算子只移动，不产生/销毁） | `tests/test_cluster.py`、`tests/test_cluster_fidelity.py`、`bench.audit_ledger --clusters` / `--resolution` | — |
+| 财富（分布质量 + 通道池 + 折算残差 + 继承段池） | **严格守恒**（折算差进残差；池只按实付扣） | `bench.audit_ledger --wealth`、`bench.audit_transfer` | 旧快照缺残差字段 ⇒ 恢复后 W 一次性断点（兼容边界） |
+| 年龄分布 / 人口 / 已婚比例 / 人均财富 / 池占比 | **统计近似**（换档改变"分布视点"） | `bench.cluster_fidelity`（配对试验 + 跨 trial）；门槛口径 = 跨规模趋势（生产簇规模 ≤12 的单点读数不可判读） | 真实系统性偏差 ≲0.05（`age_l1` 尚未平台化）；`pop(R−C)` 有界（≈−0.7%@n=1600） |
+| 身份 / 图结构（度、关系） | **不可比**（coarse 无图；重采样新代表 = 身份不守恒） | 无（`degree_l1 = n/a` 属类别错误） | 设计语义，不是缺陷 |
+| 换档频率 / 驻留 / 被卡物化 / 身份重采样次数 | **观测账**（不构成守恒律） | `ResolutionManager.telemetry()` / `resolution_summary()`；`bench.resolution_switch`（描述性） | 生产簇规模下事件计数小（个位/窗），判读需跨簇聚合 |
+| resolved 期间"实测事件 vs 粗模型期望"通量 | **只读遥测**（不进策略） | `ResolutionManager.telemetry()`；`tests/test_cluster.py` | 相关性研究（遥测 → R−C 偏差）未做 |
+
+**换档纪律**：`WaterlinePolicy` 支持滞回（`theta_down`，缺省 = `theta_base` ⇒ 与无滞回逐位一致）；`ResolutionManager` 支持最小驻留（`min_dwell_ticks`，缺省 0）。两者缺省 No-Op；是否默认启用待 A/B 证据（读数见审计记录）。
+
+**成本注记**：换档成本 = resolved 侧按人数（`ClusterKind.cost`）、coarse 侧常数 1；每次换档的簿记 = 池/残差折叠 O(成员)；身份重采样 = 每个析出成员一次"新代表"生成（成年入窗互认 ≤3 个 acquaintance）。
+
+**已知缺陷（登记，未修）**：均值场 `marriage` 每 tick 把单身桶按分数削到 1.0 以下 ⇒ 只含单身的共演单元粗化一步后**不可物化**（尝试被记为 `blocked`、不计换档）。行为修复属独立决策（会改动力学）。

@@ -643,3 +643,14 @@ Stage 20 的校准把"可达性"钉成了瓶颈：生产样态下 crossings = 0�
 - **实现**：`app/core/measure/rules.py` 的 `target`（非法值 `ValueError`；mass = 房源检查 + 逐单身单次掷骰、`scope=("measure",)`）；`runner.py` 单值开关（未识别取值不注册）；测试 +3（`tests/test_rule_marriage.py` 12 passed）。
 - **teach-back（1 轮通过）**：4 条非阻断**全部采纳**（文首开关口径 / mass 意图形状逐字化 / 未识别取值不注册 + 注册键层；台账存放处不采纳）。
 - **验收**：复跑与测量台账**逐位一致**（0.05×–1× crossings 2.5–51.2；1× 时合并已婚比例 +6.4pp vs null）；`channel_marriage --scope measure` 63 crossings、identity 1.49e-8；簇侧回归不变；默认关 ⇒ 生产读数不变。对账见 [`reviews/2026-10-18-mass-marriage-formalization.md`](reviews/2026-10-18-mass-marriage-formalization.md)。
+
+### Stage 25 · 分辨率层一致性审计 + 换档纪律 + 通量遥测（含"幽灵换档"发现）（2026-10-18）
+
+背景 = 引擎先例调研（[`reviews/2026-10-18-engine-prior-art.md`](reviews/2026-10-18-engine-prior-art.md)）吸收第一批；纪律 = **全部缺省 No-Op**（生产读数不变）：
+
+- **A 一致性账**：`cluster-contract.md` §9（量 × 性质 × 仪器 × 边界）+ §8 现状更新；Yilmaz 10 条多分辨率设计要求对表（缺口收敛到"误差侧触发"一处）。
+- **B1 换档纪律**：`WaterlinePolicy(theta_down=…)` 滞回 + `ResolutionManager(min_dwell_ticks=…)` 最小驻留；快照往返扩展；缺省与现状逐位一致。
+- **B2 通量遥测（只读）**：per-cluster「实测事件 vs 粗模型期望」滚动窗（720 tick）+ 换档/驻留/被卡计数；`telemetry()` / `resolution_summary()` 观测面；`bench.resolution_switch`（三臂描述性：有效换档 36/30/26、blocked 169/167/78、驻留下限 60 生效）。
+- **发现（仪器首获）**：均值场 `marriage` 每 tick 把单身桶削到 1.0 以下（1.0 → 0.999444）⇒ 只含单身的共演单元粗化一步后**不可物化**；旧代码静默失败却计入"换档"（幽灵）。本批 = 诚实计数（`blocked`，不计换档）；**行为修复留后续**（会改动力学；设计先例见审计记录 §6）。
+- **C**：Scheffer 1995 全文细读 —— **无分裂判据**（判据不并入 merge/split，记"为什么不"）；"小内部量 → 回到离散/随机"原则记为上述修复的设计起点。
+- 对账见 [`reviews/2026-10-18-resolution-consistency-audit.md`](reviews/2026-10-18-resolution-consistency-audit.md)。

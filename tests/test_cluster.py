@@ -2,6 +2,7 @@
 
 import random
 
+import app.core.measure.cluster as cluster_mod
 from app.core.measure.cluster import (
     ClusterStore,
     IdentityMassRho,
@@ -13,7 +14,7 @@ from app.core.measure.cluster import (
 from app.core.measure.engine import MeanFieldEngine
 from app.core.measure.measure import measure_from_characters
 from app.core.measure.space import StateSpace
-from app.core.measure.transitions import FULL_FLOWS
+from app.core.measure.transitions import BIRTH_RATE, FULL_FLOWS
 from app.core.measure.window import IndividualWindow, WindowEngine
 from bench.world import build_engine, make_characters
 
@@ -181,6 +182,8 @@ def test_cluster_snapshot_roundtrip():
     cluster = next(c for c in mgr.store.clusters.values() if a.id in c.member_ids)
     mgr.store.coarsen(cluster.id)          # 粗化：共演单元聚合态须持久化
     mgr.set_attention(cluster.id, 0.7)
+    mgr._last_switch[cluster.id] = 123     # 换档纪律簿记随快照往返
+    mgr._switch_count[cluster.id] = 3
 
     save_snapshot(measure_to_payload(engine.measure_engine.measure),
                   engine.simulation_time, engine.snapshot_payload())
@@ -192,6 +195,8 @@ def test_cluster_snapshot_roundtrip():
     assert abs(restored.resolution.store.size() - mgr.store.size()) < 1e-3
     assert restored.resolution.attention.get(cluster.id) == 0.7
     assert abs(restored.population() - engine.population()) < 1e-2
+    assert restored.resolution._last_switch.get(cluster.id) == 123
+    assert restored.resolution._switch_count.get(cluster.id) == 3
 
 
 def test_formation_is_recurring():
@@ -458,6 +463,217 @@ def test_notables_lists_resolved_members():
     engine.step()
     notable_ids = {person["id"] for person in engine.notables(12)}
     assert a.id in notable_ids or b.id in notable_ids
+
+
+# ---------------------------------------------------------------- 换档纪律（B1）
+
+def test_waterline_hysteresis_between_thresholds():
+    """滞回：已 resolved 的簇在 [theta_down, theta_base) 区间保持；跌穿下阈才降档；
+
+    缺省 `theta_down = theta_base` ⇒ 与无滞回逐位一致。"""
+    space, measure, window, made = _window(sample=20)
+    store = ClusterStore(measure, window)
+    c1 = store.create("family", set(list(window.characters)[:5]))
+    c2 = store.create("family", set(list(window.characters)[5:10]))
+    store.coarsen(c2.id)                     # c2 供"升级阈值"对照
+    attention = {c1.id: 0.45, c2.id: 0.45}
+
+    hyst = WaterlinePolicy(theta_base=0.5, theta_down=0.4)
+    levels = hyst.allocate(list(store.clusters.values()), attention)
+    assert levels[c1.id] == 1                # 已 resolved：0.45 ≥ 0.4 ⇒ 保持
+    assert levels[c2.id] == 0                # 未 resolved：0.45 < 0.5 ⇒ 不升级
+
+    attention[c1.id] = 0.39                  # 跌穿下阈 ⇒ 降档
+    levels = hyst.allocate(list(store.clusters.values()), attention)
+    assert levels[c1.id] == 0
+
+    attention[c1.id] = 0.45
+    plain = WaterlinePolicy(theta_base=0.5)  # 缺省：无滞回
+    levels = plain.allocate(list(store.clusters.values()), attention)
+    assert levels[c1.id] == 0 and levels[c2.id] == 0
+
+
+def test_min_dwell_limits_switch_frequency():
+    engine = _engine_with_resolution(capacity=200, window=200)
+    mgr = engine.resolution
+    mgr.form_interval = 1
+    mgr.min_dwell_ticks = 30
+    a, b = list(engine.window.characters.values())[:2]
+    a.marry_event.happen(b)
+    b.marry_event.happen(a)
+    engine.step()
+    cid = mgr.cluster_of(a.id)
+    assert cid is not None and mgr.store.clusters[cid].level == 1
+
+    mgr.set_attention(cid, 0.2)              # 撤注视（> dissolve_floor=0.1，防回收）⇒ 降档
+    engine.step()
+    assert mgr.store.clusters[cid].level == 0
+    switch_tick = mgr._last_switch[cid]
+
+    for _ in range(10):                      # 驻留期内：无法换回
+        mgr.set_attention(cid, 1.0)
+        engine.step()
+    assert mgr.store.clusters[cid].level == 0
+
+    while engine.simulation_time - switch_tick < mgr.min_dwell_ticks:
+        mgr.set_attention(cid, 1.0)
+        engine.step()
+    mgr.set_attention(cid, 1.0)
+    engine.step()
+    assert mgr.store.clusters[cid].level == 1
+    assert mgr.telemetry()[cid]["switches"] == 2
+
+
+def test_min_dwell_default_is_noop():
+    """缺省 `min_dwell_ticks = 0`：换回不受限（与既有行为逐位一致）。"""
+    engine = _engine_with_resolution(capacity=200, window=200)
+    mgr = engine.resolution
+    mgr.form_interval = 1
+    assert mgr.min_dwell_ticks == 0
+    a, b = list(engine.window.characters.values())[:2]
+    a.marry_event.happen(b)
+    b.marry_event.happen(a)
+    engine.step()
+    cid = mgr.cluster_of(a.id)
+
+    mgr.set_attention(cid, 0.2)
+    engine.step()
+    assert mgr.store.clusters[cid].level == 0
+    mgr.set_attention(cid, 1.0)
+    engine.step()
+    assert mgr.store.clusters[cid].level == 1
+
+
+# ---------------------------------------------------------------- 通量遥测（B2）
+
+def _resolved_family_engine():
+    """一家三口（夫妻 a/b + 孩子 c）的 resolved 共演单元。
+
+    四人个体事件评估已停用（`step_threshold=3600`）⇒ 遥测对拍不被自发事件污染。"""
+    random.seed(23)
+    engine = _engine_with_resolution(capacity=200, window=200)
+    mgr = engine.resolution
+    mgr.form_interval = 1
+    a, b, c, d = list(engine.window.characters.values())[:4]
+    for character in (a, b, c, d):
+        character.age = 30
+        character.pedometer["step_threshold"] = 3600
+    a.marry_event.happen(b)
+    b.marry_event.happen(a)
+    c.relationships["parent"].append(a)
+    a.relationships["child"].append(c)
+    c.relationships["parent"].append(b)
+    b.relationships["child"].append(c)
+    engine.step()
+    cid = mgr.cluster_of(a.id)
+    assert cid is not None and mgr.store.clusters[cid].level == 1
+    assert c.id in mgr.store.clusters[cid].member_ids
+    return engine, mgr, cid, (a, b, c, d)
+
+
+def test_flux_telemetry_expected_matches_rate_model():
+    engine, mgr, cid, (a, b, c, d) = _resolved_family_engine()
+    for _ in range(5):
+        mgr.set_attention(cid, 1.0)
+        engine.step()
+
+    tel = mgr.telemetry()[cid]
+    ticks = tel["ticks"]
+    assert ticks >= 1
+    # 期望侧 = 粗模型速率（与 transitions 同源）：已婚且 18≤age≤50 的两人 ⇒ 2×BIRTH_RATE/tick
+    assert abs(tel["expected"]["births"] - ticks * 2 * BIRTH_RATE) < 1e-12
+    assert tel["expected"]["deaths"] == 0.0          # 无 60+
+    assert tel["expected"]["marriages"] == 0.0       # 单身 ≤1
+    assert tel["real"]["deaths"] == 0 and tel["real"]["marriages"] == 0
+    assert tel["switches"] == 0
+
+
+def test_flux_telemetry_detects_realized_events():
+    """实测侧逐项对拍：婚姻（成员×浮层）+1、出生 +1、死亡 +1。"""
+    engine, mgr, cid, (a, b, c, d) = _resolved_family_engine()
+    mgr.set_attention(cid, 1.0)
+    engine.step()                            # 建立遥测基线（无事件）
+
+    c.marry_event.happen(d)                  # 婚姻：成员 c 与浮层 d
+    d.marry_event.happen(c)
+    mgr.set_attention(cid, 1.0)
+    engine.step()
+    assert mgr.telemetry()[cid]["real"]["marriages"] == 1
+
+    c.childbirth_event.happen(d)             # 生育：新生儿的父/母含成员 c
+    mgr.set_attention(cid, 1.0)
+    engine.step()
+    assert mgr.telemetry()[cid]["real"]["births"] == 1
+
+    b.death_event.happen()                   # 死亡：成员消失（受保护 ⇒ 排除逐出）
+    mgr.set_attention(cid, 1.0)
+    engine.step()
+    assert mgr.telemetry()[cid]["real"]["deaths"] == 1
+
+
+def test_blocked_upgrade_is_visible_not_counted():
+    """物化被卡（无可析出的整人桶）时：不计换档、计 `blocked`——"幽灵换档"可见化。
+
+    成因（本轮遥测发现的既有隐疾）：均值场 `marriage` 每 tick 把单身桶按分数削到
+    1.0 以下 ⇒ 只含单身的共演单元粗化一步后即不可物化。**行为修复不属本轮**
+    （No-Op 轮），此处只断言"诚实计数"。"""
+    random.seed(41)
+    engine = _engine_with_resolution(capacity=200, window=200)
+    mgr = engine.resolution
+    mgr.form_interval = 1
+    a, c = list(engine.window.characters.values())[:2]
+    for character in (a, c):
+        character.age = 30
+        character.pedometer["step_threshold"] = 3600
+    c.relationships["parent"].append(a)      # 亲子边（两者皆单身）
+    a.relationships["child"].append(c)
+    engine.step()
+    cid = mgr.cluster_of(a.id)
+    assert cid is not None
+
+    mgr.store.coarsen(cid)                   # 收编：mini = 两个 1.0 单身桶
+    mgr.set_attention(cid, 1.0)
+    engine.step()                            # step_coarse 先削桶（marriage），apply 物化失败
+    tel = mgr.telemetry()[cid]
+    assert tel["blocked"] == 1
+    assert tel["switches"] == 0
+    assert cid not in mgr._last_switch       # 没发生的事不记换档
+
+    mgr.set_attention(cid, 1.0)
+    engine.step()
+    assert mgr.telemetry()[cid]["blocked"] == 2
+
+
+def test_telemetry_is_observationally_noop(monkeypatch):
+    """遥测是纯观测：no-op 掉遥测钩子与开启遥测，引擎可见状态逐位一致。"""
+
+    def run():
+        random.seed(31)
+        engine = _engine_with_resolution(capacity=120, window=120)
+        mgr = engine.resolution
+        mgr.form_interval = 1
+        chars = list(engine.window.characters.values())
+        for i in range(0, 8, 2):             # 造几个家庭共演单元，制造换档压力
+            chars[i].marry_event.happen(chars[i + 1])
+            chars[i + 1].marry_event.happen(chars[i])
+        for tick in range(12):
+            for cid in list(mgr.store.clusters):
+                mgr.set_attention(cid, 0.6 if tick % 4 < 2 else 0.4)
+            engine.step()
+        return (
+            round(engine.population(), 9),
+            len(engine.window.characters),
+            round(engine.measure_engine.measure.total(), 9),
+            tuple(sorted((cid, c.level, len(c.member_ids))
+                         for cid, c in mgr.store.clusters.items())),
+            tuple(sorted((cid, round(mgr.attention.get(cid, 0.0), 9))
+                         for cid in mgr.store.clusters)),
+        )
+
+    observed = run()
+    monkeypatch.setattr(cluster_mod.ResolutionManager, "_scan_flux", lambda self: None)
+    monkeypatch.setattr(cluster_mod.ResolutionManager, "_snapshot_flux", lambda self: None)
+    assert run() == observed
 
 
 

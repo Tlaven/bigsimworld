@@ -17,6 +17,7 @@ coarse 共演单元的聚合态 = 一个 **mini `MeanFieldEngine`**（同一 Sta
 from __future__ import annotations
 
 import random
+from collections import deque
 from dataclasses import dataclass, field
 from typing import Callable, Protocol
 
@@ -30,6 +31,11 @@ from app.core.measure.measure import (fold_pools, measure_from_characters,
 from app.core.measure.transitions import FULL_FLOWS, distribute_pool, inject_inherited
 from app.core.measure.transitions import settle_transfer_pool
 from app.core.measure.transitions import inheritance as _mf_inheritance
+from app.core.measure.transitions import (BIRTH_RATE, DEATH_RATE, MARRIAGE_MEAN_DEG,
+                                          MARRIAGE_RATE)
+
+# 换档/通量遥测的滚动窗（tick）。≈ 2 年：既覆盖多次换档周期，又让窗内计数不至于跨 regime。
+FLUX_WINDOW = 720
 
 
 # ---------------------------------------------------------------- 数据模型
@@ -198,28 +204,66 @@ def family_inheritance(measure, tick, global_measure=None, overflow=0.0) -> None
         distribute_pool(measure)
 
 
-class WaterlinePolicy:
-    """MVP 调度：**基线 θ + leaf 数预算**。
+def _expected_flux(members) -> dict:
+    """粗模型对**成员聚合**的每 tick 期望事件人-次（只读；不消耗随机数）。
 
-    - `theta_base`（基线，固定）：注意力 < 基线即粗化——内在冷却，保证不刷新必降温；
+    单位 = 人-次：一桩婚事 = 2（两人各得配偶边）；一次出生 = 1；一次死亡 = 1。
+    速率与 `transitions` 的算子**同源**（`BIRTH_RATE` / `DEATH_RATE` /
+    婚配可用性闭合 `q = 1-(1-p_elig)**MARRIAGE_MEAN_DEG`），即"若这簇现在是 coarse，
+    mini 引擎每 tick 会对它做多少事"。生产簇规模下逐 tick 期望极小（~1e-4 量级），
+    要判读需跨窗/跨簇聚合。
+    """
+    births = deaths = 0.0
+    singles = adults = 0.0
+    for character in members:
+        age = character.age
+        if age >= 60:
+            deaths += DEATH_RATE
+        if character.relationships.get("spouse"):
+            if 18 <= age <= 50:
+                births += BIRTH_RATE
+        elif 18 <= age < 60:
+            singles += 1.0
+        if 18 <= age < 60:
+            adults += 1.0
+    marriages = 0.0
+    if singles > 1.0 and adults > 0.0:
+        p_elig = singles / adults
+        availability = 1.0 - (1.0 - p_elig) ** MARRIAGE_MEAN_DEG
+        marriages = min(MARRIAGE_RATE * singles * availability * 2.0, singles)
+    return {"births": births, "deaths": deaths, "marriages": marriages}
+
+
+class WaterlinePolicy:
+    """MVP 调度：**基线 θ + leaf 数预算**（可选滞回带）。
+
+    - `theta_base`（基线，固定）：未 resolved 的簇注意力 ≥ 该值即升级；内在冷却保证不刷新必降温；
+    - `theta_down`（可选滞回下阈；缺省 `None` ⇒ = `theta_base`，与无滞回逐位一致）：
+      已 resolved 的簇在 `attention ≥ theta_down` 时**保持**——注意力在
+      `[theta_down, theta_base)` 区间抖动时不再来回换档（换档 = 身份重采样 + 簿记）；
     - `budget_leaves`（叶子预算）：最多保留多少叶子；按注意力降序分配，超预算的低注意共演单元降档；
     - `feedback`（负载反馈）：实测超预算则收紧叶子预算、有余量则放宽（区间 [1, max_leaves]）。
     """
 
-    def __init__(self, theta_base: float = 0.5, budget_leaves: int | None = None, alpha: float = 0.1):
+    def __init__(self, theta_base: float = 0.5, budget_leaves: int | None = None, alpha: float = 0.1,
+                 theta_down: float | None = None):
         self.theta_base = theta_base
+        self.theta_down = None if theta_down is None else float(theta_down)
         self.max_leaves = budget_leaves
         self.budget_leaves = budget_leaves
         self.alpha = alpha
 
     def allocate(self, clusters: list, attention: dict, budget_leaves: int | None = None) -> dict:
         budget = self.budget_leaves if budget_leaves is None else budget_leaves
+        theta_down = self.theta_base if self.theta_down is None else self.theta_down
         ranked = sorted(clusters, key=lambda c: attention.get(c.id, 0.0), reverse=True)
         targets = {}
         remaining = budget
         for cluster in ranked:
             cost = self._leaf_cost(cluster)
-            if attention.get(cluster.id, 0.0) < self.theta_base:
+            score = attention.get(cluster.id, 0.0)
+            threshold = theta_down if cluster.level == 1 else self.theta_base
+            if score < threshold:
                 targets[cluster.id] = 0
             elif remaining is None or remaining >= cost:
                 targets[cluster.id] = 1
@@ -539,7 +583,7 @@ class ResolutionManager:
                  form_kind="family", min_size=2, max_members=12, max_clusters=64,
                  initial_attention=0.8, form_interval=30, budget_leaves=None, dissolve_floor=0.1,
                  endogenous_scale=None, notability=None, notable_fraction=None, rng=None,
-                 grace_ticks=180, channel=None):
+                 grace_ticks=180, channel=None, min_dwell_ticks=0):
         self.window = window
         self.measure = measure or window.measure
         self.space = window.space
@@ -571,6 +615,16 @@ class ResolutionManager:
         self._formed = False
         self._next_form = 0
         self._refresh_notability()
+        # —— 换档纪律 / 通量遥测（缺省 No-Op；规格见 `docs/cluster-contract.md` §9）——
+        # `min_dwell_ticks=0` ⇒ 不设限（与无该机制逐位一致）；>0 时同一簇两次换档至少隔这么久。
+        self.min_dwell_ticks = int(min_dwell_ticks)
+        self._last_switch: dict = {}
+        self._switch_count: dict = {}
+        self._switch_total = 0
+        self._switch_blocked: dict = {}  # cid → 物化尝试失败次数（无可析出的整人桶）
+        self._flux: dict = {}            # cid → {"ids": set, "spouse": {mid: n}}（上 tick 末基线）
+        self._flux_win: dict = {}        # cid → deque[(real_b, real_d, real_m, exp_b, exp_d, exp_m)]
+        self._flux_window_ids = None     # 上 tick 末的窗口 id 集（用于识别"本 tick 新出现"）
 
     # ------------------------------------------------------------ 受保护成员
 
@@ -643,10 +697,15 @@ class ResolutionManager:
                 "rho": round(cluster.rho, 3),
                 "pool": round(engine.measure.transfer_pool, 1) if engine is not None else 0.0,
                 "attention": round(self.attention.get(cluster.id, 0.0), 3),
+                "switches": self._switch_count.get(cluster.id, 0),
+                "blocked": self._switch_blocked.get(cluster.id, 0),
             })
         return {
             "theta_base": getattr(self.policy, "theta_base", None),
+            "theta_down": getattr(self.policy, "theta_down", None),
             "budget_leaves": getattr(self.policy, "budget_leaves", None),
+            "min_dwell_ticks": self.min_dwell_ticks,
+            "switch_total": self._switch_total,
             "rho": round(self.store.rho(), 3),
             "cluster_count": len(self.store.clusters),
             "resolved_count": sum(1 for c in self.store.clusters.values() if c.level == 1),
@@ -696,6 +755,110 @@ class ResolutionManager:
     def channel_summary(self) -> dict:
         return self.channel.summary()
 
+    # ------------------------------------------------------------ 换档纪律 / 通量遥测
+
+    @property
+    def switch_total(self) -> int:
+        """累计换档次数（含已被回收的簇；只读观测面）。"""
+        return self._switch_total
+
+    def telemetry(self) -> dict:
+        """换档与通量遥测（只读快照；**不参与任何决策**）。
+
+        每簇：`switches` / `last_switch` / `dwell`（自上次换档的停留）+ 滚动窗内
+        `real`（实测人-次）与 `expected`（粗模型期望）的求和。判读注意：生产簇规模
+        （≤12）下窗内计数是个位量级——需跨簇/跨窗聚合，或在大簇上读。
+        """
+        now = self.window.simulation_time
+        out = {}
+        for cid in (set(self._flux_win) | set(self._switch_count)
+                    | set(self._last_switch) | set(self._switch_blocked)):
+            win = self._flux_win.get(cid)
+            if win:
+                real = [sum(x[i] for x in win) for i in range(3)]
+                expected = [sum(x[i] for x in win) for i in range(3, 6)]
+            else:
+                real = [0.0, 0.0, 0.0]
+                expected = [0.0, 0.0, 0.0]
+            when = self._last_switch.get(cid)
+            out[cid] = {
+                "ticks": len(win) if win else 0,
+                "real": {"births": real[0], "deaths": real[1], "marriages": real[2]},
+                "expected": {"births": expected[0], "deaths": expected[1],
+                             "marriages": expected[2]},
+                "switches": self._switch_count.get(cid, 0),
+                "blocked": self._switch_blocked.get(cid, 0),
+                "last_switch": when,
+                "dwell": None if when is None else now - when,
+            }
+        return out
+
+    def _scan_flux(self) -> None:
+        """通量遥测：对每个 resolved 共演单元逐 tick 记「实测 vs 粗模型期望」。
+
+        **只读不变量**：不消耗任何随机数、不碰边/分布——只写自有的滚动窗。
+        实测窗口 = 「上 tick 末基线 → 本处」之间：逐簇匹配（成员消失≈死亡，成员受保护；
+        成员配偶数增加=婚姻，人-次；新出现的窗口个体若父母在成员集内=出生）。
+        载入/重放顺序（`WindowEngine.step`）保证此处之前只有窗口事件发生。
+        """
+        if not self._flux:
+            return
+        window = self.window
+        current_ids = set(window.characters)
+        new_ids = (current_ids - self._flux_window_ids
+                   if self._flux_window_ids is not None else set())
+        for cid, entry in list(self._flux.items()):
+            cluster = self.store.clusters.get(cid)
+            if cluster is None or cluster.level != 1:
+                continue
+            members = [window.characters[mid] for mid in cluster.member_ids
+                       if mid in window.characters]
+            expected = _expected_flux(members)
+            deaths = sum(1 for mid in entry["ids"] if mid not in current_ids)
+            marriages = 0
+            for mid, spouse_n in entry["spouse"].items():
+                character = window.characters.get(mid)
+                if character is None:
+                    continue
+                now = len(character.relationships.get("spouse", ()) or ())
+                if now > spouse_n:
+                    marriages += now - spouse_n
+            births = 0
+            if new_ids:
+                member_ids = cluster.member_ids
+                for new_id in new_ids:
+                    character = window.characters.get(new_id)
+                    if character is None:
+                        continue
+                    for parent in character.relationships.get("parent", ()) or ():
+                        if getattr(parent, "id", None) in member_ids:
+                            births += 1
+                            break
+            self._flux_win.setdefault(cid, deque(maxlen=FLUX_WINDOW)).append(
+                (births, deaths, marriages,
+                 expected["births"], expected["deaths"], expected["marriages"]))
+        self._flux_window_ids = current_ids
+
+    def _snapshot_flux(self) -> None:
+        """记录/清理遥测基线（每 tick 末调用一次；只读事件，不改行为）。"""
+        window = self.window
+        self._flux = {cid: entry for cid, entry in self._flux.items()
+                      if cid in self.store.clusters
+                      and self.store.clusters[cid].level == 1}
+        for cid, cluster in self.store.clusters.items():
+            if cluster.level != 1:
+                continue
+            ids = {mid for mid in cluster.member_ids if mid in window.characters}
+            self._flux[cid] = {
+                "ids": ids,
+                "spouse": {mid: len(window.characters[mid].relationships.get("spouse", ()) or ())
+                           for mid in ids},
+            }
+        for book in (self._last_switch, self._switch_count, self._switch_blocked, self._flux_win):
+            for cid in [cid for cid in book if cid not in self.store.clusters]:
+                del book[cid]
+        self._flux_window_ids = set(window.characters)
+
     def _endogenous_attention(self) -> dict:
         """L1 社会凝视：共演单元被窗口内**非成员**认识的程度（外部入边数）→ [0,1] 注意力。
 
@@ -729,6 +892,10 @@ class ResolutionManager:
             "theta_base": getattr(self.policy, "theta_base", 0.5),
             "budget_leaves": getattr(self.policy, "budget_leaves", None),
             "formed": self._formed,
+            "last_switch": {str(k): int(v) for k, v in self._last_switch.items()},
+            "switches": {str(k): int(v) for k, v in self._switch_count.items()},
+            "blocked": {str(k): int(v) for k, v in self._switch_blocked.items()},
+            "switch_total": int(self._switch_total),
         }
 
     def load_payload(self, payload: dict, space) -> None:
@@ -739,10 +906,21 @@ class ResolutionManager:
         if "budget_leaves" in payload and hasattr(self.policy, "budget_leaves"):
             self.policy.budget_leaves = payload["budget_leaves"]
         self._formed = bool(payload.get("formed", True))
+        self._last_switch = {int(k): int(v)
+                             for k, v in (payload.get("last_switch") or {}).items()}
+        self._switch_count = {int(k): int(v)
+                              for k, v in (payload.get("switches") or {}).items()}
+        self._switch_blocked = {int(k): int(v)
+                                for k, v in (payload.get("blocked") or {}).items()}
+        self._switch_total = int(payload.get("switch_total", 0))
+        self._flux = {}                  # 遥测在恢复后重新开始（观测数据不参与决策）
+        self._flux_win = {}
+        self._flux_window_ids = None
 
     # ------------------------------------------------------------ 闭环
 
     def step(self, ctx: TickContext) -> None:
+        self._scan_flux()               # 通量遥测：只读；须在边界维护/换档之前（见 _scan_flux）
         if ctx.tick >= self._next_form:
             self._reconcile()
             self._next_form = ctx.tick + self.form_interval
@@ -773,10 +951,30 @@ class ResolutionManager:
             if cid in grace:                # 宽限期：分辨率冻结
                 continue
             if level >= 1 and cluster.level == 0:
-                self.store.materialize(cid)
+                direction = 1
             elif level == 0 and cluster.level == 1:
+                direction = 0
+            else:
+                continue
+            if (self.min_dwell_ticks > 0
+                    and ctx.tick - self._last_switch.get(
+                        cid, ctx.tick - self.min_dwell_ticks) < self.min_dwell_ticks):
+                continue                    # 最小驻留：两次换档之间至少隔 min_dwell_ticks
+            if direction == 1:
+                made = self.store.materialize(cid)
+                if not made:
+                    # 物化被卡：mini 里没有任何 count ≥ 1.0 的整人桶可析出
+                    # （已知成因：均值场 marriage 会把单身桶按分数削到 1.0 以下）。
+                    # **不计为换档**（什么都没发生）——只记 blocked 供观测。
+                    self._switch_blocked[cid] = self._switch_blocked.get(cid, 0) + 1
+                    continue
+            else:
                 self.store.coarsen(cid)
+            self._last_switch[cid] = ctx.tick
+            self._switch_count[cid] = self._switch_count.get(cid, 0) + 1
+            self._switch_total += 1
         self._recycle(grace)
+        self._snapshot_flux()               # 记录本 tick 末的遥测基线（只读事件）
 
     def _settle_transfer_pools(self, tick: int) -> None:
         """每 360 tick：全局测度 + 每个簇 mini 的通道池按整桶投递回分布（N2-6 第 6 步）。
