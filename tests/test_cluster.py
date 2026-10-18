@@ -779,6 +779,23 @@ def test_credits_roundtrip_fold_and_defaults():
     assert measure.marriage_credit == 0.0 and measure.death_credit == 0.0
 
 
+def test_fold_pools_canonicalizes_age_order():
+    """折叠按段升序（遍历序纪律）：源段池的插入序不同 ⇒ 目标段序一致。"""
+    space = StateSpace()
+    first = Measure(space)
+    second = Measure(space)
+    source_a = Measure(space)
+    source_a.yearly_inherited = {45: 1.0, 30: 2.0, 60: 3.0}
+    source_b = Measure(space)
+    source_b.yearly_inherited = {60: 3.0, 30: 2.0, 45: 1.0}
+
+    fold_pools(source_a, first)
+    fold_pools(source_b, second)
+    assert list(first.yearly_inherited) == list(second.yearly_inherited) == [30, 45, 60]
+    assert first.yearly_inherited == second.yearly_inherited
+    assert first.yearly_inherited[30] == 2.0
+
+
 # ---------------------------------------------------------------- 误差触发（候选，缺省关）
 
 def test_risk_alert_default_off_and_floor_when_enabled():

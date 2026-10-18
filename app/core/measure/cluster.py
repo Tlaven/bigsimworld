@@ -352,8 +352,9 @@ class ClusterStore:
         if cluster.level == 0:
             return
         kind = KINDS[cluster.kind]
+        # 成员按 id 升序（遍历序纪律）：`record_conversion` 是浮点累加，顺序影响末位
         members = {mid: self.window.characters[mid]
-                   for mid in cluster.member_ids if mid in self.window.characters}
+                   for mid in sorted(cluster.member_ids) if mid in self.window.characters}
         aggregate = kind.aggregate(members, self.space)
         # 成员精确 wealth → 桶中心：差额逐个记入折算残差（ADR-006 / N2-5）。
         # 注意：**不能**复用 `dematerialize`（那会同时把本人折回全局测度 ⇒ 双记）。
@@ -364,7 +365,7 @@ class ClusterStore:
         leftover = (cluster.state or {}).get("engine")
         if leftover is not None:
             mini = leftover.measure
-            for index in list(mini.occupied):
+            for index in sorted(mini.occupied):
                 aggregate.add(index, mini.counts[index])
             # 池（通道池 + 继承段池）必须一起折回，否则再次粗化会丢财富（ADR-005）
             fold_pools(mini, aggregate)
@@ -450,12 +451,12 @@ class ClusterStore:
                 dst_engine = ca.state.get("engine")
                 if dst_engine is not None:
                     ma = dst_engine.measure
-                    for index in list(mb.occupied):
+                    for index in sorted(mb.occupied):
                         ma.add(index, mb.counts[index])
                     fold_pools(mb, ma)
                     ca.state["size"] = ma.total()
                 else:
-                    for index in list(mb.occupied):
+                    for index in sorted(mb.occupied):
                         self.measure.add(index, mb.counts[index])
                     mb.marriage_credit = mb.death_credit = 0.0   # 回流体区：信用作废（adr-010）
                     fold_pools(mb, self.measure)
@@ -468,7 +469,7 @@ class ClusterStore:
         self.coarsen(b)
         ma = ca.state["engine"].measure
         mb = cb.state["engine"].measure
-        for index in list(mb.occupied):
+        for index in sorted(mb.occupied):
             ma.add(index, mb.counts[index])
         fold_pools(mb, ma)
         ca.state["size"] = ma.total()
@@ -487,7 +488,7 @@ class ClusterStore:
         engine = cluster.state.get("engine")
         if engine is not None:
             mini = engine.measure
-            for index in list(mini.occupied):
+            for index in sorted(mini.occupied):
                 self.measure.add(index, mini.counts[index])
             mini.marriage_credit = mini.death_credit = 0.0   # 回流体区：信用作废（adr-010）
             fold_pools(mini, self.measure)
@@ -526,7 +527,7 @@ class ClusterStore:
         engine = cluster.state.get("engine")
         if engine is not None:
             mini = engine.measure
-            for index in list(mini.occupied):
+            for index in sorted(mini.occupied):
                 self.measure.add(index, mini.counts[index])
             mini.marriage_credit = mini.death_credit = 0.0   # 回流体区：信用作废（adr-010）
             fold_pools(mini, self.measure)
@@ -828,7 +829,7 @@ class ResolutionManager:
             cluster = self.store.clusters.get(cid)
             if cluster is None or cluster.level != 1:
                 continue
-            members = [window.characters[mid] for mid in cluster.member_ids
+            members = [window.characters[mid] for mid in sorted(cluster.member_ids)
                        if mid in window.characters]
             expected = _expected_flux(members)
             if members:

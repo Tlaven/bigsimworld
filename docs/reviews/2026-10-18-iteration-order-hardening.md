@@ -37,3 +37,5 @@
 
 - 本次加固**不改变任何默认**，仅把"碰巧可复现"变成"构造无关地逐位可复现"。
 - 未覆盖（登记）：`ClusterStore` 的成员集合遍历（`member_ids` 为 set）里含**浮点累加**的路径（`record_conversion` 逐成员叠加、`fold_pools` 的逐段相加）——同一构造历史下确定，但跨构造顺序未加固；如将来要给"mini 层构造无关"立证，再按同一规则处理（排序 `member_ids` / 按段排序折叠）。
+
+> **跟进（同日）**：上述登记项已按同规则加固——`coarsen`/`merge`/`split`/`dissolve` 的拷贝与逐成员折算按 id/索引升序；`fold_pools` 按段升序；`_scan_flux` 成员按 id 升序（观测值也 canonical）。折叠规范序由 `tests/test_cluster.py::test_fold_pools_canonicalizes_age_order` 守。

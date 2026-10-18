@@ -95,7 +95,7 @@ class Measure:
         恒等式与符号约定见 `docs/decisions/adr-006-conversion-residual.md`。
         """
         return (self.mass() + self.transfer_pool + self.conversion_residual
-                + float(sum(self.yearly_inherited.values())))
+                + float(sum(self.yearly_inherited[age] for age in sorted(self.yearly_inherited))))
 
     def iter_occupied(self):
         for index in self.occupied:
@@ -106,7 +106,7 @@ class Measure:
     def outflow(self, predicate, rate):
         """对所有满足 predicate 的占用桶，移出 count*rate，返回移出的总量。"""
         removed = 0.0
-        for index in list(self.occupied):
+        for index in sorted(self.occupied):
             if predicate(index):
                 amount = self.counts[index] * rate
                 self.add(index, -amount)
@@ -191,8 +191,9 @@ def fold_pools(source, target):
     target.conversion_residual += float(source.conversion_residual)
     target.marriage_credit += float(source.marriage_credit)
     target.death_credit += float(source.death_credit)
-    for age, amount in source.yearly_inherited.items():
-        target.yearly_inherited[age] = target.yearly_inherited.get(age, 0.0) + amount
+    for age in sorted(source.yearly_inherited):          # 按段升序（遍历序纪律）
+        target.yearly_inherited[age] = (target.yearly_inherited.get(age, 0.0)
+                                        + source.yearly_inherited[age])
     source.transfer_pool = 0.0
     source.conversion_residual = 0.0
     source.marriage_credit = 0.0
