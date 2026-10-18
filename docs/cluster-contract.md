@@ -134,7 +134,7 @@ register(FamilyKind())   # MVP 唯一实现
 - **Phase 0（已实现）**：resolved ↔ coarse 切换、单 kind、水位线调度、ρ 代理、快照守恒。
 - **Phase 1（已实现）**：族级继承模型（族内池 + `overflow_fraction` 溢出口）。
 - **Phase 2（已实现）**：合并 / 分裂自动策略（连通分量合并、断连切分；切法策略仍留白）。
-- **Phase 3（部分）**：水位反馈已接；显要保护、宽限冻结、社会凝视已落地。**换档纪律**（滞回 / 最小驻留）与**通量遥测**（只读）已就位、缺省 No-Op（见 §9）；mini 的**整数语义发放**已实现（"物化被卡"修复，见 §9）；"误差触发"未做。
+- **Phase 3（部分）**：水位反馈已接；显要保护、宽限冻结、社会凝视已落地。**换档纪律**（驻留**缺省 30**、滞回 opt-in）与**通量遥测**（只读）已就位（见 §9）；mini 的**整数语义发放**已实现（"物化被卡"修复，见 §9）；"误差触发"未做。
 
 ## 9. 换档一致性账
 
@@ -149,7 +149,7 @@ register(FamilyKind())   # MVP 唯一实现
 | 换档频率 / 驻留 / 被卡物化 / 身份重采样次数 | **观测账**（不构成守恒律） | `ResolutionManager.telemetry()` / `resolution_summary()`；`bench.resolution_switch`（描述性） | 生产簇规模下事件计数小（个位/窗），判读需跨簇聚合 |
 | resolved 期间"实测事件 vs 粗模型期望"通量 | **只读遥测**（不进策略） | `ResolutionManager.telemetry()`；`tests/test_cluster.py` | 相关性研究（遥测 → R−C 偏差）未做 |
 
-**换档纪律**：`WaterlinePolicy` 支持滞回（`theta_down`，缺省 = `theta_base` ⇒ 与无滞回逐位一致）；`ResolutionManager` 支持最小驻留（`min_dwell_ticks`，缺省 0）。两者缺省 No-Op；是否默认启用待 A/B 证据（读数见审计记录）。
+**换档纪律**：`WaterlinePolicy` 支持滞回（`theta_down`，缺省 = `theta_base` ⇒ 无滞回；**默认关闭、opt-in**——生产注意力轨迹未实测）；`ResolutionManager` 的最小驻留 `min_dwell_ticks` **缺省 30**（防抖闸：只延迟换档，不放行、不否决；构造参数传 0 关闭）。
 
 **成本注记**：换档成本 = resolved 侧按人数（`ClusterKind.cost`）、coarse 侧常数 1；每次换档的簿记 = 池/残差折叠 O(成员)；身份重采样 = 每个析出成员一次"新代表"生成（成年入窗互认 ≤3 个 acquaintance）。
 
