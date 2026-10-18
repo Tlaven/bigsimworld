@@ -287,7 +287,11 @@ class Intent:
    transfer 的 `amount` 会被静默吞掉）；被去重的意图各记一条 `dropped:duplicate`（不变量 8：
    含丢弃在内**每条意图都有记录**）。同一 `(op, origin, kind, scope)` 同一 tick 只能发一次；
    要发多笔请换 `kind`。
-4. **配额闸（`amount` 感知）** `[强制]`：设本次意图需要的析出量 `amount`（单人路径 = 1；婚配成对 = 2，见 N2-5）：
+4. **发起者复检 + 配额闸（`amount` 感知）** `[强制]`：`bind` 且 `origin="character"` 时**先复检发起者婚配态**——
+   `relationships["spouse"]` 非空 ⇒ 丢弃（记 `dropped:initiator_married`；不耗配额、不 reserve）。
+   多规则并存（`both`）时同一人可能被两条不同 `scope` 的意图命中：先成功者建边、后者在此被拒
+   （确定性处理序见第 2 步：`scope_type` 簇=0 < 全局测度=2）。单规则下不触发（规则在 `offers()` 已过滤）。
+   随后是配额闸：设本次意图需要的析出量 `amount`（单人路径 = 1；婚配成对 = 2，见 N2-5）：
    `per_cluster + amount > cap_per_cluster` ⇒ 丢弃（记 `dropped:quota_cluster`）；
    `made_total + amount > cap_per_tick` ⇒ 丢弃（记 `dropped:quota_tick`）；
    `len(window) + reserved + amount > capacity` ⇒ 丢弃（记 `dropped:window`）。
@@ -653,8 +657,9 @@ class ChannelRecord:
 - 合格单身掷 `rate` 后**直接**产出 `scope=("measure",)` 的意图（无候选抽样——粗侧只有一个"目标"）；
 - mass 意图与簇侧**同一形状、只换目标侧**：`Intent(op="bind", kind="spouse", origin=("character", rid), scope=("measure",), match=Match(marital=0, age=(18,59)))`——房源检查用的就是同一 `match` 编译的谓词；
 - 配额/宽限语义见 N2-8：豁免 `cap_per_cluster`；`cap_per_tick` 与窗口 headroom 照旧是硬上界；不登记 `recently_active`；
-- **`cluster` 与 `measure` 单值互斥**（生产开关是单值开关）：不存在"同一 tick 对同一人发两条不同 `scope`
-  意图"的路径——通道不在 reserve 时复检发起者的婚配态，两模式并存会让**同一人被嫁两次**；
+- **`cluster` 与 `measure` 可并存（`both`）**：同一 tick 内同一人可能被两条不同 `scope` 的意图命中——通道在 `bind`
+  执行前**复检发起者婚配态**（`dropped:initiator_married`），配合确定性处理序（簇侧先于全局测度）⇒ 同一人每 tick
+  至多成婚一次；规则注册名按目标侧区分（`cross_marriage` / `mass_marriage`）；
 - 未知 `target` ⇒ 构造时 **`ValueError`**（不做静默回退）。
 
 2. **目标簇候选**（只算一次，避免"每个单身扫一遍簇"）：
@@ -679,7 +684,7 @@ class ChannelRecord:
    - **粗侧对手方**由另两条机制保护：`step_coarse()` 的均值场婚配**先跑**，且 `bind` **先扣后加**把人移出分布
      ⇒ 同一 tick 不会"一个人被嫁两次"。这两条防线不覆盖粗侧，别混用。
 6. **开关**：`SIM_CHANNEL_MARRIAGE`（缺省 `0`）——`1` = 簇规则（`target="cluster"`）；`mass` = 大众规则（`target="measure"`）；
-   **单值互斥**（见「候选侧」）；未识别取值（如 `2` / 空串）⇒ **不注册**（与缺省同路，不抛错）。注册时 runner `register_marriage_rule(target=…, rng=…)`——规则流由 `SIM_SEED` 派生
+   **`both` = 两条并存**（各自独立派生流：`channel-marriage:{seed}:cluster` / `:measure`）；未识别取值（如 `2` / 空串）⇒ **不注册**（与缺省同路，不抛错）。注册时 runner `register_marriage_rule(target=…, rng=…)`——规则流由 `SIM_SEED` 派生
    （未设种子则 `None` ⇒ 回退 `context.rng`，见第 1 步）；注册幂等。**默认不注册 ⇒ `RULES` 空 ⇒ 通道惰性、全部权威数字不变。**
 7. **语义声明**：开启 = 新增一条婚配通量（窗口自己的婚配事件照常跑）⇒ **不**要求与纯个体引擎收敛；
    `bench.convergence` / `bench.cluster_fidelity` 一律在默认（`RULES` 空）下跑。
@@ -716,8 +721,9 @@ class ChannelRecord:
 | 6 | 房源权重含分数桶（把 `count < 1.0` 的残留算进权重） | `extract` 只从整人桶取 ⇒ 意图频繁 `dropped:no_match` | 验收（`test_fractional_bucket_is_not_counted_as_weight`） |
 | 7 | `kind` 三义混用（边名 / 标签 / 规则名） | 账本、边、注册表语义互串 | 决策 2 的 `Intent` 字段契约（`kind` 注释）+ N2-6「对象」（`kind` 只作标签）+ N2-1 第 8 步（`bind` 的 `kind` 用作边名）+ 验收（`test_transfer_is_dispatched_by_op_not_by_kind`） |
 | 8 | 把规则婚姻的终止当成 `unbind` | 终止 = 死亡 / `dematerialize`（容量逐出）；`unbind` 的语义是"折算回粗侧" | N2-4 第 1–3 步（`unbind` 契约）+ `engineering-spec.md` §4（`dematerialize` 退场路径） |
-| 9 | 把 `target` 实现成 `cluster` + `measure` 并发（或同时注册两条规则） | 同一 tick 同一人可被两条不同 `scope` 的意图各嫁一次（通道不在 reserve 时复检发起者婚配态；去重键含 `scope`，挡不住） | 单值互斥开关（未识别取值不注册）+ `target` 仅两值（非法值 `ValueError`：`test_invalid_target_raises`）+ **单一注册键** `RULES["cross_marriage"]`（注册幂等 / 同名覆盖 ⇒ 两条不能并存）+ 默认关 |
+| 9 | 让多条规则并发却不给「一人一意图」守卫 | 同一 tick 同一人可被两条不同 `scope` 的意图各嫁一次（去重键含 `scope`，挡不住） | 通道 `bind` 前的**发起者婚配态复检**（`dropped:initiator_married`）+ 验收 `test_bind_rejects_married_initiator`；`target` 仅两值（非法值 `ValueError`） |
 | 10 | mass 模式跳过房源检查（无房源也掷骰产意图） | 纯噪声：`dropped:no_match` 灌账本 + 无谓消耗规则随机流 | 「候选侧」的 `offers → []` 规则 + `test_mass_target_no_eligible_mass_is_silent` |
+| 11 | 两条规则用同一注册名（`cross_marriage`）⇒ 后者覆盖前者 | `both` 实际只注册一条、通量减半且难察觉 | 注册名按目标侧取实例属性（`cross_marriage` / `mass_marriage`）+ 验收 `test_both_targets_register_side_by_side` |
 
 > **可达性与退场（说明，非错法）**：生产样态下 coarse 族几乎不含 18–59 未婚桶 ⇒ **簇侧**规则婚配的 crossings ≈ 0；让大众可达的**全局测度寻址**（N2-8）与**大众目标侧**（`target="measure"`，默认关；语义 = 新增婚配通量、非近似）均已落地。析出的配偶不进 `member_ids`、也不建 `acquaintance` 网 ⇒ 容量吃紧时可能较早退场——MVP 接受，记为边界。
 

@@ -102,7 +102,7 @@ SIM_MODE=measure ──────────┤
 | `SIM_POPULATION` | 5000 | 初始人口（measure） |
 | `SIM_RESUME` | 0 | `1` = 启动时从最新快照恢复 |
 | `SIM_SEED` | — | 整数；设了即**确定性模式**——固定随机种子并禁用墙钟负载反馈，同种子必然同发展 |
-| `SIM_CHANNEL_MARRIAGE` | 0 | `1` = 注册簇侧跨分辨率婚配规则；`mass` = 注册大众婚配（全局测度，`target="measure"`）——**单值互斥**；**开启 = 新增婚配通量，不再属于参照模型的近似** |
+| `SIM_CHANNEL_MARRIAGE` | 0 | `1` = 注册簇侧跨分辨率婚配规则；`mass` = 注册大众婚配（全局测度，`target="measure"`）；`both` = 两条并存（通道「一人一意图」守卫保护）；**开启 = 新增婚配通量，不再属于参照模型的近似** |
 
 （另：`REDIS_URL`、`SIM_DB_PATH`、`CORS_ORIGINS` 见 `app/__init__.py` / `app/models/table.py`。）
 
@@ -194,7 +194,8 @@ W = Σ_测度 [ count×桶中心 + transfer_pool + conversion_residual + Σ year
 **遍历序纪律（算子级）**：凡迭代测度占用桶的代码一律按**桶索引升序**（`sorted(occupied)`；批量移动按目标索引升序插入）。理由：继承清算 / 池投递按遍历序消耗余额（顺序决定每桶拿多少），且浮点累加序影响末位——"同一分布、换个构造顺序"必须得到**逐位一致**的未来（`SIM_SEED` 复现与快照接续的隐性前提）。由 `tests/test_measure_transitions.py::test_flows_are_construction_order_invariant` 守。
 
 **交互规则**（第 9 缝，默认空）：第一条 = **跨分辨率婚配** `MarriageRule`（`target="cluster"` 缺省 /
-`"measure"` = 大众婚配：窗口单身 × 全局测度匿名单身），`SIM_CHANNEL_MARRIAGE=1|mass` 才注册（单值互斥）。
+`"measure"` = 大众婚配：窗口单身 × 全局测度匿名单身），`SIM_CHANNEL_MARRIAGE=1|mass|both` 才注册
+（`both` = 两条并存；通道层有「一人一意图」守卫）。
 规则**只声明意图**，守恒/建边/配额/宽限期由通道保证。
 **开启 = 新增婚配通量**（窗口婚配事件照常跑）⇒ 开启状态下不要求与纯个体引擎收敛；
 `bench.convergence` / `bench.cluster_fidelity` 一律在默认（`RULES` 空）下跑。
