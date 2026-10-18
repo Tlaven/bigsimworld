@@ -680,3 +680,11 @@ Stage 20 的校准把"可达性"钉成了瓶颈：生产样态下 crossings = 0�
 - **读数**：`flux_z` **不可用**（组内 r=+0.01、轴 d=−0.07——生产簇规模下是泊松噪声）；`phase_disp` **仅过判据②**（轴 d=−7.14 同向、组内 r=−0.01）⇒ 只能识别"完全同相"的退化情形。
 - **处置**：按预注册口径实现**缺省关**接线（`risk_alert`：相位离散度 → 注意力地板；快照往返、观测面增 `risk` 字段）；**明确不建议默认启用**（判据①未过）；`flux_z` 记"为什么不"（观测面保留、不作触发）；判据设计教训：②单独通过不足以启用，下一轮把"组内判别力"设为必要条件。
 - 对账：[`reviews/2026-10-18-error-trigger-study.md`](reviews/2026-10-18-error-trigger-study.md)。
+
+### Stage 29 · 遍历序加固（"清算支付顺序依赖遍历序" 严整改）（2026-10-18）
+
+- **隐患坐实**：`distribute_pool` 按遍历序消耗池，而遍历序来自 `occupied`（set）；实测 `asc`/`desc` 构造同一键集合会得到**不同迭代序** ⇒ 同一分布可以有不同未来（浮点末位，必要时结构支付）。
+- **红→绿**：新测试 `test_flows_are_construction_order_invariant`（同槽碰撞键 + 大池强制走整数支付；先断言迭代序确实不同）——修复前 ulp 级差异，修复后逐位一致。
+- **修复（遍历序纪律）**：`transitions.py` 全部 `occupied` 循环与 `moves` 插入按索引升序；`measure.py`（`sum`/`mass`/快照 `cells`）按索引序；`window.materialize_sample` 候选按索引序。规则入 `engineering-spec.md` §9 与 `bench/README` 守恒纪律第 6 条。
+- **重基线（stash A/B）**：`convergence --full-compare` **新旧逐行一致**；`diagnose_tail` KS 中位 1.90%→2.23%（seed 42 的尾部随遍历序移动，门槛内）；`audit_ledger` −1.6e-5（−0.0000%）；`--clusters` 0.0000%。`bench/README` 收敛权威行同步为最新复测。
+- 对账：[`reviews/2026-10-18-iteration-order-hardening.md`](reviews/2026-10-18-iteration-order-hardening.md)（含未覆盖项登记：`ClusterStore` 成员集合里的浮点累加路径）。

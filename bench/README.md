@@ -95,7 +95,7 @@ python -m bench.residual_correlation --trials 12
 | 100,000 | 0.98 | 794 | counts 放大口径 |
 | 1,000,000 | 1.75 | 1,379 | 人口 1e6；内存 ∝ 占用桶数，不随 N/bins 增长 |
 
-**收敛水平（vs 完整个体引擎，N=5000, t=8000, 多种子）**：gini 差 ~0.01、KS 中位 2.73%、p70–p95 逐分位 ±1%；p100 相对偏差 +1.9% 属**有界采样噪声**（跨种子 ±0.6% 摆动），不作调优目标（归因方案见 `docs/history.md` Stage 7）。
+**收敛水平（vs 完整个体引擎，N=5000, t=8000, seeds 1/7/42）**：gini 差 ~0.01、KS 中位 **2.23%**（2026-10-18 遍历序加固后复测；加固前 1.90%——该值随历史阶段漂移，以最新复测为准）、p70–p95 逐分位 ±1%；p100 相对偏差 **+2.2%** 属**有界采样噪声**（跨种子 ±0.6% 摆动），不作调优目标（归因方案见 `docs/history.md` Stage 7）。
 
 **共演单元保真度（coarse vs 保持 resolved，配对 A/B，`members=8`/40 trials，t=8000）**：
 
@@ -128,3 +128,4 @@ python -m bench.residual_correlation --trials 12
 3. 财富转移只能"段池 + 整数桶支付 + 余量留池"（Stage 7 设计）；
 4. 任何"概率×周期压缩"（稀有事件降频）必须概率同倍放大，`rare_stride=1` 保持逐位一致；
 5. 改动后必跑：`pytest`（守恒/等价测试）+ `bench.convergence --full-compare` + `bench.audit_ledger`。
+6. **遍历序纪律**：凡迭代 `occupied` 的算子一律 `sorted(...)`（按桶索引升序），批量移动按目标索引插入——结算按序消耗池、浮点累加序影响末位；同一分布换构造顺序必须**逐位一致**（`tests/test_measure_transitions.py`）。

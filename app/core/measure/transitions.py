@@ -2,6 +2,13 @@
 
 速率严格来自个体模型的"每 tick 等效速率"（见计划 §0.1）。
 所有算子的成本 = O(占用桶数)，与人口 N 无关。
+
+**遍历序纪律（硬规则）**：凡迭代 `measure.occupied` 的循环一律 `sorted(...)`；
+凡批量 `add` 的移动表（`moves`）按目标索引升序插入。理由：① 清算/支付按遍历序
+消耗池（`distribute_pool` 的 `available` 递减），顺序决定每桶拿多少；② 浮点累加
+序影响末位。二者叠加，"同一分布、换个构造顺序"就会得到不同的未来——这是
+`SIM_SEED` 复现与快照接续的隐性前提。由 `tests/test_measure_transitions.py::
+test_flows_are_construction_order_invariant` 守。
 """
 
 DEATH_RATE = 0.05 / 360        # age>=60，每 tick
@@ -19,7 +26,7 @@ def aging(measure, tick):
         return
     space = measure.space
     moves = {}
-    for index in list(measure.occupied):
+    for index in sorted(measure.occupied):
         age, gender, wealth, marital = space.decode(index)
         if age >= space.age_buckets - 1:
             continue
@@ -27,8 +34,8 @@ def aging(measure, tick):
         moves[target] = moves.get(target, 0.0) + measure.counts[index]
         measure.counts[index] = 0.0
         measure.occupied.discard(index)
-    for target, amount in moves.items():
-        measure.add(target, amount)
+    for target in sorted(moves):
+        measure.add(target, moves[target])
 
 
 def income(measure, tick):
@@ -36,7 +43,7 @@ def income(measure, tick):
         return
     space = measure.space
     moves = {}
-    for index in list(measure.occupied):
+    for index in sorted(measure.occupied):
         age, gender, wealth, marital = space.decode(index)
         if not (18 < age < 60):
             continue
@@ -45,14 +52,14 @@ def income(measure, tick):
         moves[target] = moves.get(target, 0.0) + measure.counts[index]
         measure.counts[index] = 0.0
         measure.occupied.discard(index)
-    for target, amount in moves.items():
-        measure.add(target, amount)
+    for target in sorted(moves):
+        measure.add(target, moves[target])
 
 
 def death(measure, tick):
     space = measure.space
     deaths = []
-    for index in list(measure.occupied):
+    for index in sorted(measure.occupied):
         age, gender, wealth, marital = space.decode(index)
         if age >= 60:
             amount = measure.counts[index] * DEATH_RATE
@@ -97,7 +104,7 @@ def distribute_pool(measure):
     """
     space = measure.space
     cells_by_age = {}
-    for index in measure.occupied:
+    for index in sorted(measure.occupied):
         cells_by_age.setdefault(space.decode(index)[0], []).append(index)
 
     pool = measure.yearly_inherited
@@ -159,7 +166,7 @@ def _shift_age_wealth(measure, space, cells, steps):
     """
     paid = 0.0
     moves = {}
-    for index in cells:
+    for index in sorted(cells):
         count = measure.counts[index]
         if count <= 0.0:
             continue
@@ -172,8 +179,8 @@ def _shift_age_wealth(measure, space, cells, steps):
         moves[target] = moves.get(target, 0.0) + count
         measure.add(index, -count)
         paid += count * steps * space.wealth_width
-    for target, amount in moves.items():
-        measure.add(target, amount)
+    for target in sorted(moves):
+        measure.add(target, moves[target])
     return paid
 
 
@@ -228,7 +235,7 @@ def settle_transfer_pool(measure, tick):
 def birth(measure, tick):
     space = measure.space
     eligible = 0.0
-    for index in measure.occupied:
+    for index in sorted(measure.occupied):
         age, gender, wealth, marital = space.decode(index)
         if marital == 1 and 18 <= age <= 50:
             eligible += measure.counts[index]
@@ -251,7 +258,7 @@ def marriage(measure, tick):
     cells = []
     singles = 0.0
     adults = 0.0
-    for index in list(measure.occupied):
+    for index in sorted(measure.occupied):
         count = measure.counts[index]
         age, gender, wealth, marital = space.decode(index)
         if 18 <= age < 60:
@@ -288,7 +295,7 @@ def integer_death(measure, tick):
     """
     space = measure.space
     eligible_total = 0.0
-    for index in measure.occupied:
+    for index in sorted(measure.occupied):
         if space.decode(index)[0] >= 60:
             eligible_total += measure.counts[index]
     credit = measure.death_credit + eligible_total * DEATH_RATE
@@ -318,7 +325,7 @@ def integer_marriage(measure, tick):
     """
     space = measure.space
     singles = adults = 0.0
-    for index in measure.occupied:
+    for index in sorted(measure.occupied):
         count = measure.counts[index]
         age, _gender, _wealth, marital = space.decode(index)
         if 18 <= age < 60:

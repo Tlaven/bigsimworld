@@ -41,7 +41,8 @@ class SparseCounts:
         return self._data.items()
 
     def sum(self):
-        return sum(self._data.values())
+        # 按索引升序求和：浮点累加序影响末位，遍历序纪律见 transitions.py 模块文档
+        return sum(self._data[index] for index in sorted(self._data))
 
 
 class Measure:
@@ -84,7 +85,7 @@ class Measure:
         """分布里的财富质量 = ``Σ count × 桶中心``（不含池）。O(占用桶数)。"""
         space = self.space
         total = 0.0
-        for index in self.occupied:
+        for index in sorted(self.occupied):
             total += self.counts[index] * space.wealth_value(space.decode(index)[2])
         return total
 
@@ -142,7 +143,7 @@ def measure_to_payload(measure):
     return {
         "size": measure.space.size,
         "cells": [[index, round(float(measure.counts[index]), 6)]
-                  for index in measure.occupied if measure.counts[index] > 0],
+                  for index in sorted(measure.occupied) if measure.counts[index] > 0],
         "transfer_pool": round(float(measure.transfer_pool), 6),
         "conversion_residual": round(float(measure.conversion_residual), 6),
         "marriage_credit": round(float(measure.marriage_credit), 6),

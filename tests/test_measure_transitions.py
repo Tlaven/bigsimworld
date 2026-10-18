@@ -105,3 +105,53 @@ def test_inheritance_keeps_mass_when_recipient_is_at_wealth_ceiling():
     assert m.counts[index] == 1.0                          # 桶没动（触顶）
     assert m.yearly_inherited[30] == 2500.0                # 未支付 ⇒ 全额留池
     assert abs(_wealth_mass(m, space) - before) < 1e-9     # 质量守恒（曾在此损失 2000）
+
+
+def _order_variant(space, order):
+    """同一多重集、不同落桶顺序（键经同槽碰撞探测：构造顺序确实改变 set 迭代序）。
+
+    附一个**足够大**的继承段池——清算按遍历序消耗池（`available` 递减），
+    池太小会全落在 k=0 分支、暴露不了顺序敏感。"""
+    m = Measure(space)
+    items = []
+    for age in (30, 45, 70):
+        for gender in (0, 1):
+            for step in range(8):
+                for marital in (0, 1):
+                    items.append((space.encode(age, gender, 10 + 64 * step, marital),
+                                  float(3 + step)))
+    items.sort()
+    if order == "desc":
+        items.reverse()
+    for index, count in items:
+        m.add(index, count)
+    m.yearly_inherited[45] = 1_000_000.0
+    m.transfer_pool = 12345.0
+    return m
+
+
+def test_flows_are_construction_order_invariant():
+    """同一分布、不同构造顺序 ⇒ 演化后**逐位一致**。
+
+    遍历序纪律（engineering-spec §9）：结算/支付按遍历序消耗池（`distribute_pool`
+    的 `available` 递减），且浮点累加序影响末位——所有对 `occupied` 的循环必须
+    按桶索引升序。否则"同一分布、换个构造顺序"就能得到不同的未来。"""
+    from app.core.measure.engine import MeanFieldEngine
+
+    space = StateSpace()
+    asc = _order_variant(space, "asc")
+    desc = _order_variant(space, "desc")
+    assert list(asc.occupied) != list(desc.occupied)      # 测试有效性：迭代序确实不同
+    assert ({index: asc.counts[index] for index in asc.occupied}
+            == {index: desc.counts[index] for index in desc.occupied})
+
+    first = MeanFieldEngine(space=space, measure=asc, flows=T.FULL_FLOWS)
+    second = MeanFieldEngine(space=space, measure=desc, flows=T.FULL_FLOWS)
+    first.run_until(720)
+    second.run_until(720)
+    T.settle_transfer_pool(first.measure, 720)
+    T.settle_transfer_pool(second.measure, 720)
+
+    assert dict(first.measure.counts.items()) == dict(second.measure.counts.items())
+    assert first.measure.yearly_inherited == second.measure.yearly_inherited
+    assert first.measure.transfer_pool == second.measure.transfer_pool

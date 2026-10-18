@@ -117,7 +117,8 @@ class IndividualWindow:
     def materialize_sample(self, n):
         """按测度分布无放回抽取 n 个个体，物化为真角色。"""
         space = self.space
-        ids = list(self.measure.occupied)
+        # 按索引升序取候选：采样消耗随机数，候选顺序必须 canonical（遍历序纪律）
+        ids = sorted(self.measure.occupied)
         weights = [self.measure.counts[i] for i in ids]
         total = sum(weights)
         made = 0

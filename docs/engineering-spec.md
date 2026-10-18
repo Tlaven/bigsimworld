@@ -191,6 +191,8 @@ W = Σ_测度 [ count×桶中心 + transfer_pool + conversion_residual + Σ year
 
 **确定性 vs 自适应（`SIM_SEED`）**：默认每 tick 按**实测墙钟负载** `feedback` 调 `budget_leaves`，在本机预算内尽量多留显名者——代价是"规则"依赖机器速度，**同种子不可复现**。设 `SIM_SEED` 即进入**确定性模式**：固定随机种子并跳过负载反馈（`budget_leaves` 恒定 = capacity），换取"同种子 + 同口径（mode/capacity/population）⟹ 同发展"。二者互斥，取舍由运行者定：要复现/回放就设种子，要按机器吃满预算就不设。注意 `SIM_RESUME=1` 以快照为准，不参与种子重演。
 
+**遍历序纪律（算子级）**：凡迭代测度占用桶的代码一律按**桶索引升序**（`sorted(occupied)`；批量移动按目标索引升序插入）。理由：继承清算 / 池投递按遍历序消耗余额（顺序决定每桶拿多少），且浮点累加序影响末位——"同一分布、换个构造顺序"必须得到**逐位一致**的未来（`SIM_SEED` 复现与快照接续的隐性前提）。由 `tests/test_measure_transitions.py::test_flows_are_construction_order_invariant` 守。
+
 **交互规则**（第 9 缝，默认空）：第一条 = **跨分辨率婚配** `MarriageRule`（`target="cluster"` 缺省 /
 `"measure"` = 大众婚配：窗口单身 × 全局测度匿名单身），`SIM_CHANNEL_MARRIAGE=1|mass` 才注册（单值互斥）。
 规则**只声明意图**，守恒/建边/配额/宽限期由通道保证。
