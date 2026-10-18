@@ -34,8 +34,8 @@ RECONSTRUCTIBLE = frozenset({"age", "gender", "wealth", "marital"})
 _FIELD_DIMENSION = {"age": "age", "gender": "gender",
                     "wealth_bucket": "wealth", "marital": "marital"}
 
-_ORIGIN_SIDE = {"character": 0, "cluster": 1}
-_SCOPE_TYPE = {"cluster": 0, "window": 1}
+_ORIGIN_SIDE = {"character": 0, "cluster": 1, "measure": 2}
+_SCOPE_TYPE = {"cluster": 0, "window": 1, "measure": 2}
 
 
 # ---------------------------------------------------------------- 匹配 / 意图
@@ -110,12 +110,13 @@ def compile_match(match: Match, space, extraction: bool = False):
 class Intent:
     """通道的唯一输入形态。``origin`` = 发起者，``scope`` = 对手侧范围。
 
+    粗侧有两种形态：共演单元（``("cluster", cid)``）与全局测度（``("measure",)``，N2-8）。
     ``op`` 选定原子：``"bind"``（缺省，有身份，N2-1）/ ``"transfer"``（无身份质量移动，N2-6）。
     """
 
     kind: str
-    origin: tuple                      # ("character", rid) | ("cluster", cid)
-    scope: tuple                       # ("cluster", cid)  | ("window",)
+    origin: tuple                      # ("character", rid) | ("cluster", cid) | ("measure",)
+    scope: tuple                       # ("cluster", cid)  | ("window",)      | ("measure",)
     match: Match
     payload: dict = field(default_factory=dict)
     op: str = "bind"                   # "bind" | "transfer"
@@ -135,7 +136,7 @@ class ChannelRecord:
     initiator_id: int | None = None
     new_id: int | None = None
     spouse_id: int | None = None        # 仅双人析出（N2-5）：配偶 id（`new_id` 记 `a`）
-    coarse_id: int | None = None
+    coarse_id: int | None = None        # 析出源簇；None = 全局测度（N2-8）或簇已回收 ⇒ unbind 折回全局测度
     spouse_cell: int | None = None      # 仅双人析出的 `unbind`：配偶的折算目标桶
     op: str = "bind"                    # "bind" | "transfer"（N2-6）
     wealth_delta: float = 0.0           # transfer ok：以**窗口个体**为口径（付 = 负、收 = 正）
@@ -260,24 +261,30 @@ class InteractionChannel:
         if intent.op not in ("bind", "transfer"):
             return drop("dropped:bad_op")
 
-        # 解析两侧：coarse 簇（必须是 level==0）+ 窗口侧角色
+        # 解析两侧：coarse 侧（簇且必须 level==0，或**全局测度**——N2-8）+ 窗口侧角色
         sides = self._resolve_sides(intent)
         if sides is None:
             return drop("dropped:stale")
-        cluster, counterpart = sides
-        engine = cluster.state.get("engine")
-        if engine is None:
-            return drop("dropped:stale")
-        mini = engine.measure
+        cluster, counterpart = sides      # cluster=None ⇒ 全局测度（N2-8）
+        if cluster is None:
+            mini = self.window.measure
+        else:
+            engine = cluster.state.get("engine")
+            if engine is None:
+                return drop("dropped:stale")
+            mini = engine.measure
 
         if intent.op == "transfer":          # —— 质量侧（N2-6）：不占配额、不建边 ——
+            if cluster is None:              # 范围声明：transfer 不支持全局测度寻址（N2-8 / ADR-008）
+                return drop("dropped:stale")
             return self._process_transfer(intent, tick, cluster, counterpart, mini, drop)
 
         initiator = counterpart
         # 配额闸（**`amount` 感知**，必须在 reserve 之前；N2-1 第 4 步）
         # 按"1 个"判会让双人析出在只剩 1 个名额时挤进来，事后 += 2 直接破坏不变量 7。
+        # `cap_per_cluster` 只管簇寻址；全局测度豁免它（无簇语义，N2-8 第 3 步），`cap_per_tick`/headroom 仍是硬上界。
         amount = intent.match.extraction_amount()
-        if per_cluster.get(cluster.id, 0) + amount > self.cap_per_cluster:
+        if cluster is not None and per_cluster.get(cluster.id, 0) + amount > self.cap_per_cluster:
             return drop("dropped:quota_cluster")
         if made_total + amount > self.cap_per_tick:
             return drop("dropped:quota_tick")
@@ -290,7 +297,8 @@ class InteractionChannel:
         if cell is None:
             return drop("dropped:no_match")
         self._reserved += amount
-        cluster.state["size"] = mini.total()
+        if cluster is not None:
+            cluster.state["size"] = mini.total()
 
         # 析出（成对时两个）+ 建边；任一失败 ⇒ **逆序全撤**（只回滚测度会留下幽灵 + 破坏人头守恒）
         age, gender, wealth_bucket, _marital = self.window.space.decode(cell)
@@ -309,19 +317,21 @@ class InteractionChannel:
             for character in made:                     # detach 会断掉该角色两侧的边（含 spouse）
                 self.window.detach(character.id)
             mini.add(cell, +float(amount))             # 回滚 reserve
-            cluster.state["size"] = mini.total()
+            if cluster is not None:
+                cluster.state["size"] = mini.total()
             self._reserved -= amount
             return drop("dropped:error", cell=cell, note=f"{type(exc).__name__}: {exc}")
 
-        # 宽限期登记（**建边成功之后**：失败的意图不该给簇一段宽限期）
-        self.recently_active[cluster.id] = tick
-        per_cluster[cluster.id] = per_cluster.get(cluster.id, 0) + amount
+        # 宽限期登记（**建边成功之后**：失败的意图不该给簇一段宽限期）；全局测度不登记（N2-8 第 5 步）
+        if cluster is not None:
+            self.recently_active[cluster.id] = tick
+            per_cluster[cluster.id] = per_cluster.get(cluster.id, 0) + amount
         self._reserved -= amount
         return (ChannelRecord(tick, "ok", intent.kind, intent.origin, intent.scope,
                               cell=cell, delta_mass=-float(amount),
                               initiator_id=initiator.id, new_id=head.id,
                               spouse_id=made[1].id if amount == 2 else None,
-                              coarse_id=cluster.id), amount)
+                              coarse_id=cluster.id if cluster is not None else None), amount)
 
     # ------------------------------------------------------------ 质量侧 transfer（N2-6）
 
@@ -428,9 +438,11 @@ class InteractionChannel:
     # ------------------------------------------------------------ 两侧解析
 
     def _resolve_sides(self, intent: Intent):
-        """→ ``(coarse_cluster, initiator_character)``；解析不出返回 None。
+        """→ ``(coarse | None, counterpart)``；解析不出返回 None。
 
         析出永远发生在 **coarse 侧**（唯一没有身份的一侧）：R→C 析出对手方；C→R 析出发起者。
+        粗侧有两种形态（N2-8）：共演单元（``cluster``）与**全局测度**（``None``）——
+        **元组内的 ``None`` = 全局测度；整个返回值 ``None`` = 解析失败**（这两个 None 别混）。
         """
         origin_kind, scope_kind = intent.origin[0], intent.scope[0]
         origin_id = intent.origin[1] if len(intent.origin) > 1 else None
@@ -442,23 +454,43 @@ class InteractionChannel:
             cluster = self.store.clusters.get(origin_id)
             if cluster is None or cluster.level != 0:
                 return None
-            pred = compile_match(intent.match, self.window.space)
-            candidates = sorted((c for c in self.window.characters.values()
-                                 if pred(self._bucket_of(c))), key=lambda c: c.id)
-            if not candidates:
+            counterpart = self._pick_window_counterpart(intent.match)
+            if counterpart is None:
                 return None
-            return cluster, candidates[0]
+            return cluster, counterpart
 
         if origin_kind == "character":
-            if scope_kind != "cluster":
-                return None
             initiator = self.window.characters.get(origin_id)
-            cluster = self.store.clusters.get(scope_id)
-            if initiator is None or cluster is None or cluster.level != 0:
+            if initiator is None:
                 return None
-            return cluster, initiator
+            if scope_kind == "cluster":
+                cluster = self.store.clusters.get(scope_id)
+                if cluster is None or cluster.level != 0:
+                    return None
+                return cluster, initiator
+            if scope_kind == "measure":            # N2-8：R→M —— 对手侧是全局测度（析出对手方）
+                return None, initiator
+            return None
+
+        if origin_kind == "measure":               # N2-8：M→R —— 发起方是全局测度（析出发起者代表）
+            if scope_kind != "window":
+                return None
+            counterpart = self._pick_window_counterpart(intent.match)
+            if counterpart is None:
+                return None
+            return None, counterpart
 
         return None
+
+    def _pick_window_counterpart(self, match: Match):
+        """按 `Match` 从窗口角色中选对手方：**`Character.id` 升序取第一个匹配**（C→R / M→R 共用）。
+
+        不得依赖窗口 `dict` 的迭代序（不变量 5）。无匹配 ⇒ 返回 None。
+        """
+        pred = compile_match(match, self.window.space)
+        candidates = sorted((c for c in self.window.characters.values()
+                             if pred(self._bucket_of(c))), key=lambda c: c.id)
+        return candidates[0] if candidates else None
 
     def _bucket_of(self, character) -> int:
         """把窗口角色折算成桶索引（C→R 域的谓词输入）。"""
@@ -512,7 +544,8 @@ class InteractionChannel:
         engine = cluster.state.get("engine") if cluster is not None else None
         for who, index in folded:
             target = engine.measure if engine is not None else self.window.measure
-            target.add(index, 1.0)              # 簇在 ⇒ 折回簇；已回收 ⇒ 折回全局测度（人头不变）
+            # 簇在 ⇒ 折回簇；已回收 / `coarse_id=None`（measure 寻址，N2-8）⇒ 折回全局测度（人头不变）
+            target.add(index, 1.0)
             # 精确 wealth → 桶中心：残差记到**同一个**目标测度（符号账，ADR-006 / N2-5）
             record_conversion(target, self.window.space, who.wealth)
         if engine is not None:

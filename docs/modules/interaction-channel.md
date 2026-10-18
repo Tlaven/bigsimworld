@@ -3,9 +3,10 @@
 > 本文档定位：做**跨分辨率直接交互**模块工作时加载，可独立喂给 AI。
 > 三段式：[是什么] / [为什么] / [不变量]。模板来源 [`docs-templates/module-doc.md`](../../docs-templates/module-doc.md)。
 > **本模块已交付：两个原子（身份侧 `bind`/`unbind` = N2-1/N2-4/N2-5；质量侧 `transfer` = N2-6）
-> + 第一条交互规则（跨分辨率婚配 = N2-7，默认关）**。
+> + 第一条交互规则（跨分辨率婚配 = N2-7，默认关）+ 全局测度寻址（= N2-8）**。
 > 规则**默认不注册**（`RULES` 空）⇒ 生产路径的权威数字不变；`SIM_CHANNEL_MARRIAGE=1` 才开启。
-> `transfer` 见 [`adr-005`](../decisions/adr-005-transfer-quality-side.md)，婚配规则见 [`adr-007`](../decisions/adr-007-cross-resolution-marriage.md)。
+> `transfer` 见 [`adr-005`](../decisions/adr-005-transfer-quality-side.md)，婚配规则见 [`adr-007`](../decisions/adr-007-cross-resolution-marriage.md)，
+> 全局测度寻址见 [`adr-008`](../decisions/adr-008-global-measure-addressing.md)。
 
 ---
 
@@ -150,21 +151,24 @@ R→C 精确借记入池，C→R 精确支付（池不够就向下整桶清算�
 @dataclass(frozen=True)
 class Intent:
     kind: str          # 规则名（"marry"/"befriend"/…）；通道不解释，仅透传与记账
-    origin: tuple      # 发起者：("character", rid) 或 ("cluster", cid)
-    scope: tuple       # 对手侧范围：("cluster", cid) 或 ("window",)
+    origin: tuple      # 发起者：("character", rid) | ("cluster", cid) | ("measure",)（全局测度）
+    scope: tuple       # 对手侧范围：("cluster", cid) | ("window",) | ("measure",)（全局测度）
     match: Match       # 可匹配性（作用于**对手侧**）
     payload: dict = field(default_factory=dict)   # 规则私有，通道透传
 ```
 
 `bind` 的推导（唯一一条路径，两个方向共用）：
 
-1. **coarse 侧** = `origin` 若是 `("cluster", …)` 则取 `origin`，否则取 `scope`（此时 `scope` 必须是 `("cluster", …)`）。
-2. **resolved 侧发起者** = `origin` 若是 `("character", …)` 则该角色本人；否则（C 侧发起）在 `scope=("window",)` 里
-   按 `match` 选出**一个已有窗口角色**作为对手方。
-3. **析出**永远在 **coarse 侧**（唯一没有身份的一侧）：析出整人（1 个；`Match(marital=1)` 时**成对 2 个**，见 N2-5）→ 得到新 `Character`。
+1. **coarse 侧** = `origin` / `scope` 中**粗侧形态的那一个**（`("cluster", cid)` 或 `("measure",)` 全局测度）：
+   `origin` 是粗侧 ⇒ 取 `origin`；否则取 `scope`（此时 `scope` 必须是粗侧）。
+   **粗侧有两种形态**——共演单元（簇）与全局测度（见 N2-8 / [`adr-008`](../decisions/adr-008-global-measure-addressing.md)）。
+2. **resolved 侧发起者** = `origin` 若是 `("character", …)` 则该角色本人；否则（C 侧发起 / `("measure",)` 发起）在
+   `scope=("window",)` 里按 `match` 选出**一个已有窗口角色**作为对手方。
+3. **析出**永远在 **coarse 侧**（唯一没有身份的一侧——簇或全局测度）：析出整人（1 个；`Match(marital=1)` 时**成对 2 个**，见 N2-5）→ 得到新 `Character`。
 4. **建边**：`link(发起者角色, 析出的新角色, kind)`——两者此时**都已是 `Character`**。
    - R→C：发起者是 R，析出的是**对手方**；
-   - C→R：析出的是**发起者**（代表该簇），对手方是第 2 步选中的窗口角色。
+   - C→R：析出的是**发起者**（代表该簇），对手方是第 2 步选中的窗口角色；
+   - R→M / M→R（`scope` / `origin` = `("measure",)`）：与 R→C / C→R **完全同构**——全局测度只是 coarse 侧的第二种形态（步骤见 N2-8）。
 
 于是 ②③ 是一套实现、一套验收。
 
@@ -172,7 +176,7 @@ class Intent:
 规则作者拿不到绕过 `reserve → commit → rollback` 的入口，所以"忘记守恒"在结构上不可能发生。
 
 ### 决策 4：寻址只能是谓词式，且两侧共用同一个谓词
-- 粗侧**没有 id**（C 是分布）⇒ 意图只能携带 `Match`，id 只在 `extract` **之后**才存在。
+- 粗侧**没有 id**（两种形态——共演单元与全局测度——都是分布）⇒ 意图只能携带 `Match`，id 只在 `extract` **之后**才存在。
   **先设计 id 式 API 一定会推倒重来。**
 - `Match` 是**声明**，其字段（**闭区间**，两端都含）：
   ```python
@@ -253,6 +257,8 @@ class Intent:
 7. **配额有界** `[强制]`：单簇单 tick 析出 ≤ `cap_per_cluster`；单 tick 总析出 ≤ `cap_per_tick`；
    窗口不超 `capacity`。**按人计，且闸必须 `amount` 感知**（N2-1 第 4 步）——否则双人析出会越过上界。
    **取值**：`cap_per_cluster=2`、`cap_per_tick=8`（常数）。
+   **附注（N2-8 / ADR-008）**：`cap_per_cluster` 只约束**簇寻址**；**全局测度寻址豁免**它（无簇语义），
+   只受 `cap_per_tick` 与窗口 headroom——两者对 measure 寻址**照旧是硬上界**。
 8. **可对账** `[强制]`：每条通道操作（含每次丢弃）在账本有且仅有一条记录；逐条可核平。
 9. **财富守恒（transfer 口径）** `[强制]`：
    `W = Σ 全局测度 + Σ 每个簇 mini + Σ transfer_pool（全局与各 mini） + Σ yearly_inherited + Σ 窗口个体 wealth`
@@ -711,15 +717,87 @@ class ChannelRecord:
    **可达性边界（2026-10-18 校准）**：`scope` 只支持 coarse **簇** ⇒ 规则只能同"族内单身"成婚；
    生产样态下 coarse 族几乎不含 18–59 未婚桶 ⇒ crossings ≈ 0。大多数单身在**全局测度**里，
    而通道目前**不能寻址全局测度**——要让这条通道改变宏观，得先做那个扩展（独立 ADR）。
+   **2026-10-18 更新**：该扩展已落地（N2-8 / [`adr-008`](../decisions/adr-008-global-measure-addressing.md)，
+   `scope`/`origin` 加 `("measure",)`）；**规则侧是否把大众纳入候选仍留独立决策**——本轮不改规则。
    析出的配偶**不进 `member_ids`**、也不建 `acquaintance` 网 ⇒ 只有 1 条 `spouse` 边（嵌入度 2，高于浮层单身但低于有网络者），
    容量吃紧时可能较早退场——MVP 接受，记为边界。
+
+**N2-8 · 全局测度寻址（`("measure",)` scope / origin）**（2026-10-18 拍板并实现）
+
+**为什么**：见 [`adr-008`](../decisions/adr-008-global-measure-addressing.md)。一句话——ADR-007 校准实测：
+生产样态下大多数单身在**全局测度**里，而通道 `scope` 只支持 `("cluster", cid)` ⇒ crossings ≈ 0。
+本单元让**粗侧多一种形态**：共演单元（簇）与全局测度。两者本质同构（"没有 id 的分布"，只能谓词式寻址），
+但全局测度**不是**共演单元——不进 `level` / 配额 / 注意力 / 回收 / 宽限期。
+
+**对象**
+
+- `scope=("measure",)`（**R→M**：窗口角色 × 大众）与 `origin=("measure",)`（**M→R**：大众代表 × 窗口角色）。
+  `Match` 语义与校验照旧（谓词式寻址不变；`marital=1` 照旧成对析出）。
+- 全局测度 = `window.measure`（== `store.measure`）。
+- **只对 `bind` 生效**；`transfer` 遇 `("measure",)` ⇒ `dropped:stale`（范围声明，零副作用）。
+
+**步骤级说明**（相对 N2-1 的 δ）
+
+1. **解析（`_resolve_sides`）**：返回值 `(coarse | None, counterpart)`——**元组内 `coarse=None` ⇒ 全局测度**；
+   **整体返回 `None` ⇒ 解析失败**（`dropped:stale`）。这两个 None 别混（陷阱 1）。
+   - **R→M**：`origin=("character", rid)` + `scope=("measure",)` ⇒ initiator 必须在窗口 ⇒ `(None, initiator)`。
+   - **M→R**：`origin=("measure",)` + `scope=("window",)` ⇒ 窗口对手按 `Match` 过滤 + `Character.id` 升序取首个
+     （与 C→R 完全同构）⇒ `(None, counterpart)`。
+   - 非法组合（`cluster`×`measure`、`measure`×`cluster`、`measure`×`measure`，以及任何未列出的组合）⇒ 整体 `None`。
+   - **失败落点**（与 C→R 同构）：R→M 的 initiator 不在窗口、M→R 的窗口无匹配对手 ⇒ 整体 `None` ⇒ `dropped:stale`。
+2. **mini 选择**：`coarse is None` ⇒ `mini = window.measure`（**不查** `engine` / `level`）；否则走现有 `engine.measure` 路径。
+3. **配额**：`cap_per_cluster` 仅对**簇寻址**检查；全局测度**豁免**（无簇语义）。
+   `cap_per_tick` / 窗口 headroom **照旧**是硬上界。**不引入 `cap_per_measure`**。
+4. **reserve / 析出 / 建边 / 回滚**：与 N2-1 **完全同路径**——`store.extract(mini, predicate, amount)` 对 mini 无簇依赖，
+   直接传 `window.measure`（无需改 `cluster.py` 一行）。成对析出（N2-5）与逆序全撤照旧。
+5. **宽限期**：全局测度寻址**不登记** `recently_active`（它不换档、不回收——没有需要冻结的分辨率）。
+6. **账本**：`coarse_id=None`（= "折算目标为全局测度"）；`origin` / `scope` 两字段**原样透传意图**（不是"粗侧地址"）——
+   R→M 记 `scope=("measure",)`；**M→R 记 `origin=("measure",)`、`scope=("window",)`**；
+   其余字段同 N2-1 / N2-5（`initiator_id` 恒为**窗口侧**那一端——R→M 记 `R`，M→R 记 `W`）。
+7. **`unbind`**：**无需新路径**——`record.coarse_id=None ⇒ store.clusters.get(None)=None ⇒ 折算回 window.measure`，
+   正是既有的"簇已被回收"回退路径。两个来源（measure 寻址 / 簇已回收）殊途同归：**折算目标都是全局测度**。
+8. **排序**：`_ORIGIN_SIDE` / `_SCOPE_TYPE` 的 `"measure"` 取 2（处理序最后；无 id 视 0）。确定性纪律照旧（不变量 5）。
+
+**精确例子**
+
+- **R→M**：全局测度有桶 `count=3 @ encode(30, 0, b, 0)`；R（30 岁、未婚、在窗口）
+  ⇒ 全局测度该桶 `3 → 2`；`R—N` 双向边；账本 `ok`（`scope=("measure",)`、`coarse_id=None`、`delta_mass=-1.0`）；人头守恒。
+- **M→R**：`origin=("measure",)`、`scope=("window",)`、`Match(gender=1)`，窗口有 3 名女性
+  ⇒ 对手方 = `id` 最小的女性 `W`；从**全局测度**析出代表 `a`；`link(a, W, kind)`；账本 `initiator_id=W`（窗口侧）。
+- **成对**：全局测度桶 `count=2.0 @ marital=1` ⇒ 成对析出（两人 + `spouse` 边），`delta_mass=-2.0`；桶只有 `1.0` ⇒ `dropped:no_match`。
+- **配额**：同 tick 3 个 R→M 意图（各 1 人）⇒ 3 个**全部成功**（不受 `cap_per_cluster=2`）；第 9 人起 `dropped:quota_tick`。
+- **unbind**：`unbind(new_id)` ⇒ 断链 + 该角色按**当前**属性折算回**全局测度**（与"簇已回收"同一路径）。
+
+**验收**：`python -m pytest tests/test_channel.py -q` → 全绿，覆盖：
+`test_measure_scope_extracts_from_global_measure`（R→M 守恒 + 边 + 账本 `coarse_id=None`）、
+`test_measure_scope_paired_extraction`（成对 + 桶仅 1 人 `dropped:no_match`）、
+`test_measure_unbind_folds_back_to_global_measure`、`test_m_to_r_extracts_initiator_from_global_measure`、
+`test_measure_scope_skips_per_cluster_gate`（3 意图全过 + 第 9 人 `quota_tick`）、
+`test_transfer_with_measure_scope_is_dropped_as_stale`、`test_measure_bind_rolls_back_fully_when_link_fails`；
+**长跑**（真实 `ResolutionManager.step` 循环）：探针规则含 measure-scope 意图 ⇒ 逐次操作守恒 + 账本确定性，
+且**断言该路径确实被执行到**（否则断言是空的）。
+`python -m bench.audit_ledger --resolution --n 3000 --steps 2000 --capacity 300` → 逐算子 `identity error = 0`（**惰性不变**）。
+**mutation**（证测试有效）：① measure 分支误用簇 mini / 去掉扣减 ⇒ 守恒用例变红；
+② `cap_per_cluster` 闸不豁免 measure ⇒ 配额用例变红；③ 账本 `coarse_id` 误填非 None ⇒ unbind 折回用例变红。
+
+**陷阱**
+
+1. **两个 None 别混**：`_resolve_sides` 的 `(None, counterpart)` = 全局测度；`None`（整体）= 解析失败。
+   写反 ⇒ R→M 全变 `dropped:stale`，或 stale 意图拿到 `window.measure` 乱扣。
+2. **别做伪簇**：全局测度不进 `store.clusters`、不设 `level`、不登记宽限、不参与注意力/回收——它不是共演单元（ADR-008 方案 B）。
+3. **别顺手开 transfer**：`transfer` + `("measure",)` 是显式范围外（`dropped:stale`）；
+   M→R 支付要**清算全局分布**，属新审计面（独立决策）。
+4. **配额豁免只对 `cap_per_cluster`**：`cap_per_tick` / headroom **不得**豁免——否则 measure 寻址会成为绕过通道吞吐上界的旁路。
+5. **析出者不进任何 `member_ids`**（同 N2-1 第 7 步）——他是"与大众相连的具名个体"，不属于任何簇。
+6. **M→R 的 `Match` 是双域的**（窗口对手选取 + 析出桶，与 C→R 一致）——用"只有大众侧才有的属性"（如极端年龄）写 `Match`
+   会让**窗口侧无匹配** ⇒ `dropped:stale`；规则作者要保证两侧都可满足。
 
 **N2-2 · 谓词式寻址与可重建维度守卫**
 
 1. `Match` 是**声明**（见决策 4 的字段表），**不是任意闭包**——闭包无法静态校验"是否引用不可重建维度"，
    也无法预估配额与确定排序。
-2. `compile(match, space)` 返回 `pred(index) -> bool`。R→C 时只作用于 `measure.occupied`（~1.4e3 桶）；
-   C→R 时作用于窗口角色的折算桶索引集（O(`capacity`)）。
+2. `compile(match, space)` 返回 `pred(index) -> bool`。R→C / R→M 时只作用于 coarse 侧的 `occupied`
+   （簇 mini 或全局测度，~1.4e3 桶）；C→R / M→R 时作用于窗口角色的折算桶索引集（O(`capacity`)）。
    **绝不枚举整个状态空间**（默认 2.18e6 桶）。
 3. 若 `match` 引用了 ∉ `RECONSTRUCTIBLE` 的维度 ⇒ **在 `compile` 抛错**（不变量 4），
    不得留到运行期静默失配。

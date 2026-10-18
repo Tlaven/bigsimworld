@@ -557,28 +557,253 @@ def test_bound_cluster_survives_recycle_within_grace():
     assert cluster.id not in mgr.store.clusters       # 过期即回收（attention=0 < dissolve_floor）
 
 
+# ------------------------------------------------------------------ N2-8：全局测度寻址
+
+def _gm_cell(engine, count=1.0, age=119, gender=0, wealth=10, marital=0):
+    """往**全局测度**放一个已知桶。
+
+    `age=119` 超出夹具初始分布（`make_characters` 的 `age_range=(0, 80)`）⇒ 它是**唯一**候选桶，
+    可精确断言 `cell`；前提由 `_assert_no_native_hit` 显式守护（夹具漂移时测试变红而非静默测错）。
+    """
+    cell = engine.window.space.encode(age, gender, wealth, marital)
+    engine.window.measure.add(cell, count)
+    return cell
+
+
+def _assert_no_native_hit(engine, match):
+    """前提检查：全局测度中**原生**不含满足 `Match` 且 `count ≥ 1` 的桶。"""
+    pred = compile_match(match, engine.window.space, extraction=True)
+    measure = engine.window.measure
+    assert not [i for i in measure.occupied
+                if measure.counts[i] >= 1.0 and pred(i)], "夹具前提被破坏：原生已有匹配桶"
+
+
+def test_measure_scope_extracts_from_global_measure():
+    """R→M：从**全局测度**析出 1 人（`coarse_id=None`、`scope=("measure",)`）；人头守恒。"""
+    engine = _engine()
+    channel = engine.resolution.channel
+    measure = engine.window.measure
+    match = Match(age=(119, 119), gender=0)
+    _assert_no_native_hit(engine, match)
+    cell = _gm_cell(engine, count=1.0)
+    r = sorted(engine.window.characters.values(), key=lambda c: c.id)[0]
+
+    gm_before = measure.total()
+    pop_before = engine.population()
+    channel.submit(Intent(kind="probe", origin=("character", r.id),
+                          scope=("measure",), match=match))
+    report = channel.run(_ctx(engine, tick=1))
+
+    assert report["made"] == 1
+    assert measure.total() == pytest.approx(gm_before - 1.0)     # 质量离开**全局测度**
+    assert measure.counts[cell] == pytest.approx(0.0)
+    assert abs(engine.population() - pop_before) < 1e-9          # 人头守恒
+
+    record = _last_ok(channel)
+    assert record.scope == ("measure",)
+    assert record.coarse_id is None
+    assert record.cell == cell
+    assert record.delta_mass == -1.0
+    assert record.initiator_id == r.id
+    assert channel._reserved == 0
+    new = engine.window.characters[record.new_id]
+    assert new in r.relationships["probe"] and r in new.relationships["probe"]
+
+
+def test_m_to_r_extracts_initiator_from_global_measure():
+    """M→R：发起方 = 全局测度（析出代表）；窗口对手按 `id` 升序取首个；账本**原样透传意图**。"""
+    engine = _engine()
+    channel = engine.resolution.channel
+    measure = engine.window.measure
+    females = sorted((c for c in engine.window.characters.values() if c.gender == "female"),
+                     key=lambda c: c.id)
+    assert females, "需要窗口内有女性"
+    w = females[0]
+
+    gm_before = measure.total()
+    pop_before = engine.population()
+    channel.submit(Intent(kind="probe", origin=("measure",),
+                          scope=("window",), match=Match(gender=1)))
+    report = channel.run(_ctx(engine, tick=1))
+
+    assert report["made"] == 1
+    assert measure.total() == pytest.approx(gm_before - 1.0)     # 质量离开全局测度
+    assert abs(engine.population() - pop_before) < 1e-9          # 人头守恒
+
+    record = _last_ok(channel)
+    assert record.origin == ("measure",)           # 账本原样透传：origin=measure
+    assert record.scope == ("window",)             # ……scope=window（不是"粗侧地址"）
+    assert record.coarse_id is None
+    assert record.initiator_id == w.id             # 账本 initiator_id 恒为**窗口侧**那一端
+    new = engine.window.characters[record.new_id]
+    assert new.gender == "female"                  # 析出域谓词 = 同一 `Match`
+    assert new in w.relationships["probe"] and w in new.relationships["probe"]
+
+
+def test_measure_scope_paired_extraction():
+    """`marital=1` 在全局测度上照旧**成对析出**；桶仅 1 人 ⇒ `dropped:no_match`。"""
+    engine = _engine()
+    channel = engine.resolution.channel
+    measure = engine.window.measure
+    match = Match(age=(119, 119), marital=1)
+    _assert_no_native_hit(engine, match)
+    cell = _gm_cell(engine, count=2.0, marital=1)
+    r = sorted(engine.window.characters.values(), key=lambda c: c.id)[0]
+
+    gm_before = measure.total()
+    pop_before = engine.population()
+    channel.submit(Intent(kind="probe", origin=("character", r.id),
+                          scope=("measure",), match=match))
+    report = channel.run(_ctx(engine, tick=1))
+
+    assert report["made"] == 2
+    assert measure.total() == pytest.approx(gm_before - 2.0)
+    assert measure.counts[cell] == pytest.approx(0.0)
+    assert abs(engine.population() - pop_before) < 1e-9
+    record = _last_ok(channel)
+    assert record.delta_mass == -2.0 and record.coarse_id is None
+    a = engine.window.characters[record.new_id]
+    b = engine.window.characters[record.spouse_id]
+    assert a in b.relationships["spouse"] and b in a.relationships["spouse"]
+    assert r in a.relationships["probe"] and b not in r.relationships["probe"]
+
+    # 桶里只有 1 人 ⇒ 凑不出一对 ⇒ no_match（宁可丢弃也不造假单身）
+    engine2 = _engine()
+    channel2 = engine2.resolution.channel
+    _assert_no_native_hit(engine2, match)
+    _gm_cell(engine2, count=1.0, marital=1)
+    r2 = sorted(engine2.window.characters.values(), key=lambda c: c.id)[0]
+    channel2.submit(Intent(kind="probe", origin=("character", r2.id),
+                           scope=("measure",), match=match))
+    report2 = channel2.run(_ctx(engine2, tick=1))
+    assert report2["made"] == 0
+    assert [rec.status for rec in channel2.ledger] == ["dropped:no_match"]
+
+
+def test_measure_unbind_folds_back_to_global_measure():
+    """`coarse_id=None` 走既有"簇已回收"回退路径：断链 + 按**当前**属性折算回全局测度。"""
+    engine = _engine()
+    channel = engine.resolution.channel
+    measure = engine.window.measure
+    match = Match(age=(119, 119), gender=0)
+    _assert_no_native_hit(engine, match)
+    cell = _gm_cell(engine, count=1.0)
+    r = sorted(engine.window.characters.values(), key=lambda c: c.id)[0]
+
+    channel.submit(Intent(kind="probe", origin=("character", r.id),
+                          scope=("measure",), match=match))
+    channel.run(_ctx(engine, tick=1))
+    newcomer_id = _last_ok(channel).new_id
+    gm_after_bind = measure.total()
+
+    assert channel.unbind(newcomer_id, tick=1) is True
+
+    assert measure.counts[cell] == pytest.approx(1.0)             # 同 tick：桶复原（无演化）
+    assert measure.total() == pytest.approx(gm_after_bind + 1.0)
+    assert newcomer_id not in engine.window.characters
+    unbound = _last_record(channel)
+    assert unbound.status == "unbound" and unbound.coarse_id is None
+    assert not [o for o in (r.relationships.get("probe") or [])
+                if getattr(o, "id", None) == newcomer_id]         # 无幽灵
+
+
+def test_measure_scope_skips_per_cluster_gate_but_not_per_tick():
+    """全局测度**不受** `cap_per_cluster`；`cap_per_tick` 仍是硬上界（N2-8 第 3 步）。"""
+    engine = _engine()
+    channel = engine.resolution.channel
+    match = Match(age=(119, 119), gender=0)
+    _assert_no_native_hit(engine, match)
+    _gm_cell(engine, count=10.0)                                  # 同桶 10 人
+    ids = sorted(engine.window.characters)[:3]
+
+    for rid in ids:                                               # 3 > cap_per_cluster=2 仍全成功
+        channel.submit(Intent(kind="probe", origin=("character", rid),
+                              scope=("measure",), match=match))
+    assert channel.run(_ctx(engine, tick=1))["made"] == 3
+
+    channel.cap_per_tick = 2                                      # tick 级上界照旧生效
+    for rid in ids:
+        channel.submit(Intent(kind="probe", origin=("character", rid),
+                              scope=("measure",), match=match))
+    report = channel.run(_ctx(engine, tick=2))
+    assert report["made"] == 2
+    assert report["by_status"].get("dropped:quota_tick") == 1
+
+
+def test_transfer_with_measure_scope_is_dropped_as_stale():
+    """范围声明：`transfer` 不支持全局测度寻址（N2-8 陷阱 3）——**零副作用**。"""
+    engine = _engine()
+    channel = engine.resolution.channel
+    measure = engine.window.measure
+    r = sorted(engine.window.characters.values(), key=lambda c: c.id)[0]
+    gm_before, pool_before, wealth_before = measure.total(), measure.transfer_pool, r.wealth
+
+    channel.submit(Intent(op="transfer", kind="gift", origin=("character", r.id),
+                          scope=("measure",), match=Match(), payload={"amount": 100.0}))
+    report = channel.run(_ctx(engine, tick=1))
+
+    assert report["transferred"] == 0.0
+    assert _last_record(channel).status == "dropped:stale"
+    assert measure.total() == gm_before
+    assert measure.transfer_pool == pool_before
+    assert r.wealth == wealth_before
+
+
+def test_measure_bind_rolls_back_fully_when_link_fails(monkeypatch):
+    """measure 寻址的建边失败 ⇒ **逆序全撤**：全局测度桶复原、窗口净增 0。"""
+    engine = _engine()
+    channel = engine.resolution.channel
+    measure = engine.window.measure
+    match = Match(age=(119, 119), gender=0)
+    _assert_no_native_hit(engine, match)
+    cell = _gm_cell(engine, count=1.0)
+    r = sorted(engine.window.characters.values(), key=lambda c: c.id)[0]
+    gm_before = measure.total()
+    window_before = len(engine.window.characters)
+
+    def boom(*args, **kwargs):
+        raise RuntimeError("link boom")
+
+    monkeypatch.setattr(channel_mod, "link", boom)
+
+    channel.submit(Intent(kind="probe", origin=("character", r.id),
+                          scope=("measure",), match=match))
+    report = channel.run(_ctx(engine, tick=1))
+
+    assert report["made"] == 0
+    assert report["by_status"].get("dropped:error") == 1
+    assert measure.total() == pytest.approx(gm_before)            # reserve 已回滚
+    assert measure.counts[cell] == pytest.approx(1.0)
+    assert len(engine.window.characters) == window_before         # 析出已撤销
+    assert channel._reserved == 0
+    assert "RuntimeError" in _last_record(channel).note
+
+
 # ------------------------------------------------------------------ 探针规则 + 长跑（接进真实 step 循环）
 
 class _ProbeRule:
-    """**仅测试用**的探针规则：确定性地制造 R↔C 双向意图（生产 `RULES` 恒为空）。"""
+    """**仅测试用**的探针规则：确定性地制造 R↔C 双向 / R→M（全局测度）意图（生产 `RULES` 恒为空）。"""
 
     def __init__(self, name, direction, every=5, match=None):
         self.name = name
-        self.direction = direction            # "r2c" | "c2r"
+        self.direction = direction            # "r2c" | "c2r" | "r2m"
         self.every = every
         self.match = match or Match(age=(0, 120))
 
     def offers(self, context):
         if self.every <= 0 or context.tick % self.every:
             return []
+        chars = sorted(context.window.characters.values(), key=lambda c: c.id)
+        if not chars:
+            return []
+        if self.direction == "r2m":           # N2-8：R→M（对手侧 = 全局测度，无簇依赖）
+            return [Intent(kind=self.name, origin=("character", chars[0].id),
+                           scope=("measure",), match=self.match)]
         coarse = sorted((c for c in context.store.clusters.values() if c.level == 0),
                         key=lambda c: c.id)
         if not coarse:
             return []
         cluster = coarse[0]                   # 确定性：id 最小的 coarse 簇
-        chars = sorted(context.window.characters.values(), key=lambda c: c.id)
-        if not chars:
-            return []
         if self.direction == "r2c":
             return [Intent(kind=self.name, origin=("character", chars[0].id),
                            scope=("cluster", cluster.id), match=self.match)]
@@ -591,7 +816,9 @@ def probe_rules(monkeypatch):
     rules = {"probe_r2c": _ProbeRule("probe_r2c", "r2c"),
              "probe_c2r": _ProbeRule("probe_c2r", "c2r"),
              # N2-5：成对析出也要进长跑循环（否则该路径的守恒断言是空的）
-             "probe_pair": _ProbeRule("probe_pair", "r2c", every=7, match=Match(marital=1))}
+             "probe_pair": _ProbeRule("probe_pair", "r2c", every=7, match=Match(marital=1)),
+             # N2-8：全局测度寻址也要进长跑循环
+             "probe_r2m": _ProbeRule("probe_r2m", "r2m", every=6)}
     for name, rule in rules.items():
         monkeypatch.setitem(RULES, name, rule)      # monkeypatch 自动还原 ⇒ 不影响其它测试
     return rules
@@ -652,6 +879,8 @@ def test_channel_ops_are_mass_neutral_in_long_run(probe_rules):
     assert made > 0, "探针规则没跑出任何绑定 ⇒ 这个测试是空的"
     assert any(r.status == "ok" and r.spouse_id is not None for r in channel.ledger), \
         "成对析出（N2-5）没有在长跑里被执行到 ⇒ 该路径的逐次守恒断言是空的"
+    assert any(r.status == "ok" and r.coarse_id is None for r in channel.ledger), \
+        "全局测度寻址（N2-8）没有在长跑里被执行到 ⇒ 该路径的逐次守恒断言是空的"
     assert any(r.status == "unbound" and r.spouse_id for r in channel.ledger), \
         "成对析出的 `unbind` 没有在长跑里被执行到"
     assert worst["calls"] > 0

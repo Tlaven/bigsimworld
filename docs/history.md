@@ -581,3 +581,34 @@ ADR-007 的跟进项：这条规则到底带来多少通量、要不要开？新
 3. **方案 C（挤占窗口概率保总风险）暂不做**：在一个几乎不发生的通量上做总风险守恒没有意义。
 
 对账（含方法与复现命令）见 [`reviews/2026-10-18-marriage-calibration.md`](reviews/2026-10-18-marriage-calibration.md)。
+
+### Stage 21 · 全局测度寻址（2026-10-18）
+
+Stage 20 的校准把"可达性"钉成了瓶颈：生产样态下 crossings = 0——大多数单身在**全局测度**里，
+而通道 `scope` 只支持 coarse 簇。本阶段落地 [`adr-008`](decisions/adr-008-global-measure-addressing.md)：
+给 `scope`/`origin` 加 `("measure",)`（**只 bind、双向**；规格 = N2-8）。
+
+**做法**：粗侧多一种形态——`_resolve_sides` 返回 `(coarse | None, counterpart)`，`None` ⇒ `mini = window.measure`；
+析出算子 `extract` 对 mini 无簇依赖 ⇒ 直接传全局测度（**`cluster.py` / `window.py` 零改动**）；
+`unbind` 折回全局测度的路径**已经存在**（"簇已回收"的回退）⇒ 零新代码。配额：全局测度豁免 `cap_per_cluster`
+（无簇语义），`cap_per_tick` / headroom 仍是硬上界；宽限期不登记（全局测度不换档、不回收）。
+`transfer` 遇 `("measure",)` ⇒ `dropped:stale`（范围声明）。**规则侧不跟**——"大众婚配"等用法留独立决策；
+本轮用探针规则（`r2m` 方向）验收，宏观权威数字不变。
+
+**teach-back（1 轮通过）**：验证者唯一实质意见——账本 `scope` 字段表述有歧义
+（M→R 记的是**原样透传**的 `origin=("measure",)` / `scope=("window",)`，不是"粗侧地址"）——已修；
+另补"失败落点"与"未列组合"的显式声明。对账（含两次基础设施故障的过程备注）见
+[`reviews/2026-10-18-measure-addressing-teachback.md`](reviews/2026-10-18-measure-addressing-teachback.md)。
+
+**验收（本机实测，2026-10-18）**：
+
+| 项 | 结果 |
+| --- | --- |
+| `pytest -q` | **220 passed**（+7：`tests/test_channel.py` 的 N2-8 用例；探针加 `r2m`） |
+| `python -m bench.audit_ledger --resolution --n 3000 --steps 2000 --capacity 300` | 26775 个算子，`identity error = 0`（**惰性不变**） |
+| `coverage` / `ruff` | 88%（`channel.py` 94%）/ 全过 |
+
+**mutation（含一条方法论发现）**：① 去掉全局测度的扣减 ⇒ 4 条用例 + 长跑守恒变红；
+② "不豁免配额"的单点变异是**等价变异**（`per_cluster` 对 measure 不累积 ⇒ "查不查"无行为差，测试全绿），
+必须做**组合变异**（闸检查 + 成功路径累积 key=0）才变红——**"豁免"类语义的测试力取决于"拦住"的变异可构造**，
+已记入 review；③ 账本 `coarse_id` 误填 `0` ⇒ 字段断言 + 长跑**路径覆盖断言**变红。

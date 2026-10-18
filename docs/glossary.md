@@ -35,15 +35,16 @@
 | 快照（snapshot） | `simulation_time` + 测度 + 窗口（含关系图 id）的持久化 | `snapshots` 表 | | | — |
 | 继承溢出（overflow_fraction） | 族内继承中改注入**全局池**的比例（0 = 完全内化 = "富族恒富"） | `float ∈ [0,1]` | | | — |
 | 交互通道（InteractionChannel） | 共演单元 ↔ 单位个体的**点对点、双向、可具名**交互路径 | `Intent` 队列 + `bind`/`unbind` + 账本 | `channel.run(ctx)` | 不是"经全局测度中转"的间接路径（`overflow_fraction`→测度→`materialize`） | — |
-| 意图（Intent） | 通道的唯一输入形态：`op / kind / origin / scope / match / payload`；`origin` = 发起者（角色或簇），`op` 选定原子（`bind` 缺省 / `transfer`） | frozen dataclass | `Intent(op="transfer", kind="gift", origin=("character",3), scope=("cluster",7), payload={"amount":500})` | 粗侧**不能**用 id 寻址（只能带 `Match`）；`transfer` 的 `kind` 只是标签，不是边名 | — |
+| 意图（Intent） | 通道的唯一输入形态：`op / kind / origin / scope / match / payload`；`origin` = 发起者（角色 / 簇 / 全局测度），`op` 选定原子（`bind` 缺省 / `transfer`） | frozen dataclass | `Intent(op="transfer", kind="gift", origin=("character",3), scope=("cluster",7), payload={"amount":500})` | 粗侧**不能**用 id 寻址（只能带 `Match`）；`transfer` 的 `kind` 只是标签，不是边名 | — |
 | Match | 声明式可匹配性（`age`/`gender`/`wealth_bucket`/`marital`，**闭区间**；`marital` 是标量 0/1），编译为**桶索引谓词**，R↔C 两侧共用 | frozen dataclass + `compile(match, space, extraction=…)` | `Match(age=(28,35), gender=0)` | 不是任意闭包；引用不可重建维度必须抛错；`marital=1` ⇒ **成对析出** | — |
-| bind | **有身份**的绑定 = `extract` + `link`，先扣后加；**析出永远发生在 coarse 侧**；`Match(marital=1)` 时**成对**（取 2 人 + `link` 成配偶） | 通道原子 | 婚配 / 结友 | 不是 transfer（不产生身份） | — |
-| unbind | `bind` 的逆：`unlink`（断链）+ 把该角色折算回 coarse；成对绑定时**连配偶一起**（断两条边、两人各自折算） | 通道逆算子 | `unbind(new_id)` | 不是 `dematerialize`（后者折算回**全局测度**） | — |
-| extract | 从 coarse `Measure` 按 `Match` 析出 `amount` 个整人（要求桶 `count ≥ amount`：单人 1.0 / 成对 2.0） | 通道原子 | `extract(mini, pred, amount=2.0)` | 不是 `materialize`（后者从全局测度取） | — |
+| bind | **有身份**的绑定 = `extract` + `link`，先扣后加；**析出永远发生在 coarse 侧**（簇或全局测度）；`Match(marital=1)` 时**成对**（取 2 人 + `link` 成配偶） | 通道原子 | 婚配 / 结友 | 不是 transfer（不产生身份） | — |
+| unbind | `bind` 的逆：`unlink`（断链）+ 把该角色折算回 coarse（原簇；簇已回收 / measure 寻址 ⇒ 全局测度）；成对绑定时**连配偶一起**（断两条边、两人各自折算） | 通道逆算子 | `unbind(new_id)` | 不是 `dematerialize`（后者是容量逐出路径；两者可折算到同一目标，区别在触发者） | — |
+| extract | 从 coarse `Measure`（簇 mini 或全局测度）按 `Match` 析出 `amount` 个整人（要求桶 `count ≥ amount`：单人 1.0 / 成对 2.0） | 通道原子 | `extract(mini, pred, amount=2.0)` | 不是 `materialize`（后者从全局测度取） | — |
 | `link` | **边的唯一入口**：一次调用双向写 `relationships`（对称；非对称用 `reverse`）。**不记档**——`relation_record` 只由 `unlink(..., record=True)` 追加 | `link(a, b, "friend")` / `link(parent, child, "child", "parent")` | 不是直接改 `relationships`（会漏写另一侧、造幽灵边） | — |
 | 关系人（`neighbors`） | 个体的**关系人集合**（`relationships` 全部关系桶的并集，去重）；"关系度" = `len(neighbors)` | `links.neighbors` | `len(neighbors(c))` | 不是已删除的 `relatives`（构造后从不更新 ⇒ 度恒为 0） | — |
 | 先扣后加律 | 会产生边的跨分辨率交互**必须先把质量从 coarse 侧移出**，否则重复计数 | 通道强制的提交协议 | `bind` 的 reserve→commit→rollback | 不是"守恒"（守恒只管人头，不管重复计数） | — |
-| 谓词式寻址 | 粗侧无 id ⇒ 意图只用 `Match` 声明可匹配性；id 只在 `extract` 之后存在 | `Match` 声明 | `Match(gender=0)` | 不是 id 式寻址（粗侧无 id，表达不出来） | — |
+| 谓词式寻址 | 粗侧无 id（**两种形态**：共演单元与全局测度）⇒ 意图只用 `Match` 声明可匹配性；id 只在 `extract` 之后存在 | `Match` 声明 | `Match(gender=0)` | 不是 id 式寻址（粗侧无 id，表达不出来） | — |
+| 全局测度寻址 | 粗侧的**第二种形态**：意图可寻址**全局测度**（`window.measure`），与寻址 coarse 簇并列；只对 `bind`；不受 `cap_per_cluster`（ADR-008 / N2-8） | `scope=("measure",)`（R→M）/ `origin=("measure",)`（M→R） | `Intent(op="bind", kind="spouse", origin=("character",3), scope=("measure",), match=Match(marital=0))` | 不是伪簇（全局测度不进 `store.clusters`、无 `level`、不登记宽限）；`transfer` 遇 measure ⇒ `dropped:stale`（范围外） | measure 寻址 |
 | 可重建维度 | `extract` 之后能重建的桶维度；`{age, gender, wealth, marital}` | `RECONSTRUCTIBLE` | | `marital` **可寻址但只能成对析出**（N2-5）——单独析出会造假单身 | — |
 | transfer | **无身份**的质量移动（可交换、不产生边）：R→C 精确借记入池；C→R 精确支付（池不够就整桶清算） | 质量侧原子；`op="transfer"`、`payload["amount"]` | 继承 / 馈赠 / 族内再分配 | 不是 bind；不占配额 / headroom / 宽限期；不改变人头 | — |
 | 通道池（transfer_pool） | 每个**粗侧**各自的量化残差/流动性池（全局测度 + 每个 coarse 簇各一个）；随生命周期折叠 | `Measure.transfer_pool: float ≥ 0` | C→R 支付、年度投递 | 不是全局单例（会跨族泄漏）；不是 `yearly_inherited`（继承专用） | 质量池 |
