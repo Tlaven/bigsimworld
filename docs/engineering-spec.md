@@ -102,7 +102,7 @@ SIM_MODE=measure ──────────┤
 | `SIM_POPULATION` | 5000 | 初始人口（measure） |
 | `SIM_RESUME` | 0 | `1` = 启动时从最新快照恢复 |
 | `SIM_SEED` | — | 整数；设了即**确定性模式**——固定随机种子并禁用墙钟负载反馈，同种子必然同发展 |
-| `SIM_CHANNEL_MARRIAGE` | 0 | `1` = 注册跨分辨率婚配规则（**开启 = 新增婚配通量，不再属于参照模型的近似**） |
+| `SIM_CHANNEL_MARRIAGE` | 0 | `1` = 注册簇侧跨分辨率婚配规则；`mass` = 注册大众婚配（全局测度，`target="measure"`）——**单值互斥**；**开启 = 新增婚配通量，不再属于参照模型的近似** |
 
 （另：`REDIS_URL`、`SIM_DB_PATH`、`CORS_ORIGINS` 见 `app/__init__.py` / `app/models/table.py`。）
 
@@ -191,12 +191,13 @@ W = Σ_测度 [ count×桶中心 + transfer_pool + conversion_residual + Σ year
 
 **确定性 vs 自适应（`SIM_SEED`）**：默认每 tick 按**实测墙钟负载** `feedback` 调 `budget_leaves`，在本机预算内尽量多留显名者——代价是"规则"依赖机器速度，**同种子不可复现**。设 `SIM_SEED` 即进入**确定性模式**：固定随机种子并跳过负载反馈（`budget_leaves` 恒定 = capacity），换取"同种子 + 同口径（mode/capacity/population）⟹ 同发展"。二者互斥，取舍由运行者定：要复现/回放就设种子，要按机器吃满预算就不设。注意 `SIM_RESUME=1` 以快照为准，不参与种子重演。
 
-**交互规则**（第 9 缝，默认空）：第一条 = **跨分辨率婚配** `MarriageRule`，
-`SIM_CHANNEL_MARRIAGE=1` 才注册。规则**只声明意图**，守恒/建边/配额/宽限期由通道保证。
+**交互规则**（第 9 缝，默认空）：第一条 = **跨分辨率婚配** `MarriageRule`（`target="cluster"` 缺省 /
+`"measure"` = 大众婚配：窗口单身 × 全局测度匿名单身），`SIM_CHANNEL_MARRIAGE=1|mass` 才注册（单值互斥）。
+规则**只声明意图**，守恒/建边/配额/宽限期由通道保证。
 **开启 = 新增婚配通量**（窗口婚配事件照常跑）⇒ 开启状态下不要求与纯个体引擎收敛；
 `bench.convergence` / `bench.cluster_fidelity` 一律在默认（`RULES` 空）下跑。
 
 **已验**：`bench.audit_ledger --clusters` 恒等误差 **0.0000%**；`bench.cluster_inheritance` 族内 vs 全局人均留存 ~181×（peers=120）。
 
-**已知边界（本层）**：resolved 共演单元的婚配/出生仍族内闭合（跨共演单元婚配只**记录** `interface`，未在 coarse 模型消费，除 `overflow_fraction`）；`life_log` 只保留窗口内当前个体。`transfer` 只支持 R↔C（C↔C 与 resolved 簇支付未做）；交互规则默认空，第一条 = 跨分辨率婚配（需 `SIM_CHANNEL_MARRIAGE=1`；开启 = 新语义，收敛门槛只在默认关闭下跑）。分辨率折算的财富量化差已由
+**已知边界（本层）**：resolved 共演单元的婚配/出生仍族内闭合（跨共演单元婚配只**记录** `interface`，未在 coarse 模型消费，除 `overflow_fraction`）；`life_log` 只保留窗口内当前个体。`transfer` 只支持 R↔C（C↔C 与 resolved 簇支付未做）；交互规则默认空，第一条 = 跨分辨率婚配（需 `SIM_CHANNEL_MARRIAGE=1|mass`；开启 = 新语义，收敛门槛只在默认关闭下跑）。分辨率折算的财富量化差已由
 符号残差账承接——旧快照（无该字段）恢复后 W 有一次性断点，属兼容边界。

@@ -54,7 +54,8 @@
 | 折算残差（conversion_residual） | 具名个体折回测度时"精确 wealth − 桶中心"的**符号**差额；每个 Measure 一个，随测度折叠、随快照往返 | `Measure.conversion_residual: float`（可正可负） | `wealth=1537.2`（中心 1500）⇒ `+37.2` | **不是**`transfer_pool`（可花费流动性）；也**不是**`量化残差`（那是整桶清算超取）；永不结算 | 换算残差 |
 | 通道账本 | 每条通道操作的逐条记录（有界 deque），供观测与对账 | `deque(maxlen=…)` | 逐条核平 | 不是 `yearly_inherited`（那是继承段池） | — |
 | 交互规则（InteractionRule） | 第 9 缝：声明"发起什么意图"；规则**只发意图**，建边/守恒由通道统一执行 | `Protocol` + `RULES` | `RULES = {}`（默认） | 不是通道（通道保证守恒/确定性，规则只管语义） | — |
-| 跨分辨率婚配（MarriageRule） | 第一条规则：窗口单身（`18≤age<60`、未婚、性别中立）每 tick 以 `MARRIAGE_RATE` 发起 `bind`，从 coarse 族析出 1 个单身并 `link(..., "spouse")` | `RULES["cross_marriage"]`；`SIM_CHANNEL_MARRIAGE`（缺省 0） | 开启后窗口与族之间出现真实配偶边 | 不是"经熟人漏斗的择偶"（coarse 无图）；开启 = 新增婚配通量，不属于参照模型的近似 | — |
+| 跨分辨率婚配（MarriageRule） | 第一条规则：窗口单身（`18≤age<60`、未婚、性别中立）每 tick 以 `MARRIAGE_RATE` 发起 `bind`，从**目标侧**析出 1 个单身并 `link(..., "spouse")`（`target="cluster"` 缺省 = coarse 族；`target="measure"` = 大众婚配，= 全局测度） | `RULES["cross_marriage"]`；`SIM_CHANNEL_MARRIAGE`（缺省 0；`1`=簇 / `mass`=大众，单值互斥） | 开启后窗口与族（或匿名大众）之间出现真实配偶边 | 不是"经熟人漏斗的择偶"（coarse 无图）；开启 = 新增婚配通量，不属于参照模型的近似 | — |
+| 大众婚配（mass marriage） | `MarriageRule` 的 `measure` 目标侧：窗口单身 × 全局测度**匿名单身**（R→M，无图、直接成婚） | `MarriageRule(target="measure")`；`SIM_CHANNEL_MARRIAGE=mass` | 开启后与匿名大众成婚（配偶由全局测度析出） | 不是保真修正（参照缺口由 headroom 效应解释）；默认关；与簇侧**单值互斥** | — |
 | 宽限期（grace） | `bind` 触及的簇在 `grace_ticks` 内被**分辨率冻结**（不换档、不被回收），保护刚建好的关系 | `recently_active[cid] = tick`；`grace_ticks = 180` | 被 `bind` 触及的簇 | 不是"把注意力抬到门槛"（那会反过来物化该簇）；全局测度寻址**不登记**宽限 | — |
 
 ## 维护规则

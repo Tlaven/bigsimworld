@@ -1,8 +1,8 @@
 """交互规则（第 9 缝 = `RULES` 注册表）的第一条实现。
 
-**MarriageRule · 跨分辨率婚配（R→C）** —— 决策与被拒方案见
-`docs/decisions/adr-007-cross-resolution-marriage.md`，步骤级规格见
-`docs/modules/interaction-channel.md` N2-7。
+**MarriageRule · 跨分辨率婚配**（`target="cluster"` 簇侧 R→C / `"measure"` 大众侧 R→M）——
+决策与被拒方案见 `docs/decisions/adr-007-cross-resolution-marriage.md` /
+`adr-009-mass-marriage.md`，步骤级规格见 `docs/modules/interaction-channel.md` N2-7。
 
 规则**只声明意图**：守恒、建边、配额、宽限期全部由通道执行。本文件不碰
 `relationships`、不动 `Measure`、不做准入判断（配额不归规则管）。
@@ -24,8 +24,11 @@ ELIGIBLE = Match(marital=0, age=(18, 59))
 
 
 class MarriageRule:
-    """窗口单身 → coarse 族单身的婚配意图（每 tick 每个合格单身掷一次 `rate`）。
+    """窗口单身 → 粗侧单身的婚配意图（每 tick 每个合格单身掷一次 `rate`）。
 
+    `target="cluster"`（缺省）→ coarse 族（计数加权抽样）；`target="measure"` → **全局测度**
+    （大众婚配：无候选抽样，直接对匿名单身发起）。两者**单值互斥**（生产开关是单值开关）——
+    通道不在 reserve 时复检发起者婚配态，两模式并存会让同一人被嫁两次。
     只发 `bind` 意图；由通道 `extract(amount=1)` + `link(..., "spouse")` 落地。
     """
 
@@ -33,7 +36,12 @@ class MarriageRule:
     kind = "spouse"              # `bind` 下的边名（见 N2-7 陷阱 7）
     emits_bind = True            # 会发 bind ⇒ `headroom_reserve` 照常预留窗口名额
 
-    def __init__(self, rate=None, rng=None):
+    TARGETS = ("cluster", "measure")
+
+    def __init__(self, rate=None, rng=None, target="cluster"):
+        if target not in self.TARGETS:
+            raise ValueError(f"unknown marriage target: {target!r}（只支持 {self.TARGETS}）")
+        self.target = target
         self.rate = MARRIAGE_RATE if rate is None else float(rate)
         # **规则自有的确定性随机流**（推荐）：与 `window.rng` 分开，否则"开关规则"会改变
         # 个体事件的随机流，A/B 与校准都不可控（2026-10-18 实测：共流时四档 rate 给出同一个
@@ -42,12 +50,16 @@ class MarriageRule:
 
     def offers(self, context):
         window = context.window
-        store = context.store
         rng = self.rng or context.rng or getattr(window, "rng", None) or random
         space = window.space
-
-        # ① 目标簇候选：每 tick 只扫一次 coarse 分布（避免"每个单身扫一遍簇"）
         pred = compile_match(ELIGIBLE, space)
+
+        # 大众目标侧（N2-7「候选侧」）：粗侧只有一个"目标"，无候选抽样。
+        if self.target == "measure":
+            return self._offers_measure(window, rng, pred)
+
+        store = context.store
+        # ① 目标簇候选：每 tick 只扫一次 coarse 分布（避免"每个单身扫一遍簇"）
         candidates = []
         for cid in sorted(store.clusters):
             cluster = store.clusters[cid]
@@ -91,9 +103,39 @@ class MarriageRule:
                                   match=ELIGIBLE))
         return intents
 
+    def _offers_measure(self, window, rng, pred):
+        """大众目标侧：窗口单身 → 全局测度匿名单身（R→M，`scope=("measure",)`）。
 
-def register_marriage_rule(rate=None, rng=None) -> MarriageRule:
+        ① 房源检查（每 tick 一次）：全局测度里存在 `count ≥ 1.0` 且谓词命中的整人桶才发意图，
+        否则返回 []（不产 `dropped:no_match` 噪声，也**不**消耗规则随机流）。
+        ② 合格单身各掷一次 `rate`，命中即直接产出意图（无候选抽样 ⇒ 每次只消耗 1 个随机数）。
+        配额/宽限语义由通道按 N2-8 执行（豁免 `cap_per_cluster`；`cap_per_tick`/headroom 仍是硬上界）。
+        """
+        measure = window.measure
+        weight = 0.0
+        for index in measure.occupied:
+            if measure.counts[index] >= 1.0 and pred(index):
+                weight += measure.counts[index]
+        if weight <= 0.0:
+            return []
+        intents = []
+        for rid in sorted(window.characters):
+            character = window.characters[rid]
+            if character.relationships.get("spouse"):
+                continue
+            if not (18 <= character.age < 60):
+                continue
+            if rng.random() >= self.rate:
+                continue
+            intents.append(Intent(op="bind", kind=self.kind,
+                                  origin=("character", rid),
+                                  scope=("measure",),
+                                  match=ELIGIBLE))
+        return intents
+
+
+def register_marriage_rule(rate=None, rng=None, target="cluster") -> MarriageRule:
     """把跨分辨率婚配规则注册进 `RULES`（幂等：同名键覆盖）。"""
-    rule = MarriageRule(rate=rate, rng=rng)
+    rule = MarriageRule(rate=rate, rng=rng, target=target)
     register(rule)
     return rule

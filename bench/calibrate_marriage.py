@@ -15,7 +15,7 @@
 "要不要开、开到什么强度"。
 
 `--scope measure` = **大众婚配测量臂**：候选 = 全局测度（匿名大众）而非 coarse 簇
-（实验脚手架 `bench/probe_rules.py::MassMarriageRule`；采纳与否属独立决策）。
+（= 生产规则 `MarriageRule(target="measure")`；开启语义 = 新增婚配通量、非近似）。
 
 用法：
     python -m bench.calibrate_marriage --population 1500 --capacity 300 --ticks 2000
@@ -28,7 +28,6 @@ from app.core.measure.engine import MeanFieldEngine
 from app.core.measure.rules import MarriageRule
 from app.core.measure.transitions import FULL_FLOWS, MARRIAGE_RATE
 from app.core.measure.window import WindowEngine
-from bench.probe_rules import MassMarriageRule
 from bench.world import build_engine, make_characters
 
 
@@ -145,8 +144,8 @@ def run_measure(population, capacity, ticks, seed, rate=None, null_rule=False,
         rule = _NullRule()
     elif rate is not None:
         # 规则用**自有**流（不与窗口个体事件争 rng），否则 A/B 被随机流偏移污染（2026-10-18）。
-        rule_cls = MassMarriageRule if scope == "measure" else MarriageRule
-        rule = rule_cls(rate=rate, rng=random.Random(f"calib-marriage:{seed}"))
+        target = "measure" if scope == "measure" else "cluster"
+        rule = MarriageRule(rate=rate, rng=random.Random(f"calib-marriage:{seed}"), target=target)
     if rule is not None:
         RULES[rule.name] = rule
     try:

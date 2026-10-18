@@ -7,7 +7,7 @@
 输出跨婚配次数、窗口已婚比例、人口、丢弃分布；并在 **on** 臂上逐次核对通道操作的
 人头守恒与财富守恒（`W = Σ_测度 wealth() + Σ 窗口 wealth`，见 ADR-006）。
 
-`--scope measure` = 大众婚配探针（候选 = 全局测度；实验脚手架 `bench/probe_rules.py`）。
+`--scope measure` = 大众婚配（候选 = 全局测度；生产规则 `MarriageRule(target="measure")`）。
 
 用法：
     python -m bench.channel_marriage --ticks 1500 --capacity 200 --population 1200
@@ -21,7 +21,6 @@ from app.core.measure.engine import MeanFieldEngine
 from app.core.measure.rules import MarriageRule
 from app.core.measure.transitions import FULL_FLOWS
 from app.core.measure.window import WindowEngine
-from bench.probe_rules import MassMarriageRule
 from bench.world import make_characters
 
 
@@ -68,8 +67,7 @@ def _run(ticks, seed, capacity, population, enable, rate=None, seed_family=0,
     engine = _build(seed, capacity, population, seed_family=seed_family)
     rule = None
     if enable:
-        rule_cls = MassMarriageRule if scope == "measure" else MarriageRule
-        rule = rule_cls(rate=rate)
+        rule = MarriageRule(rate=rate, target="measure" if scope == "measure" else "cluster")
         RULES[rule.name] = rule
     channel = engine.resolution.channel
     worst = {"pop": 0.0, "wealth": 0.0, "calls": 0}

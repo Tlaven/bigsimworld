@@ -61,13 +61,16 @@ class SimulationRunner:
                     self.engine.resolution.set_notable_fraction(float(fraction))
                 # 交互规则（第 9 缝）：第一条 = 跨分辨率婚配；**默认关**。
                 # 开启 = 新增婚配通量（ADR-007）⇒ 不再属于参照模型的近似。
-                if os.environ.get("SIM_CHANNEL_MARRIAGE", "0").strip().lower() in ("1", "true", "on", "yes"):
+                marriage_mode = os.environ.get("SIM_CHANNEL_MARRIAGE", "0").strip().lower()
+                if marriage_mode in ("1", "true", "on", "yes") or marriage_mode == "mass":
                     from app.core.measure.rules import register_marriage_rule
                     # 规则用**自有**随机流（确定性 + 不扰动窗口个体事件流，见 rules.py 注释）。
                     rule_rng = (random.Random(f"channel-marriage:{self.seed}")
                                 if self.seed is not None else None)
-                    register_marriage_rule(rng=rule_rng)
-                    logger.info("channel rule registered: cross_marriage (SIM_CHANNEL_MARRIAGE=1)")
+                    # 单值互斥：1/true/on/yes = 簇侧（缺省）；mass = 大众侧（N2-7「候选侧」）。
+                    target = "measure" if marriage_mode == "mass" else "cluster"
+                    register_marriage_rule(rng=rule_rng, target=target)
+                    logger.info("channel rule registered: cross_marriage (target=%s)", target)
         else:
             self.db_queues = init_db_queues()  # 初始化队列
             self.engine = SimulationEngine(self.db_queues)  # 初始化模拟引擎

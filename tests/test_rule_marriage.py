@@ -246,3 +246,45 @@ def test_own_rng_does_not_perturb_window_stream(monkeypatch):
 
 def test_rule_is_not_registered_by_default():
     assert "cross_marriage" not in channel_mod.RULES
+
+
+# ------------------------------------------------------------------ 大众目标侧（target="measure"）
+
+def test_mass_target_emits_measure_scope(monkeypatch):
+    """mass 模式：意图与簇侧同形，只把 scope 换成 `("measure",)`（N2-7「候选侧」）。"""
+    engine = _engine()
+    rule = MarriageRule(rate=1.0, target="measure")
+    monkeypatch.setitem(RULES, rule.name, rule)
+
+    intents = rule.offers(_cctx(engine))
+
+    assert intents, "全局测度房源充足时应产出意图"
+    assert all(isinstance(i, Intent) and i.op == "bind" and i.kind == "spouse"
+               and i.origin[0] == "character" and i.scope == ("measure",)
+               and i.match == Match(marital=0, age=(18, 59)) for i in intents)
+    # 与通道同一路径落地：人头守恒（R→M 走 N2-8 的析出/建边）
+    pop0 = engine.population()
+    report = _submit_and_run(engine, rule)
+    assert report["by_status"].get("ok", 0) >= 1
+    assert engine.population() == pytest.approx(pop0)
+
+
+def test_mass_target_no_eligible_mass_is_silent(monkeypatch):
+    """无合格房源 ⇒ `offers → []`（不产 `dropped:no_match` 噪声）。"""
+    engine = _engine()
+    measure = engine.window.measure
+    # 清空全局测度里 18–59 未婚的整人桶（构造"大众侧无房源"）
+    for index in list(measure.occupied):
+        age, _gender, _wealth, marital = measure.space.decode(index)
+        if 18 <= age < 60 and marital == 0:
+            measure.add(index, -measure.counts[index])
+    rule = MarriageRule(rate=1.0, target="measure")
+    monkeypatch.setitem(RULES, rule.name, rule)
+
+    assert rule.offers(_cctx(engine)) == []
+    assert _submit_and_run(engine, rule)["by_status"] == {}
+
+
+def test_invalid_target_raises():
+    with pytest.raises(ValueError):
+        MarriageRule(target="both")

@@ -4,7 +4,7 @@
 > 三段式：[是什么] / [为什么] / [不变量]。模板来源 [`docs-templates/module-doc.md`](../../docs-templates/module-doc.md)。
 > **本模块已交付：两个原子（身份侧 `bind`/`unbind` = N2-1/N2-4/N2-5；质量侧 `transfer` = N2-6）
 > + 第一条交互规则（跨分辨率婚配 = N2-7，默认关）+ 全局测度寻址（= N2-8）**。
-> 规则**默认不注册**（`RULES` 空）⇒ 生产路径的权威数字不变；`SIM_CHANNEL_MARRIAGE=1` 才开启。
+> 规则**默认不注册**（`RULES` 空）⇒ 生产路径的权威数字不变；`SIM_CHANNEL_MARRIAGE=1|mass` 才开启。
 
 ---
 
@@ -629,7 +629,7 @@ class ChannelRecord:
 **范围声明**：质量侧只做 R↔C 的原子与结算；**C↔C、resolved 簇支付**不在内（交互规则见 N2-7）。
 规则若要发起 transfer，必须显式 `Intent(op="transfer", kind=..., payload={"amount": A})`。
 
-**N2-7 · 第一条规则：跨分辨率婚配（`MarriageRule`，R→C）**（2026-10-17 拍板并实现）
+**N2-7 · 第一条规则：跨分辨率婚配（`MarriageRule`；`target="cluster"` 簇侧 / `"measure"` 大众侧）**（2026-10-17 拍板并实现；2026-10-18 增补大众目标侧）
 
 **为什么**：一句话——
 `FamilyKind` 的身份敏感边是 `parent/child/spouse`，而"窗口单身与族内单身成婚"是这条边**缺失的通量**；
@@ -645,6 +645,18 @@ class ChannelRecord:
    **随机流（2026-10-18 修订）**：规则应持有**自有**的确定性流（`MarriageRule(rng=…)`；runner 由
    `SIM_SEED` 派生）；`context.rng`（= `window.rng`）只是无自有流时的回退。**不得用模块级 `random`**。
    理由：与窗口共流会让"开关规则"改变个体事件的随机流，A/B 与校准不可控。
+
+**候选侧（`target`）**：规则有且只有两个目标侧——`"cluster"`（**缺省**，第 2–3 步的计数加权抽样）与
+`"measure"`（**大众婚配**：窗口单身 × 全局测度匿名单身，R→M）。`"measure"` 模式下：
+- 每 tick 先做**房源检查**：`window.measure` 的 `occupied` 中 `count ≥ 1.0` 且谓词命中的计数和 > 0，
+  否则 `offers → []`（不产 `dropped:no_match` 噪声）；
+- 合格单身掷 `rate` 后**直接**产出 `scope=("measure",)` 的意图（无候选抽样——粗侧只有一个"目标"）；
+- mass 意图与簇侧**同一形状、只换目标侧**：`Intent(op="bind", kind="spouse", origin=("character", rid), scope=("measure",), match=Match(marital=0, age=(18,59)))`——房源检查用的就是同一 `match` 编译的谓词；
+- 配额/宽限语义见 N2-8：豁免 `cap_per_cluster`；`cap_per_tick` 与窗口 headroom 照旧是硬上界；不登记 `recently_active`；
+- **`cluster` 与 `measure` 单值互斥**（生产开关是单值开关）：不存在"同一 tick 对同一人发两条不同 `scope`
+  意图"的路径——通道不在 reserve 时复检发起者的婚配态，两模式并存会让**同一人被嫁两次**；
+- 未知 `target` ⇒ 构造时 **`ValueError`**（不做静默回退）。
+
 2. **目标簇候选**（只算一次，避免"每个单身扫一遍簇"）：
    - 取 `level==0` 且 `state["engine"]` 存在的簇；
    - 编译一次 `pred = compile_match(Match(marital=0, age=(18, 59)), window.space)`；
@@ -666,7 +678,8 @@ class ChannelRecord:
    - 规则结的婚下一 tick 也被窗口 `spouse_event`（要求 `not relationships['spouse']`）跳过。
    - **粗侧对手方**由另两条机制保护：`step_coarse()` 的均值场婚配**先跑**，且 `bind` **先扣后加**把人移出分布
      ⇒ 同一 tick 不会"一个人被嫁两次"。这两条防线不覆盖粗侧，别混用。
-6. **开关**：`SIM_CHANNEL_MARRIAGE`（缺省 `0`）；`=1` 时 runner `register_marriage_rule(rng=…)`——规则流由 `SIM_SEED` 派生
+6. **开关**：`SIM_CHANNEL_MARRIAGE`（缺省 `0`）——`1` = 簇规则（`target="cluster"`）；`mass` = 大众规则（`target="measure"`）；
+   **单值互斥**（见「候选侧」）；未识别取值（如 `2` / 空串）⇒ **不注册**（与缺省同路，不抛错）。注册时 runner `register_marriage_rule(target=…, rng=…)`——规则流由 `SIM_SEED` 派生
    （未设种子则 `None` ⇒ 回退 `context.rng`，见第 1 步）；注册幂等。**默认不注册 ⇒ `RULES` 空 ⇒ 通道惰性、全部权威数字不变。**
 7. **语义声明**：开启 = 新增一条婚配通量（窗口自己的婚配事件照常跑）⇒ **不**要求与纯个体引擎收敛；
    `bench.convergence` / `bench.cluster_fidelity` 一律在默认（`RULES` 空）下跑。
@@ -687,6 +700,7 @@ class ChannelRecord:
 **分数桶不计权重**、无房源不产意图、默认关零记录。
 `python -m bench.channel_marriage --ticks 3000` → 打印 A/B（关 / 开）的跨婚配次数、窗口已婚比例、人口，
   并断言开启状态下 `bench.audit_ledger`（人头）与 `--wealth`（逐算子 W）都不退化。
+**大众目标侧**：意图 `scope` 恒为 `("measure",)`、无房源静默、非法 `target` 抛错（`test_mass_target_emits_measure_scope` / `test_mass_target_no_eligible_mass_is_silent` / `test_invalid_target_raises`）；**复跑** `python -m bench.calibrate_marriage --scope measure --family-pool 0 --population 1200 --capacity 240 --ticks 2000 --seeds 1 2 3 4 --rates 0.05 0.1 0.25 0.5 1.0` → 读数须与采纳时的测量读数一致（默认关 ⇒ 生产读数不受影响）。
 **mutation**（证测试有效）：把"已婚跳过"删掉 ⇒ 重复婚配用例变红；把权重改成"含分数桶" ⇒ 分数桶用例变红；
   让规则直接 `link`（绕过通道）⇒ "只发意图"用例变红。
 
@@ -702,8 +716,10 @@ class ChannelRecord:
 | 6 | 房源权重含分数桶（把 `count < 1.0` 的残留算进权重） | `extract` 只从整人桶取 ⇒ 意图频繁 `dropped:no_match` | 验收（`test_fractional_bucket_is_not_counted_as_weight`） |
 | 7 | `kind` 三义混用（边名 / 标签 / 规则名） | 账本、边、注册表语义互串 | 决策 2 的 `Intent` 字段契约（`kind` 注释）+ N2-6「对象」（`kind` 只作标签）+ N2-1 第 8 步（`bind` 的 `kind` 用作边名）+ 验收（`test_transfer_is_dispatched_by_op_not_by_kind`） |
 | 8 | 把规则婚姻的终止当成 `unbind` | 终止 = 死亡 / `dematerialize`（容量逐出）；`unbind` 的语义是"折算回粗侧" | N2-4 第 1–3 步（`unbind` 契约）+ `engineering-spec.md` §4（`dematerialize` 退场路径） |
+| 9 | 把 `target` 实现成 `cluster` + `measure` 并发（或同时注册两条规则） | 同一 tick 同一人可被两条不同 `scope` 的意图各嫁一次（通道不在 reserve 时复检发起者婚配态；去重键含 `scope`，挡不住） | 单值互斥开关（未识别取值不注册）+ `target` 仅两值（非法值 `ValueError`：`test_invalid_target_raises`）+ **单一注册键** `RULES["cross_marriage"]`（注册幂等 / 同名覆盖 ⇒ 两条不能并存）+ 默认关 |
+| 10 | mass 模式跳过房源检查（无房源也掷骰产意图） | 纯噪声：`dropped:no_match` 灌账本 + 无谓消耗规则随机流 | 「候选侧」的 `offers → []` 规则 + `test_mass_target_no_eligible_mass_is_silent` |
 
-> **可达性与退场（说明，非错法）**：生产样态下 coarse 族几乎不含 18–59 未婚桶 ⇒ 规则婚配的 crossings ≈ 0；让大众可达的**全局测度寻址**扩展已落地（N2-8），**规则侧是否把大众纳入候选仍留独立决策**（本轮不改规则）。析出的配偶不进 `member_ids`、也不建 `acquaintance` 网 ⇒ 容量吃紧时可能较早退场——MVP 接受，记为边界。
+> **可达性与退场（说明，非错法）**：生产样态下 coarse 族几乎不含 18–59 未婚桶 ⇒ **簇侧**规则婚配的 crossings ≈ 0；让大众可达的**全局测度寻址**（N2-8）与**大众目标侧**（`target="measure"`，默认关；语义 = 新增婚配通量、非近似）均已落地。析出的配偶不进 `member_ids`、也不建 `acquaintance` 网 ⇒ 容量吃紧时可能较早退场——MVP 接受，记为边界。
 
 **N2-8 · 全局测度寻址（`("measure",)` scope / origin）**（2026-10-18 拍板并实现）
 

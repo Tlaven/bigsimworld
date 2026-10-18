@@ -634,3 +634,12 @@ Stage 20 的校准把"可达性"钉成了瓶颈：生产样态下 crossings = 0�
 - **关键判读**：off − ref = −1.13pp 的缺口基本由 **headroom 效应**（null − off = +1.00pp）解释（null − ref = −0.14pp 均值、SE ≈ 1.6pp）；通量从最小档起就是**加法**（0.10× 已转正）⇒ **不存在可分辨的"补差"窗口**；语义定位 = **扩展**（与 ADR-007 同族），"保真修正"不成立。若采纳建议**默认关**（可分辨语义效应从 ~0.25× 起）。
 - **回归**：簇臂同配置与 Stage 20 记录**逐位一致**（off 0.5503 / null 0.5603 / crossings 0）。
 - 完整表、双解读数与复现命令见 [`reviews/2026-10-18-mass-marriage-measurement.md`](reviews/2026-10-18-mass-marriage-measurement.md)。待拍板：采纳与否 + （若采纳）正式化轮（ADR / 规格 / teach-back / runner 开关 / 复跑对齐）。
+
+### Stage 24 · 大众婚配采纳与正式化（2026-10-18）
+
+按测量结论采纳**扩展类规则**（ADR-009：`MarriageRule(target="measure")`；`SIM_CHANNEL_MARRIAGE` **单值互斥**——`1` = 簇侧 / `mass` = 大众侧；**默认关**）：
+
+- **规格**：N2-7 增「候选侧（`target`）」段 + 危险实现清单第 9/10 行 + 验收（3 具名测试 + 复跑命令）；`engineering-spec` / `glossary` / L1「边界外」同步；bench 探针提升后删除（原始形态保存在测量轮提交 `fa78301`）。
+- **实现**：`app/core/measure/rules.py` 的 `target`（非法值 `ValueError`；mass = 房源检查 + 逐单身单次掷骰、`scope=("measure",)`）；`runner.py` 单值开关（未识别取值不注册）；测试 +3（`tests/test_rule_marriage.py` 12 passed）。
+- **teach-back（1 轮通过）**：4 条非阻断**全部采纳**（文首开关口径 / mass 意图形状逐字化 / 未识别取值不注册 + 注册键层；台账存放处不采纳）。
+- **验收**：复跑与测量台账**逐位一致**（0.05×–1× crossings 2.5–51.2；1× 时合并已婚比例 +6.4pp vs null）；`channel_marriage --scope measure` 63 crossings、identity 1.49e-8；簇侧回归不变；默认关 ⇒ 生产读数不变。对账见 [`reviews/2026-10-18-mass-marriage-formalization.md`](reviews/2026-10-18-mass-marriage-formalization.md)。
