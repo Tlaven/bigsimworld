@@ -6,7 +6,7 @@
 
 
 class SparseCounts:
-    """桶索引 → 计数 的稀疏容器：读空桶返回 0.0（不写入），写零清位。"""
+    """桶索引 → 计数 的稀疏容器：读空桶返回 0.0（不写入），归零**删除条目**（零条目不留）。"""
 
     __slots__ = ("_data",)
 
@@ -71,8 +71,7 @@ class Measure:
             self.counts[index] = value
             self.occupied.add(index)
         else:
-            if index in self.counts:
-                self.counts[index] = 0.0
+            del self.counts[index]  # 零条目不留：底表键集 ≡ occupied（防残壳无界增长）
             self.occupied.discard(index)
 
     def inflow(self, index, amount):

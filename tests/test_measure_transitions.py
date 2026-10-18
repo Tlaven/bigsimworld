@@ -107,6 +107,45 @@ def test_inheritance_keeps_mass_when_recipient_is_at_wealth_ceiling():
     assert abs(_wealth_mass(m, space) - before) < 1e-9     # 质量守恒（曾在此损失 2000）
 
 
+def test_zero_buckets_are_deleted_not_left_as_residue():
+    """零条目不留（底表键集 ≡ occupied）。
+
+    残壳会随桶漂移线性堆积（实测：40 年 2,000 → 64,931 条）——底表增长拖慢字典、
+    并让"成本 = O(占用桶数)"的招牌在**时间轴**上失真。归零处（add / aging / income）
+    一律删除条目，而不是写 0.0。
+    """
+    space = StateSpace()
+    m = Measure(space)
+    index = space.encode(30, 0, space.wealth_bucket(5000), 0)
+    m.add(index, 5.0)
+    m.add(index, -5.0)
+    assert index not in m.counts._data              # 不是写 0.0 留位
+    assert m.counts[index] == 0.0                   # 读仍未写入
+    assert index not in m.occupied
+
+    origin = space.encode(30, 0, space.wealth_bucket(5000), 0)
+    m.add(origin, 3.0)
+    T.aging(m, 360)                                 # 整桶平移：源桶不留残壳
+    assert origin not in m.counts._data
+    T.income(m, 30)
+    assert set(m.counts._data) == set(m.occupied)
+    assert all(value > 0.0 for value in m.counts.values())
+
+
+def test_counts_backing_store_matches_occupied_in_long_run():
+    """长跑不变量：任何时刻 `底表键集 ≡ 占用桶`（零条目不留的直接后果）。"""
+    from app.core.measure.engine import MeanFieldEngine
+
+    space = StateSpace()
+    engine = MeanFieldEngine(space=space, measure=Measure(space), flows=T.FULL_FLOWS)
+    engine.measure.add(space.encode(30, 0, space.wealth_bucket(5000), 1), 200.0)
+    engine.measure.add(space.encode(70, 0, space.wealth_bucket(9000), 0), 50.0)
+    engine.run_until(1000)
+    counts = engine.measure.counts
+    assert set(counts._data) == set(engine.measure.occupied)
+    assert all(value > 0.0 for value in counts.values())
+
+
 def _order_variant(space, order):
     """同一多重集、不同落桶顺序（键经同槽碰撞探测：构造顺序确实改变 set 迭代序）。
 

@@ -32,7 +32,7 @@ def aging(measure, tick):
             continue
         target = space.encode(age + 1, gender, wealth, marital)
         moves[target] = moves.get(target, 0.0) + measure.counts[index]
-        measure.counts[index] = 0.0
+        del measure.counts[index]  # 零条目不留：底表键集 ≡ occupied
         measure.occupied.discard(index)
     for target in sorted(moves):
         measure.add(target, moves[target])
@@ -50,7 +50,7 @@ def income(measure, tick):
         new_value = space.wealth_value(wealth) + INCOME_AMOUNT
         target = space.encode(age, gender, space.wealth_bucket(new_value), marital)
         moves[target] = moves.get(target, 0.0) + measure.counts[index]
-        measure.counts[index] = 0.0
+        del measure.counts[index]  # 零条目不留：底表键集 ≡ occupied
         measure.occupied.discard(index)
     for target in sorted(moves):
         measure.add(target, moves[target])
