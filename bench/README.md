@@ -27,6 +27,7 @@
 | `bench.cluster_fidelity --gate` | **分层门槛**（ADR-004）：跨规模（n≥400）趋势 + `pop` 相对偏差；违反 ⇒ exit 1（CI 慢跑） | `python -m bench.cluster_fidelity --gate` |
 | `bench.diagnose_cluster_bias` | 保真度偏差**归因**：相位对照 / 规模扫描 / 消融（消融只作必要条件检查） | `python -m bench.diagnose_cluster_bias --ticks 8000 --trials 20` |
 | `bench.resolution_switch` | **换档动力学**（抖动观测者四臂：noop / 缺省驻留 30 / 滞回 / 驻留 60）：有效换档、**被卡物化（blocked）**、驻留、通量遥测样例（描述性） | `python -m bench.resolution_switch --ticks 600` |
+| `bench.residual_correlation` | **误差触发研究**（配对世界：观察→粗化 vs 孪生全程 resolved）：`flux_z` / `phase_disp` 与粗化伤害的相关 + **预注册可用性判据**（描述性） | `python -m bench.residual_correlation --trials 12` |
 
 结果写入 `bench/results/`；结果文件是**证据**，提交。
 
@@ -72,8 +73,11 @@ python -m bench.calibrate_marriage --scope measure --family-pool 0 --population 
     --ticks 2000 --seeds 1 2 3 4 --rates 0.05 0.1 0.25 0.5 1.0
 python -m bench.channel_marriage --scope measure --seed-family 0 --ticks 3000 --population 1200 --capacity 240
 
-# 换档动力学（描述性；三臂对照：滞回 / 最小驻留 vs 缺省）
+# 换档动力学（描述性；四臂对照：noop / 缺省驻留 30 / 滞回 / 驻留 60）
 python -m bench.resolution_switch --ticks 600
+
+# 误差触发研究（指示器 vs 粗化伤害；预注册可用性判据）
+python -m bench.residual_correlation --trials 12
 ```
 
 ## 当前权威数字（2026-10-12）
