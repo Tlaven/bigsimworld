@@ -26,6 +26,7 @@ adr-XXX-[短描述].md
 
 > 本仓库的**早期决策**（换层、段池整数分配、身份不守恒、边界闭合、内生注意力…）逐条记在工程日志 [`docs/history.md`](../history.md)（第一章 / 第二章 / 第三章），此处**不重抄**（E1 指针优先）；**下文只收 ADR 化的关键决策**。
 
+- ADR-010: 小计数共演单元的「整数语义」（mini 的婚配/死亡 = 信用发放；全局不动）— accepted
 - ADR-009: 大众婚配 = 扩展类规则（`MarriageRule(target="measure")`，默认关）— accepted
 - ADR-008: 全局测度寻址 = 粗侧的第二种形态（`("measure",)` scope/origin，只 bind、双向）— accepted
 - ADR-007: 第一条交互规则 = 跨分辨率婚配（R→C，`bind`，默认关）— accepted
