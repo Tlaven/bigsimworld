@@ -52,6 +52,14 @@
 - **成因（实测）**：`transitions.marriage` 每 tick 把每个单身桶移走 `to_marry × count / singles`——对 `count = 1.0` 的桶就是 1.0 → **0.999444**（+ 0.000556 进 marital=1 侧）；`materialize` 只从 `count ≥ 1.0` 的桶析出 ⇒ `eligible = []`。复现：`(30,g,w,0): 1.0` 一个 tick 后 `0.999444`；marital=1 侧要积累 ~1800 tick 才重新 ≥1.0。
 - **影响面**：只含单身的共演单元（已婚桶不受婚姻流影响）。生产含义：家庭在"子女成年/配偶离世"单身化后，**静默退出可物化集合**（分辨率只降不升，直到残差自愈）。
 - **本批处置（诚实计数，零行为变更）**：物化失败不计换档、不记 `last_switch`；新增 `blocked` 计数（`telemetry()` / `resolution_summary()` / payload）。
+
+> **跟进（同日修复）**：§5 的"幽灵换档"已由 [ADR-010](../decisions/adr-010-mini-integer-semantics.md)（mini 整数语义发放）修复。
+>
+> - `bench.resolution_switch --ticks 600`：**blocked = 0**（三臂；修复前 169/167/78）；有效换档 431/236/58（升级不再被幽灵吞掉），驻留下限 60 生效。
+> - `bench.cluster_fidelity --members 8 --ticks 2000 --trials 20`：`age_l1` +0.1673±0.0770、`population` +0.70——**与修复前一致**；`married_frac` +0.14 → **+0.2625**（R>C 15/20）——整人发放撤掉了流体版"分数削除"对小簇的**过婚**（最后剩一个单身也能被分数嫁掉），属**预期的离散化更正**而非退化；GATE（`age_l1`/`pop`）不受影响。
+> - `bench.audit_ledger --clusters`：identity error **0.0000%**。
+> - 全局读数不变（`FULL_FLOWS` 未动；未跑 convergence 的理由见 ADR-010）。
+
 - **为什么不本批修**：修复必然改动力学（被卡的簇将重新可物化）⇒ 属独立"设计 + 测量"轮（与"缺省 No-Op"契约冲突）。**§6 给出了先例方向。**
 
 ## 6. C：Scheffer 1995 细读（全文）

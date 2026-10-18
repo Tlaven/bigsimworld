@@ -57,6 +57,10 @@ class Measure:
         # 折算残差（符号账）：具名个体折回桶中心时的 `wealth − 桶中心`（可正可负）。
         # **不可花费**——只用于财富恒等式；见 docs/decisions/adr-006-conversion-residual.md / L4 N2-5。
         self.conversion_residual = 0.0
+        # 整数语义发放器的信用（仅 mini 的 integer_* 流使用；**非质量**、不进守恒恒等式）。
+        # mini 合并求和、快照往返、回流体区（折入全局）作废。见 docs/decisions/adr-010-mini-integer-semantics.md。
+        self.marriage_credit = 0.0
+        self.death_credit = 0.0
 
     # ---------------------------------------------------------------- 基本
 
@@ -141,6 +145,8 @@ def measure_to_payload(measure):
                   for index in measure.occupied if measure.counts[index] > 0],
         "transfer_pool": round(float(measure.transfer_pool), 6),
         "conversion_residual": round(float(measure.conversion_residual), 6),
+        "marriage_credit": round(float(measure.marriage_credit), 6),
+        "death_credit": round(float(measure.death_credit), 6),
         "inherited": [[int(age), round(float(amount), 6)]
                       for age, amount in sorted(measure.yearly_inherited.items())
                       if amount > 0],
@@ -154,6 +160,8 @@ def measure_from_payload(payload, space):
         measure.add(int(index), float(count))
     measure.transfer_pool = float(payload.get("transfer_pool", 0.0))
     measure.conversion_residual = float(payload.get("conversion_residual", 0.0))
+    measure.marriage_credit = float(payload.get("marriage_credit", 0.0))
+    measure.death_credit = float(payload.get("death_credit", 0.0))
     for age, amount in payload.get("inherited", []):
         measure.yearly_inherited[int(age)] = float(amount)
     return measure
@@ -173,16 +181,21 @@ def record_conversion(measure, space, wealth):
 def fold_pools(source, target):
     """把 ``source`` 的质量账并进 ``target`` 并清空 source。
 
-    三样都要折：`transfer_pool`（逐值）、`yearly_inherited`（逐段）、`conversion_residual`（逐值）。
-    共演单元的生命周期算子（`coarsen`/`merge`/`dissolve`/`split`）必须调用它。
+    都要折：`transfer_pool`（逐值）、`yearly_inherited`（逐段）、`conversion_residual`（逐值）、
+    两个**整数语义信用**（adr-010，发放器状态、非质量；mini→mini 合并要带信用；回流体区前调用方
+    先作废）。共演单元的生命周期算子（`coarsen`/`merge`/`dissolve`/`split`）必须调用它。
     **只折 `counts` 会丢财富**——这是 ADR-005/006 记录并修掉的既有漏洞。
     """
     target.transfer_pool += float(source.transfer_pool)
     target.conversion_residual += float(source.conversion_residual)
+    target.marriage_credit += float(source.marriage_credit)
+    target.death_credit += float(source.death_credit)
     for age, amount in source.yearly_inherited.items():
         target.yearly_inherited[age] = target.yearly_inherited.get(age, 0.0) + amount
     source.transfer_pool = 0.0
     source.conversion_residual = 0.0
+    source.marriage_credit = 0.0
+    source.death_credit = 0.0
     source.yearly_inherited = {}
 
 

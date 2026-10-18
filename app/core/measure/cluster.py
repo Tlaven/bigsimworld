@@ -6,7 +6,8 @@
 MVP：唯一 kind = family（以 parent/child/spouse 为身份敏感边），两档分辨率
 （0 = 聚合, 1 = 个体），水位线调度，身份质量 ρ，自动合并/分裂策略留空。
 
-coarse 共演单元的聚合态 = 一个 **mini `MeanFieldEngine`**（同一 StateSpace + FULL_FLOWS）：
+coarse 共演单元的聚合态 = 一个 **mini `MeanFieldEngine`**（同一 StateSpace；流集合 = 族内版：
+aging / income + **整数语义发放**的 death / marriage + birth，见 `docs/decisions/adr-010-mini-integer-semantics.md`）：
 族内遗产池天然作用域在共演单元内，复用 `transitions` 全部算子，无需新机制。
 （MVP 近似：族内也会发生婚配/生育；跨共演单元边留待 interface。）
 
@@ -28,9 +29,9 @@ from app.core.measure.engine import MeanFieldEngine
 from app.core.measure.measure import (fold_pools, measure_from_characters,
                                       measure_from_payload, measure_to_payload,
                                       record_conversion)
-from app.core.measure.transitions import FULL_FLOWS, distribute_pool, inject_inherited
-from app.core.measure.transitions import settle_transfer_pool
-from app.core.measure.transitions import inheritance as _mf_inheritance
+from app.core.measure.transitions import (aging, birth, distribute_pool, income,
+                                          inject_inherited, integer_death,
+                                          integer_marriage, settle_transfer_pool)
 from app.core.measure.transitions import (BIRTH_RATE, DEATH_RATE, MARRIAGE_MEAN_DEG,
                                           MARRIAGE_RATE)
 
@@ -172,7 +173,9 @@ class FamilyKind:
 
     name = "family"
     overflow_fraction = 0.0
-    flows = tuple(flow for flow in FULL_FLOWS if flow is not _mf_inheritance)
+    # 整数语义（adr-010）：mini 在个人尺度用信用发放的婚配/死亡（期望同率、整人发放），
+    # 不把整人桶削到 (0,1)；继承仍由 `family_inheritance` 手动处理。
+    flows = (aging, income, integer_death, integer_marriage, birth)
 
     def membership_edges(self) -> set:
         return {"parent", "child", "spouse"}
@@ -453,6 +456,7 @@ class ClusterStore:
                 else:
                     for index in list(mb.occupied):
                         self.measure.add(index, mb.counts[index])
+                    mb.marriage_credit = mb.death_credit = 0.0   # 回流体区：信用作废（adr-010）
                     fold_pools(mb, self.measure)
             ca.member_ids |= cb.member_ids
             ca.rho += self.rho_metric.on_merge(ca.kind, 0.0)
@@ -484,6 +488,7 @@ class ClusterStore:
             mini = engine.measure
             for index in list(mini.occupied):
                 self.measure.add(index, mini.counts[index])
+            mini.marriage_credit = mini.death_credit = 0.0   # 回流体区：信用作废（adr-010）
             fold_pools(mini, self.measure)
         del self.clusters[cid]
         self.revision += 1
@@ -522,6 +527,7 @@ class ClusterStore:
             mini = engine.measure
             for index in list(mini.occupied):
                 self.measure.add(index, mini.counts[index])
+            mini.marriage_credit = mini.death_credit = 0.0   # 回流体区：信用作废（adr-010）
             fold_pools(mini, self.measure)
         self.dissolved_rho += cluster.rho
         del self.clusters[cid]
@@ -963,9 +969,9 @@ class ResolutionManager:
             if direction == 1:
                 made = self.store.materialize(cid)
                 if not made:
-                    # 物化被卡：mini 里没有任何 count ≥ 1.0 的整人桶可析出
-                    # （已知成因：均值场 marriage 会把单身桶按分数削到 1.0 以下）。
-                    # **不计为换档**（什么都没发生）——只记 blocked 供观测。
+                    # 物化被卡：mini 里没有任何 count ≥ 1.0 的整人桶可析出。
+                    # 历史成因（均值场 marriage 把单身桶削到 1.0 以下）已由 adr-010 的
+                    # 整数语义发放修复；此计数保留为异常观测面（生产路径期望 ≈ 0）。
                     self._switch_blocked[cid] = self._switch_blocked.get(cid, 0) + 1
                     continue
             else:

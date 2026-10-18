@@ -49,10 +49,10 @@ def test_aligned_phase_makes_phases_identical():
 def test_flow_ablation_is_effective():
     from bench.diagnose_cluster_bias import flows_without
 
-    ablated = flows_without("marriage")
+    ablated = flows_without("integer_marriage")
     names = {flow.__name__ for flow in ablated}
-    assert "marriage" not in names
-    assert names == {"aging", "income", "death", "birth"}
+    assert "integer_marriage" not in names
+    assert names == {"aging", "income", "integer_death", "birth"}
 
     from app.core.measure import transitions as T
 

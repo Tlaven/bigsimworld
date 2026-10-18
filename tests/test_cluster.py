@@ -12,9 +12,11 @@ from app.core.measure.cluster import (
     decay,
 )
 from app.core.measure.engine import MeanFieldEngine
-from app.core.measure.measure import measure_from_characters
+from app.core.measure.measure import (Measure, fold_pools, measure_from_characters,
+                                      measure_from_payload, measure_to_payload)
 from app.core.measure.space import StateSpace
-from app.core.measure.transitions import BIRTH_RATE, FULL_FLOWS
+from app.core.measure.transitions import (BIRTH_RATE, FULL_FLOWS, integer_death,
+                                          integer_marriage)
 from app.core.measure.window import IndividualWindow, WindowEngine
 from bench.world import build_engine, make_characters
 
@@ -611,12 +613,8 @@ def test_flux_telemetry_detects_realized_events():
     assert mgr.telemetry()[cid]["real"]["deaths"] == 1
 
 
-def test_blocked_upgrade_is_visible_not_counted():
-    """物化被卡（无可析出的整人桶）时：不计换档、计 `blocked`——"幽灵换档"可见化。
-
-    成因（本轮遥测发现的既有隐疾）：均值场 `marriage` 每 tick 把单身桶按分数削到
-    1.0 以下 ⇒ 只含单身的共演单元粗化一步后即不可物化。**行为修复不属本轮**
-    （No-Op 轮），此处只断言"诚实计数"。"""
+def test_singles_mini_stays_materializable():
+    """整数语义（adr-010）：单身迷你粗化后仍可物化——不再出现「幽灵换档」。"""
     random.seed(41)
     engine = _engine_with_resolution(capacity=200, window=200)
     mgr = engine.resolution
@@ -633,15 +631,39 @@ def test_blocked_upgrade_is_visible_not_counted():
 
     mgr.store.coarsen(cid)                   # 收编：mini = 两个 1.0 单身桶
     mgr.set_attention(cid, 1.0)
-    engine.step()                            # step_coarse 先削桶（marriage），apply 物化失败
+    engine.step()                            # mini 整数语义演化一步 ⇒ 桶保持整人
+    assert mgr.store.clusters[cid].level == 1
+    tel = mgr.telemetry()[cid]
+    assert tel["blocked"] == 0
+    assert tel["switches"] == 1
+    assert mgr._last_switch.get(cid) == engine.simulation_time
+
+
+def test_blocked_still_counted_without_whole_buckets():
+    """`blocked` 观测面仍有效：手工造全分数迷你（无可析出整人桶）⇒ 物化失败如实计数。"""
+    random.seed(43)
+    engine = _engine_with_resolution(capacity=200, window=200)
+    mgr = engine.resolution
+    mgr.form_interval = 1
+    a, c = list(engine.window.characters.values())[:2]
+    for character in (a, c):
+        character.age = 30
+        character.pedometer["step_threshold"] = 3600
+    c.relationships["parent"].append(a)
+    a.relationships["child"].append(c)
+    engine.step()
+    cid = mgr.cluster_of(a.id)
+
+    mgr.store.coarsen(cid)
+    mini = mgr.store.clusters[cid].state["engine"].measure
+    for index in list(mini.occupied):        # 测试专用：抽到 0.3（无整人桶可析出）
+        mini.add(index, -(mini.counts[index] - 0.3))
+    mgr.set_attention(cid, 1.0)
+    engine.step()
     tel = mgr.telemetry()[cid]
     assert tel["blocked"] == 1
     assert tel["switches"] == 0
-    assert cid not in mgr._last_switch       # 没发生的事不记换档
-
-    mgr.set_attention(cid, 1.0)
-    engine.step()
-    assert mgr.telemetry()[cid]["blocked"] == 2
+    assert cid not in mgr._last_switch
 
 
 def test_telemetry_is_observationally_noop(monkeypatch):
@@ -674,6 +696,80 @@ def test_telemetry_is_observationally_noop(monkeypatch):
     monkeypatch.setattr(cluster_mod.ResolutionManager, "_scan_flux", lambda self: None)
     monkeypatch.setattr(cluster_mod.ResolutionManager, "_snapshot_flux", lambda self: None)
     assert run() == observed
+
+
+# ---------------------------------------------------------------- 整数语义发放（adr-010）
+
+def test_integer_marriage_fires_whole_pairs():
+    """信用发放（adr-010）：期望通量累积、积满 2 人整人成对；整人桶从不被削到 (0,1)。"""
+    space = StateSpace()
+    mini = Measure(space)
+    i_male = space.encode(30, 0, 10, 0)
+    i_female = space.encode(30, 1, 10, 0)
+    mini.add(i_male, 1.0)
+    mini.add(i_female, 1.0)
+
+    fired_tick = None
+    for tick in range(1, 2601):
+        before = mini.total()
+        integer_marriage(mini, tick)
+        assert abs(mini.total() - before) < 1e-12       # 发放严格计数中性
+        for index in (i_male, i_female):
+            count = mini.counts[index]
+            assert count == 0.0 or count >= 1.0          # 永不进入 (0,1)
+        married = (mini.counts[space.encode(30, 0, 10, 1)]
+                   + mini.counts[space.encode(30, 1, 10, 1)])
+        if married == 2.0:
+            fired_tick = tick
+            break
+    assert fired_tick is not None
+    # 期望通量 = MARRIAGE_RATE × 2 人 × q(=1) × 2 / tick ⇒ 约 1800 tick 首发
+    assert 1700 <= fired_tick <= 1900
+    assert mini.counts[i_male] == 0.0 and mini.counts[i_female] == 0.0
+    assert mini.total() == 2.0
+
+
+def test_integer_death_fires_whole_removals():
+    """信用发放（adr-010）：死亡按整人移除、`recent_deaths` 记整额；桶保持整数。"""
+    space = StateSpace()
+    mini = Measure(space)
+    i_old_a = space.encode(70, 0, 10, 1)
+    i_old_b = space.encode(75, 1, 12, 1)
+    mini.add(i_old_a, 1.0)
+    mini.add(i_old_b, 1.0)
+
+    fired = []
+    for tick in range(1, 4001):
+        integer_death(mini, tick)
+        fired.extend(mini.recent_deaths)
+        for index in (i_old_a, i_old_b):
+            count = mini.counts[index]
+            assert count == 0.0 or count >= 1.0
+    assert len(fired) >= 1
+    assert all(abs(amount - 1.0) < 1e-12 for _age, _wealth, amount in fired)
+    assert abs(mini.total() - (2.0 - len(fired))) < 1e-12
+
+
+def test_credits_roundtrip_fold_and_defaults():
+    """信用是发放器状态（adr-010）：payload 往返、旧档缺字段按 0、fold_pools 求和。"""
+    space = StateSpace()
+    measure = Measure(space)
+    measure.marriage_credit = 1.5
+    measure.death_credit = 0.25
+    restored = measure_from_payload(measure_to_payload(measure), space)
+    assert restored.marriage_credit == 1.5
+    assert restored.death_credit == 0.25
+
+    old = measure_from_payload(
+        {"size": space.size, "cells": [[space.encode(30, 0, 10, 0), 1.0]]}, space)
+    assert old.marriage_credit == 0.0 and old.death_credit == 0.0
+
+    target = Measure(space)
+    target.marriage_credit = 0.75
+    target.death_credit = 1.0
+    fold_pools(measure, target)
+    assert target.marriage_credit == 2.25 and target.death_credit == 1.25
+    assert measure.marriage_credit == 0.0 and measure.death_credit == 0.0
 
 
 

@@ -654,3 +654,12 @@ Stage 20 的校准把"可达性"钉成了瓶颈：生产样态下 crossings = 0�
 - **发现（仪器首获）**：均值场 `marriage` 每 tick 把单身桶削到 1.0 以下（1.0 → 0.999444）⇒ 只含单身的共演单元粗化一步后**不可物化**；旧代码静默失败却计入"换档"（幽灵）。本批 = 诚实计数（`blocked`，不计换档）；**行为修复留后续**（会改动力学；设计先例见审计记录 §6）。
 - **C**：Scheffer 1995 全文细读 —— **无分裂判据**（判据不并入 merge/split，记"为什么不"）；"小内部量 → 回到离散/随机"原则记为上述修复的设计起点。
 - 对账见 [`reviews/2026-10-18-resolution-consistency-audit.md`](reviews/2026-10-18-resolution-consistency-audit.md)。
+
+### Stage 26 · mini 整数语义发放（修复"幽灵换档"）（2026-10-18）
+
+按 ADR-010 实施（承接 Stage 25 的发现与诚实计数）：
+
+- **实现**：`FamilyKind.flows` = `(aging, income, integer_death, integer_marriage, birth)`——信用累积与全局**同源的期望通量**、积满即**整人发放**（婚配 2 人成对 / 死亡 1 人移除；count 降序 + 平局索引序，确定性、无 rng）。信用存 `Measure`（`marriage_credit` / `death_credit`；**非质量**、不进守恒恒等式；fold 求和、回流体区作废、快照往返）。全局 `FULL_FLOWS` 零接触。
+- **测试**：+4（单身迷你仍可物化 / blocked 观测面保留 / 婚配-死亡-信用算子级对拍 / 消融名更新）。
+- **验收**：`resolution_switch` **blocked = 0**（修复前 169/167/78）；`cluster_fidelity` 的 `age_l1`/`pop` 与修复前**一致**、`married_frac` +0.14→+0.26（整人发放撤掉了流体版对小簇的**过婚**——最后剩一个单身也能被分数嫁掉；预期更正，GATE 不含该项）；`audit_ledger --clusters` identity **0.0000%**；pytest 234 passed。
+- 对账见 [`reviews/2026-10-18-resolution-consistency-audit.md`](reviews/2026-10-18-resolution-consistency-audit.md) 的"跟进（同日修复）"。

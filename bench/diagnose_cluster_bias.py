@@ -30,10 +30,11 @@ import statistics
 
 from bench.cluster_fidelity import run_trial
 
-# 消融用的流集合（仅作**必要条件检查**，见上文"失败的方法"）
-from app.core.measure import transitions as T
+# 消融用的流集合（仅作**必要条件检查**，见上文"失败的方法"）。
+# 单一出处：与生产 coarse 臂（FamilyKind）同源（adr-010 起为整数语义发放流）。
+from app.core.measure.cluster import KINDS
 
-COARSE_FLOWS = tuple(flow for flow in T.FULL_FLOWS if flow is not T.inheritance)
+COARSE_FLOWS = tuple(KINDS["family"].flows)
 
 
 def flows_without(*names):
@@ -46,11 +47,11 @@ PHASE_CONFIGS = [
 ]
 
 ABLATION_CONFIGS = [
-    ("baseline",              dict()),
-    ("no_marriage（≡无出生）", dict(coarse_flows=flows_without("marriage"))),
-    ("no_death",              dict(coarse_flows=flows_without("death"))),
-    ("marry_x0.5",            dict(marriage_scale=0.5)),
-    ("marry_x0.2",            dict(marriage_scale=0.2)),
+    ("baseline",                  dict()),
+    ("no_marriage（≡无出生）",    dict(coarse_flows=flows_without("integer_marriage"))),
+    ("no_death",                  dict(coarse_flows=flows_without("integer_death"))),
+    ("marry_x0.5",                dict(marriage_scale=0.5)),
+    ("marry_x0.2",                dict(marriage_scale=0.2)),
 ]
 
 

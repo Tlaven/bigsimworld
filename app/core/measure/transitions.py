@@ -276,5 +276,81 @@ def marriage(measure, tick):
         measure.add(index, -move)
 
 
+# ------------------------------------------------ 整数语义发放（mini 专用，adr-010）
+
+def integer_death(measure, tick):
+    """小计数粗侧的死亡发放（整数语义；`FamilyKind` 专用；全局测度用流体版 `death`）。
+
+    信用 += Σ_{age≥60} count×DEATH_RATE（与流体版**逐 tick 同源**的期望人-次）；
+    积满 1.0 即发放：从 `count ≥ 1.0` 的 60+ 桶取 **1.0**（count 降序、平局索引序——
+    确定性、不消耗随机数），记入 ``recent_deaths``（**替换**语义，与流体版一致）。
+    整人桶不被削到 (0,1) ⇒ mini 保持可物化。见 `docs/decisions/adr-010-mini-integer-semantics.md`。
+    """
+    space = measure.space
+    eligible_total = 0.0
+    for index in measure.occupied:
+        if space.decode(index)[0] >= 60:
+            eligible_total += measure.counts[index]
+    credit = measure.death_credit + eligible_total * DEATH_RATE
+    fired = []
+    while credit >= 1.0:
+        candidates = [index for index in measure.occupied
+                      if measure.counts[index] >= 1.0 and space.decode(index)[0] >= 60]
+        if not candidates:
+            break
+        index = min(candidates, key=lambda i: (-measure.counts[i], i))
+        age, _gender, wealth, _marital = space.decode(index)
+        measure.add(index, -1.0)
+        fired.append((age, wealth, 1.0))
+        credit -= 1.0
+    measure.death_credit = credit
+    measure.recent_deaths = fired
+
+
+def integer_marriage(measure, tick):
+    """小计数粗侧的婚配发放（整数语义；`FamilyKind` 专用；全局测度用流体版 `marriage`）。
+
+    信用 += ``to_marry``（**与流体版同一公式 / 可用性闭合**——逐 tick 同源的期望人-次）；
+    积满 2.0 即**整人成对发放**：优先从最大的单身桶取 2.0（一桶 = 同状态两人成婚，
+    均值场本就性别中立）；否则取两个 `count ≥ 1.0` 的单身桶各 1.0（count 降序、平局索引序——
+    确定性、不消耗随机数）。每 1.0 送入同 `(age,gender,wealth)` 的 ``marital=1`` 桶。
+    整人桶不被削到 (0,1) ⇒ mini 保持可物化。见 `docs/decisions/adr-010-mini-integer-semantics.md`。
+    """
+    space = measure.space
+    singles = adults = 0.0
+    for index in measure.occupied:
+        count = measure.counts[index]
+        age, _gender, _wealth, marital = space.decode(index)
+        if 18 <= age < 60:
+            adults += count
+            if marital == 0:
+                singles += count
+    credit = measure.marriage_credit
+    if singles > 1.0 and adults > 0.0:
+        p_elig = singles / adults
+        availability = 1.0 - (1.0 - p_elig) ** MARRIAGE_MEAN_DEG
+        credit += min(MARRIAGE_RATE * singles * availability * 2.0, singles)
+    while credit >= 2.0:
+        whole = sorted((index for index in measure.occupied
+                        if measure.counts[index] >= 1.0
+                        and space.decode(index)[3] == 0
+                        and 18 <= space.decode(index)[0] < 60),
+                       key=lambda i: (-measure.counts[i], i))
+        if not whole:
+            break
+        if measure.counts[whole[0]] >= 2.0:
+            picks = [(whole[0], 2.0)]
+        elif len(whole) >= 2:
+            picks = [(whole[0], 1.0), (whole[1], 1.0)]
+        else:
+            break
+        for index, amount in picks:
+            age, gender, wealth, _marital = space.decode(index)
+            measure.add(index, -amount)
+            measure.add(space.encode(age, gender, wealth, 1), amount)
+        credit -= 2.0
+    measure.marriage_credit = credit
+
+
 DEFAULT_FLOWS = (aging, income, death, birth)
 FULL_FLOWS = (aging, income, death, marriage, birth, inheritance)
