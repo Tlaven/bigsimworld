@@ -696,3 +696,11 @@ Stage 20 的校准把"可达性"钉成了瓶颈：生产样态下 crossings = 0�
 - **测试 +2**（守卫单测：同发起者双意图 ⇒ 一 ok + 一 `initiator_married`；双注册并存）——`pytest 238 passed`。
 - **验收**：`channel_marriage` 三 scope（族 16 / 众 18 / both 16[5+11]；逐次 identity ≤1.5e-8）；守卫实测未触发（重叠概率低，由单测强制覆盖）；`calibrate --scope both` 1× 语义效应 +1.94pp（vs null）；`audit_ledger --clusters` 0.0000%；默认关 ⇒ 生产读数不变。
 - 对账：[`reviews/2026-10-18-both-marriage.md`](reviews/2026-10-18-both-marriage.md)。
+
+### Stage 31 · C2 决策：维持冻结（ADR-013）（2026-10-18）
+
+- **探索实证**：`interface` 无消费方、**不随快照**（`to_payload` 无该字段）、**粗化后不清理**（三缺陷此前未记录）；`transfer` 无 cluster→cluster 分支，且 L1「边界外」**有意**冻结 C↔C。
+- **决策**：**暂不立项**——无需求驱动（`RULES` 只有婚配规则、只发 `bind`）；落地即死代码；消费语义属产品/模型问题，须先有"要什么样的跨簇共演化"。
+- **登记**：`interface` 标为**预留字段**（`cluster-contract` §1 + `engineering-spec` 已知边界）；**重启条件**写死（需要跨簇质量转移的规则/演示，或跨簇共演化诉求；重启先修数据面再定语义）。
+- **下一步**：转**生产注意力轨迹观测**（测量轮）——为"滞回默认启用 / 误差触发"两个卡住的拍板供数。
+- 对账：[`decisions/adr-013-c2-deferred.md`](decisions/adr-013-c2-deferred.md)。

@@ -22,7 +22,7 @@ class Cluster:
     level: int               # 分辨率：0 = coarse，1 = individual（整数，可扩展）
     member_ids: set[int]     # resolved：window 内 id；coarse：空
     state: dict              # coarse 聚合态（kind 自定，开放容器）；resolved = {}
-    interface: list[InterfaceEdge]
+    interface: list[InterfaceEdge]   # **预留字段**：无消费方 / 不随快照 / 粗化后不清理——启用前先定义消费语义并修数据面
     rho: float
     parent_id: int | None
 ```

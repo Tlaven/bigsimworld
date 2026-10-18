@@ -202,5 +202,5 @@ W = Σ_测度 [ count×桶中心 + transfer_pool + conversion_residual + Σ year
 
 **已验**：`bench.audit_ledger --clusters` 恒等误差 **0.0000%**；`bench.cluster_inheritance` 族内 vs 全局人均留存 ~181×（peers=120）。
 
-**已知边界（本层）**：resolved 共演单元的婚配/出生仍族内闭合（跨共演单元婚配只**记录** `interface`，未在 coarse 模型消费，除 `overflow_fraction`）；`life_log` 只保留窗口内当前个体。`transfer` 只支持 R↔C（C↔C 与 resolved 簇支付未做）；交互规则默认空，第一条 = 跨分辨率婚配（需 `SIM_CHANNEL_MARRIAGE=1|mass`；开启 = 新语义，收敛门槛只在默认关闭下跑）。分辨率折算的财富量化差已由
+**已知边界（本层）**：resolved 共演单元的婚配/出生仍族内闭合（跨共演单元婚配只**记录** `interface`，未在 coarse 模型消费，除 `overflow_fraction`；`interface` 为**预留字段**：无消费方、不随快照、粗化后不清理——启用前先定义消费语义并修数据面）；`life_log` 只保留窗口内当前个体。`transfer` 只支持 R↔C（C↔C 与 resolved 簇支付未做）；交互规则默认空，第一条 = 跨分辨率婚配（需 `SIM_CHANNEL_MARRIAGE=1|mass|both`；开启 = 新语义，收敛门槛只在默认关闭下跑）。分辨率折算的财富量化差已由
 符号残差账承接——旧快照（无该字段）恢复后 W 有一次性断点，属兼容边界。
