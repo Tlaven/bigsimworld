@@ -1,5 +1,5 @@
 ﻿# check-docs-sync.ps1 — 与 check-docs-sync.sh 等价(Windows)。
-# 只查"有没有动过",不判对错。
+# 只查"有没有动过",不判对错(docs/reviews/ 对账留档=历史快照,不算"文档已同步")。
 #
 # 用法:
 #   powershell -File check-docs-sync.ps1
@@ -14,22 +14,26 @@ param(
   [string]$Base = ""
 )
 
-# CODE_GLOB 默认按"代码文件扩展名"判定(适配"代码散落/在根目录"的项目);
-# 若代码集中在某几个目录,改成目录式更准,如: '^(src|lib|app|packages)/'
+# CODE_GLOB(项目定制):代码集中在 app / bench / tests / web + run.py——目录式判定比扩展名式更准
+# (避免 scripts/ 等辅助文件被当成"代码改动"而误报)。
 $codeGlob = '^(app|bench|tests|web)/|^run\.py$'
 $docGlob  = '^docs/'
 $l1Files  = @('AGENTS.md','CLAUDE.md','.cursorrules','.cursor/rules/project.mdc','.windsurfrules','.github/copilot-instructions.md')
 
 if (-not (git rev-parse --is-inside-work-tree 2>$null)) { exit 0 }
 
+# 所有 diff 显式带 -c core.autocrlf=true:不依赖运行方 git 的全局配置——
+# "仓库在 Windows 检出为 CRLF、脚本在 WSL/未配 autocrlf 的 git 下运行"时,
+# 工作区 CRLF vs index LF 会整仓误判为已改动(--strict 下挡住每次提交)。
+# 代价:纯换行符改动(CRLF↔LF)不再出现在改动列表——这类改动本就不需要同步文档,接受。
 if ($Staged) {
-  $changed = git diff --cached --name-only
+  $changed = git -c core.autocrlf=true diff --cached --name-only
 } elseif ($Base) {
-  $changed = git diff --name-only "$Base...HEAD"
+  $changed = git -c core.autocrlf=true diff --name-only "$Base...HEAD"
 } else {
   # 默认(工作区)模式:对比 HEAD 并纳入"未跟踪"文件(新项目常未 git add;unborn HEAD 时 git diff 还会报错)。
   $changed = @()
-  $changed += @(git diff --name-only HEAD 2>$null)
+  $changed += @(git -c core.autocrlf=true diff --name-only HEAD 2>$null)
   $changed += @(git ls-files --others --exclude-standard 2>$null)
 }
 
@@ -38,6 +42,8 @@ if (-not $changed) { exit 0 }
 $codeHit = $false; $docHit = $false
 foreach ($f in $changed) {
   if ([string]::IsNullOrWhiteSpace($f)) { continue }
+  # docs/reviews/ = 对账留档(历史快照)——改它不算"文档已同步"(与 check-doc-refs 的 DOC_EXCLUDE 同一拍板,2026-10-17)
+  if ($f -like 'docs/reviews/*') { continue }
   if ($f -match $docGlob) { $docHit = $true }
   if ($l1Files -contains $f) { $docHit = $true }
   if ($f -match $codeGlob) { $codeHit = $true }

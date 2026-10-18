@@ -1,7 +1,7 @@
 # Phase 0 接口契约：共演单元（Cluster）与分辨率
 
 本文是**契约**：共演单元的数据模型、七个扩展缝、通用算子与不变量。实现骨架见 `app/core/measure/cluster.py`。
-跨分辨率**直接交互**（R↔C）的通道契约见 [`modules/interaction-channel.md`](modules/interaction-channel.md)（ADR [`decisions/adr-003-interaction-channel.md`](decisions/adr-003-interaction-channel.md)）；本节只描述共演单元自身。
+跨分辨率**直接交互**（R↔C）的通道契约见 [`modules/interaction-channel.md`](modules/interaction-channel.md)；本节只描述共演单元自身。
 
 > 原则：**机制通用、策略可插拔**。MVP 只给每个策略一个实现（单 kind、两档分辨率、水位线调度、身份质量 ρ），但接口从第一天留好，后续规则不得因 MVP 而被限死。
 
@@ -116,7 +116,7 @@ register(FamilyKind())   # MVP 唯一实现
 
 - `Σ measure.counts + Σ_coarse size + len(window.characters) == 初始 + 出生 − 死亡`
 - 分辨率切换**计数中性**（只移动，不产生 / 销毁）：`materialize` 只从计数 ≥ 1.0 的桶析出整人（分数残量留在共演单元内）；`coarsen` 须并入共演单元内残留。**身份不守恒**（重采样新代表）。
-- **质量账随生命周期折叠**：`coarsen` / `merge` / `dissolve` / `split` 除 `counts` 外必须折叠 `transfer_pool`、`yearly_inherited` 与 `conversion_residual`（逐段/逐项相加）；`merge` 的 resolved+resolved 快路径与 `split` 尤其不能漏（它们会删掉持有 mini 的簇）。否则财富（以及分数计数残留）蒸发。快照须往返这三项。财富口径见 `engineering-spec.md` §9、`adr-005`（通道池）与 `adr-006`（折算残差）。
+- **质量账随生命周期折叠**：`coarsen` / `merge` / `dissolve` / `split` 除 `counts` 外必须折叠 `transfer_pool`、`yearly_inherited` 与 `conversion_residual`（逐段/逐项相加）；`merge` 的 resolved+resolved 快路径与 `split` 尤其不能漏（它们会删掉持有 mini 的簇）。否则财富（以及分数计数残留）蒸发。快照须往返这三项。财富口径见 `engineering-spec.md` §9。
 - `rho ≥ 0`，coarsen 单调增，merge 可减；无悬空边（`other_ref` 必须可解析）。
 - 显要者（notability）**不逐出**，其所在共演单元**不粗化**——关键个体不失去特殊性。
 

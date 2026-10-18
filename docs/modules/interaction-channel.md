@@ -5,8 +5,6 @@
 > **本模块已交付：两个原子（身份侧 `bind`/`unbind` = N2-1/N2-4/N2-5；质量侧 `transfer` = N2-6）
 > + 第一条交互规则（跨分辨率婚配 = N2-7，默认关）+ 全局测度寻址（= N2-8）**。
 > 规则**默认不注册**（`RULES` 空）⇒ 生产路径的权威数字不变；`SIM_CHANNEL_MARRIAGE=1` 才开启。
-> `transfer` 见 [`adr-005`](../decisions/adr-005-transfer-quality-side.md)，婚配规则见 [`adr-007`](../decisions/adr-007-cross-resolution-marriage.md)，
-> 全局测度寻址见 [`adr-008`](../decisions/adr-008-global-measure-addressing.md)。
 
 ---
 
@@ -29,7 +27,7 @@
 
 | 子组件 | 职责 | 本期 |
 |---|---|---|
-| `Intent`（frozen dataclass） | 通道唯一输入形态：`kind / origin / scope / match / payload` | ✅ |
+| `Intent`（frozen dataclass） | 通道唯一输入形态：`op`（缺省 `"bind"`）/ `kind / origin / scope / match / payload` | ✅ |
 | `Match`（声明式谓词） | 可匹配性；**声明式**而非任意闭包。编译为**桶索引谓词**，两侧共用（见决策 4） | ✅ |
 | `InteractionChannel` | 收集意图 → 确定性排序 → 配额闸 → `bind` / `unbind` → 记账本 | ✅ |
 | `bind` | 原子：`extract` + `link`（**有身份**，先扣后加） | ✅ |
@@ -70,9 +68,7 @@
 `rho = 2143` 与接入前一致）。
 
 **已交付（2026-10-17，拍板后实现）**：`marital` **双人析出**（N2-5）——`RECONSTRUCTIBLE` 含 `marital`、
-`extract(amount=2)` 成对、闸按 `amount` 计、账本 `spouse_id`/`spouse_cell`、双向 `unbind`。
-拍板落档见 [`../decisions/adr-003-interaction-channel.md`](../decisions/adr-003-interaction-channel.md)（状态 accepted）；
-规格经 **3 轮 teach-back**（对账见 [`../reviews/2026-10-17-N2-5-marital-teachback.md`](../reviews/2026-10-17-N2-5-marital-teachback.md)）。
+`extract(amount=2)` 成对、闸按 `amount` 计、账本 `spouse_id`/`spouse_cell`、双向 `unbind`。规格经 **3 轮 teach-back**。
 **实现期又暴露 3 处文档与代码不符**（`link` 无 `record` 参数 / 折算 `marital` 不能一律取 0 /
 `made` 必须按人计），均已就地修正。
 
@@ -96,8 +92,8 @@
 
 **惰性不变**：`RULES` 仍为空 ⇒ 生产里没有任何 `transfer` 意图 ⇒ 新路径不执行，池恒 0；
 `pytest` 与 `bench.audit_ledger --resolution/--clusters` 数字不退化。
-**已知边界**：`unbind` / `dematerialize` / `coarsen` 把精确财富折回桶中心仍有 ≤ `w/2` 的量化差
-（ADR-005 方案 H 未做）——`transfer` 原子自身严格守恒，全局 W 只在无分辨率折算的区间内严格。
+**已知边界**：`unbind` / `dematerialize` / `coarsen` 把精确财富折回桶中心有 ≤ `w/2` 的量化差
+——由**折算残差**符号账承接（见不变量 9）；`transfer` 原子自身严格守恒。
 
 ### 消歧与冻结面（2026-10-17，个体引擎简化）
 
@@ -106,7 +102,7 @@
 | # | 内容 | 位置 |
 |---|---|---|
 | 6 | **删除死字段 `relatives`**，关系人唯一真相源 = `relationships`（求度用 `neighbors`） | `person/character.py`、`person/links.py` |
-| 7 | `link`/`unlink` 铺满 `person/*`；广场配对改走 `link`，并**删除从未生效的"亲属避让"检查**（详见陷阱 7） | `person/death.py`、`simulation/events.py` |
+| 7 | `link`/`unlink` 铺满 `person/*`；广场配对改走 `link`，并**删除从未生效的"亲属避让"检查**（详见「危险实现清单（模块级）」第 7 条） | `person/death.py`、`simulation/events.py` |
 | 8 | **rng 注入贯穿个体引擎**：`SimulationEngine`/`EventEngine`/`IndividualWindow` 均持 `rng`，`IndividualEvents`、`PeopleEvents`、`round_up_probability` 全部改用注入的 rng（默认模块级 `random`，故逐位一致性保持） | `simulation/engine.py`、`simulation/event_engine.py`、`person/events.py`、`simulation/events.py` |
 
 **例外（刻意不接管）**：`marry.py` 的 `self_event` 仍是手写 append——`MarryEvent.happen` 的协议是
@@ -129,7 +125,7 @@
 > 否则财富会被凭空造出/销毁。这需要一条**独立的财富守恒不变量**（形如 `bench.audit_ledger` 的 `pool_residual`），
 > 与 `bind` 的人头守恒是两码事。
 
-**决策（[`adr-005`](../decisions/adr-005-transfer-quality-side.md)）**：每个**粗侧**各持一个 `transfer_pool`；
+**决策**：每个**粗侧**各持一个 `transfer_pool`；
 R→C 精确借记入池，C→R 精确支付（池不够就向下整桶清算），每 360 tick 把池按整桶投递回分布。
 步骤级规格 = **N2-6**。**池随共演单元生命周期折叠**（`coarsen`/`merge`/`dissolve`），否则财富会丢——
 这也是本次顺手修掉的既有漏洞（`yearly_inherited` 与快照此前同样不折叠）。
@@ -155,13 +151,14 @@ class Intent:
     scope: tuple       # 对手侧范围：("cluster", cid) | ("window",) | ("measure",)（全局测度）
     match: Match       # 可匹配性（作用于**对手侧**）
     payload: dict = field(default_factory=dict)   # 规则私有，通道透传
+    op: str = "bind"   # 原子选择："bind"（缺省，N2-1）| "transfer"（N2-6）
 ```
 
 `bind` 的推导（唯一一条路径，两个方向共用）：
 
 1. **coarse 侧** = `origin` / `scope` 中**粗侧形态的那一个**（`("cluster", cid)` 或 `("measure",)` 全局测度）：
    `origin` 是粗侧 ⇒ 取 `origin`；否则取 `scope`（此时 `scope` 必须是粗侧）。
-   **粗侧有两种形态**——共演单元（簇）与全局测度（见 N2-8 / [`adr-008`](../decisions/adr-008-global-measure-addressing.md)）。
+   **粗侧有两种形态**——共演单元（簇）与全局测度（见 N2-8）。
 2. **resolved 侧发起者** = `origin` 若是 `("character", …)` 则该角色本人；否则（C 侧发起 / `("measure",)` 发起）在
    `scope=("window",)` 里按 `match` 选出**一个已有窗口角色**作为对手方。
 3. **析出**永远在 **coarse 侧**（唯一没有身份的一侧——簇或全局测度）：析出整人（1 个；`Match(marital=1)` 时**成对 2 个**，见 N2-5）→ 得到新 `Character`。
@@ -192,14 +189,14 @@ class Intent:
     （`space.encode(c.age, gender, space.wealth_bucket(c.wealth), 1 if c.relationships.get("spouse") else 0)`）
     后作用——代价 O(窗口人数) = O(`capacity`)，可接受。
   - **C→R 的对手方选取顺序固定为 `Character.id` 升序取第一个匹配**（不得依赖窗口 `dict` 迭代序）。
-- **可重建维度 = `{age, gender, wealth, marital}`**（`RECONSTRUCTIBLE`；2026-10-17 拍板，ADR-003 未定点 1 = **双人析出**）。
+- **可重建维度 = `{age, gender, wealth, marital}`**（`RECONSTRUCTIBLE`；2026-10-17 拍板 = **双人析出**）。
   `Match(marital=1)` 合法，但**已婚者不得单独析出**——必须成对（见 N2-5）。
   规则：`Match` 引用 ∉ `RECONSTRUCTIBLE` 的维度 ⇒ 在 `compile` **抛错**（不变量 4）。
 
-### 决策 5：先做通道，再做规则；第一条规则 = 跨分辨率婚配（ADR-007）
+### 决策 5：先做通道，再做规则；第一条规则 = 跨分辨率婚配
 通道建设期 `RULES` 为空——"规则未知"恰好是对通道设计的**检验**：零规则 + 探针规则即可完整验收通道。
-**2026-10-17 落地第一条真实规则**：[`adr-007`](../decisions/adr-007-cross-resolution-marriage.md) 的
-`MarriageRule`（R→C 婚配，默认关）。它只声明意图，守恒/建边/配额/宽限期全部由通道保证（N2-7）。
+**2026-10-17 落地第一条真实规则**：`MarriageRule`（R→C 婚配，默认关）。
+它只声明意图，守恒/建边/配额/宽限期全部由通道保证（N2-7）。
 
 ### 同构参考（不是等同）
 "两级互相耦合 + 守恒通量交换"在数值方法里有成熟同构：**自适应网格加密（AMR）的粗/细界面**。
@@ -229,8 +226,7 @@ class Intent:
 - **把交互塞进 `Character.step()` / `PeopleEvents`**（被拒）：通道有**副作用**（改 coarse 分布、改窗口容量），
   且必须确定性排序——事件层做不到。
 - **继续用间接路径（全局测度中转）**（被拒）：两跳、匿名、单向，无法具名、无法反向发起。
-- **为每条规则各写一套专用通道**（被拒）：违反"机制通用、策略可插拔"
-  （见 [`adr-001-resolution-layer.md`](../decisions/adr-001-resolution-layer.md) 的立场）。
+- **为每条规则各写一套专用通道**（被拒）：违反"机制通用、策略可插拔"。
 - **把 `transfer` 挤进本期**（被拒）：它的财富量化残差池需要独立规格与独立不变量；混进来会让
   人头守恒与财富守恒两种账搅在一起，两个都说不清。
 
@@ -251,30 +247,29 @@ class Intent:
 4. **寻址封闭** `[强制]`：`Match` 引用 ∉ `RECONSTRUCTIBLE` 的维度 ⇒ **拒绝（抛错）**，不得静默失配。
 5. **确定性** `[强制]`：同 `SIM_SEED` ⇒ 同一份意图序列与账本。
    **随机源只有一个**：`window.rng`（`ClusterStore.rng` 与 `TickContext.rng` 都是它的同一实例）；
-   通道与 `extract` 一律用它，**禁止模块级 `random`**。
+   通道与 `extract` 一律用它，**禁止模块级 `random`**（唯一例外：规则**自有**流——由 `SIM_SEED` 派生、不进窗口事件流，见 N2-7 第 1 步）。
 6. **可交换** `[强制]`：`bind` 的处理结果与"同 tick 内其它**无关**意图"的顺序无关；
    与竞争同一份 coarse 质量的意图**相关但确定**（由不变量 5 的排序保证）。
 7. **配额有界** `[强制]`：单簇单 tick 析出 ≤ `cap_per_cluster`；单 tick 总析出 ≤ `cap_per_tick`；
    窗口不超 `capacity`。**按人计，且闸必须 `amount` 感知**（N2-1 第 4 步）——否则双人析出会越过上界。
    **取值**：`cap_per_cluster=2`、`cap_per_tick=8`（常数）。
-   **附注（N2-8 / ADR-008）**：`cap_per_cluster` 只约束**簇寻址**；**全局测度寻址豁免**它（无簇语义），
+   **附注（N2-8）**：`cap_per_cluster` 只约束**簇寻址**；**全局测度寻址豁免**它（无簇语义），
    只受 `cap_per_tick` 与窗口 headroom——两者对 measure 寻址**照旧是硬上界**。
 8. **可对账** `[强制]`：每条通道操作（含每次丢弃）在账本有且仅有一条记录；逐条可核平。
-9. **财富守恒（transfer 口径）** `[强制]`：
-   `W = Σ 全局测度 + Σ 每个簇 mini + Σ transfer_pool（全局与各 mini） + Σ yearly_inherited + Σ 窗口个体 wealth`
+9. **财富守恒（transfer 口径，含折算残差）** `[强制]`：
+   `W = Σ 全局测度 + Σ 每个簇 mini + Σ transfer_pool（全局与各 mini） + Σ conversion_residual（同口径） + Σ yearly_inherited + Σ 窗口个体 wealth`
    （每项都是 `count×桶中心`；**resolved 簇的 mini 残留也要算**）。
-   在 `transfer` / 清算 / 投递 / 池折叠下**严格不变**（浮点容差）。
-   **注意**：`bind`/`unbind`/`dematerialize`/`coarsen` 的桶中心折算仍有 ≤ `w/2` 的量化差
-   （ADR-005 方案 H，已知边界）——全局 W 的严格性只在"无分辨率折算"的区间内成立。
+   在 `transfer` / 清算 / 投递 / 池与残差折叠 / **所有分辨率折算**（`materialize` / `coarsen` / `merge` / `split` / `dissolve` / `dematerialize` / `unbind`）下**严格不变**（逐算子浮点容差；门禁 `bench.audit_transfer` + `bench.audit_ledger --wealth`）。
+   折算的 ≤ `w/2` 量化差由 `conversion_residual` 承接——它是**不可花费**的符号账（可支付总额 = `mass() + transfer_pool`）。
 10. **池非负** `[强制]`：任何时刻 `measure.transfer_pool ≥ 0`；不存在"预支"。
     C→R 必须先保证"池 + 可清算量 ≥ 金额"才动分布；不足 ⇒ 整笔丢弃、**零副作用**。
 11. **方向守恒** `[强制]`：R→C 与 C→R 是同一个原子（`op="transfer"`，`payload["amount"]`），
     唯一区别是发起者/对手方；两者都**不创建身份、不建边、不改窗口容量**。
-12. **池随生命周期折叠** `[强制]`：`coarsen` / `merge` / `dissolve` / `split` 必须同时折叠
-    `transfer_pool` 与 `yearly_inherited`（逐段相加），不得只折 `counts`。
-    `materialize` 保留 mini（分数残留 + 池）⇒ **resolved 簇也可能持池**；其池在 resolved 期间冻结
+12. **池/残差随生命周期折叠** `[强制]`：`coarsen` / `merge` / `dissolve` / `split` 必须同时折叠
+    `transfer_pool`、`yearly_inherited` 与 `conversion_residual`（逐段/逐项相加），不得只折 `counts`。
+    `materialize` 保留 mini（分数残留 + 池 + 残差）⇒ **resolved 簇也可能持池**；其池在 resolved 期间冻结
     （不接 transfer，年度投递仍可把它送回该 mini 的残留分布）。`merge` 的 resolved+resolved 快路径
-    与 `split` 也必须先把被删簇的 mini 折走（否则人头与财富一起丢）。
+    与 `split` 也必须先把被删簇的 mini 折走（否则人头与财富一起丢）；快照须往返这三项。
 13. **配额豁免** `[强制]`：transfer **不**消耗 `cap_per_cluster` / `cap_per_tick` / 窗口 headroom，
     也**不**登记 `recently_active`（它不产生需要保护的身份）。反过来说，配额闸只属于 `bind`。
 
@@ -301,7 +296,7 @@ class Intent:
    **口径统一**：闸、`per_cluster`、`made_total`、报告里的 `made` **一律按人计**（成对 = 2）——
    `run()` 按"本次实际析出人数"累加，而不是"每个成功意图 +1"。
 5. **解析两侧**（决策 2 第 1–2 步）：定出 `coarse_cluster` 与 `initiator_character`。
-   任一解析不出（簇不存在 / 窗口侧无匹配 / 发起者已离场）⇒ 丢弃（记 `dropped:stale` 或 `dropped:no_match`）。
+   任一解析不出（簇不存在 / 窗口侧无匹配 / 发起者已离场）⇒ 丢弃（记 `dropped:stale`；`dropped:no_match` 专用于第 6 步的候选桶为空）。
 6. **reserve**：在 `coarse_cluster` 的 mini `Measure` 上，取满足 `Match` **且** `count ≥ amount` 的候选桶
    （单人 1.0；成对 2.0，见 N2-5），**按桶索引升序**后做**计数加权抽样**（用 `ctx.rng`）。候选为空 ⇒ 丢弃（记 `dropped:no_match`）。
    随后 `mini.add(cell, -amount)` 并 `reserved += amount`。
@@ -340,8 +335,8 @@ class ChannelRecord:
     kind: str
     origin: tuple
     scope: tuple
-    cell: int | None = None         # reserve 到的桶；未 reserve 时为 None
-    delta_mass: float = 0.0         # ok 时 = -1.0；其余为 0.0
+    cell: int | None = None         # bind：reserve 到的桶；unbind：折算目标桶；其余 None
+    delta_mass: float = 0.0         # bind ok = -amount（-1.0 / -2.0）；unbind = +amount；其余 0.0
     initiator_id: int | None = None # 意图边**非 `new_id` 的一端**（恒为窗口侧：R→C=R，C→R=W）；
                                     # unbind 靠它定位对端（N2-5 第 5 步）
     new_id: int | None = None
@@ -350,7 +345,7 @@ class ChannelRecord:
     spouse_cell: int | None = None  # 仅 N2-5 的 `unbind`：配偶的折算目标桶
     op: str = "bind"                # "bind" | "transfer"（N2-6）
     wealth_delta: float = 0.0       # transfer ok：以**窗口个体**为口径（付 = 负，收 = 正）；其余 0
-    pool_after: float = 0.0         # transfer ok：目标粗侧的 `transfer_pool` 余额；其余 0
+    pool_after: float = 0.0         # transfer ok：目标粗侧的 `transfer_pool` 余额；其余记录**无定义**（观测面只读 `ok`）
     note: str = ""                  # dropped:error 存异常摘要；transfer 可记 `liquidated:<mass>`
 ```
 
@@ -360,7 +355,7 @@ class ChannelRecord:
    `bind` 创建 ⇒ 唯一）。
 2. **两端的边**：`unlink(record.initiator_id, new_id, record.kind)`（`record=True`）——**不猜"哪条边"**，就是这条。
    （`initiator_id` 的定义见 N2-1 的账本形状与 N2-5 第 5 步：**恒为意图边非 `new_id` 的一端**。）
-3. **折算回 coarse**：把该角色按**当前** `(age, gender, space.wealth_bucket(wealth), marital=0)` 折算回
+3. **折算回 coarse**：把该角色按**当前** `(age, gender, space.wealth_bucket(wealth))` + **按当时关系判定的 `marital`**（口径见下）折算回
    `coarse_cluster` 的 mini 引擎（`mini.add(encode(...), +1.0)`），随后 `window.detach(new_id)`、
    `coarse_cluster.member_ids.discard(new_id)`。
    - **`marital` 按该角色"当时"的 `relationships["spouse"]` 判定**（在 `unlink` 之后取）：
@@ -424,7 +419,7 @@ class ChannelRecord:
    `spouse_cell` = `b` 的折算目标桶（两人可能落**不同**桶——绑定期间 `income`/`aging` 会移动它们；
    见不变量 3 的注意）。簇已回收 ⇒ 两人都折算回全局测度。
    **配偶 `b` 已不在窗口**（被逐出 / 离场）：只解除**仍存在**的边、只折算**仍在窗口**的那一个；
-   仍记一条 `unbound`（`spouse_cell = None`，`note` 记 `spouse_gone`），**不抛错**（与 N2-4 第 4 步同精神）。
+   仍记一条 `unbound`（`delta_mass = +1.0`、`spouse_cell = None`，`note` 记 `spouse_gone`），**不抛错**（与 N2-4 第 4 步同精神）。
    **反向（`a` = `new_id` 已离场、`b` 仍在窗口）**：按 N2-4 第 4 步**返回 `False`**，不抛错；
    `b` 的状态由它自己的离场 / `unbind` 路径处理——**不**在这里顺手折算（避免双重记账）。
    `unbound` 记录同样带 `new_id` / `initiator_id`（挂回原 `bind`）。
@@ -464,25 +459,24 @@ class ChannelRecord:
 与窗口 `_refill`（`materialize_sample`，从全局测度抽样代表）——**本次不改**：它们是"抽样代表"，
 成对析出会改**窗口人口构成**与回填口径（属独立决策）。二者记为**已知近似**（状态：planned，集中在此处）。
 
-**陷阱**
+**危险实现清单**
 
-- **配额 / headroom 闸必须按 `amount` 判定**（N2-1 第 4 步）：按"1 个"判会让婚配意图在只剩 1 个名额时挤进来，
-  事后 `+= 2` ⇒ 破坏不变量 7。这是本单元最容易被写错的一处。
-- **C→R 时账本 `initiator_id` 存 `W`（窗口侧），不是 `a`**：存错 ⇒ `unbind` 退化成 `unlink(a, a)`，
-  `a—W` 边永不解除（幽灵）。别把"语义发起者（簇，由 `a` 代表）"与"账本 `initiator_id`（窗口侧那一端）"混用。
-- 不得"析出 1 人 + 伪造配偶边"（幽灵边）；不得跨桶凑对。
-- **`a` / `b` 的确定必须来自 `window.attach` 的调用序**，不得依赖 `dict` / `set` 迭代序（不变量 5）。
-- 析出者**从不进** `coarse_cluster.member_ids`（N2-1 第 7 步）；N2-4 第 3 步的 `discard` 是**幂等防御**，不是"曾经写进去过"。
-- 别把本规则推广成"所有 `marital=1` 的析出都成对"——`ClusterStore.materialize` / `_refill` 当前**有意**不遵守（范围声明）。
+| # | 最可能被写成的样子 | 为什么错（语义差在哪） | 由谁挡住（不变量 / 验收） |
+|---|---|---|---|
+| 1 | 配额 / headroom 闸按"1 个"判定（不 `amount` 感知） | 婚配意图在只剩 1 个名额时挤进来，事后 `+= 2` ⇒ 破坏不变量 7 | 验收（`test_quota_gate_is_amount_aware`） |
+| 2 | C→R 账本 `initiator_id` 存 `a`（而非窗口侧 `W`） | `unbind` 退化成 `unlink(a, a)`，`a—W` 边永不解除（幽灵） | 不变量 3 + 验收（`test_paired_unbind_severs_both_edges_and_folds_back_both`） |
+| 3 | "析出 1 人 + 伪造配偶边" / 跨桶凑对 | 幽灵边；不同桶的两人年龄 / 财富都不同 | 不变量 3 + 验收（`test_paired_extraction_needs_two_in_the_bucket`） |
+| 4 | `a` / `b` 的确定依赖 `dict` / `set` 迭代序 | 同 `SIM_SEED` 下不可复现 | 不变量 5 + 验收（`test_channel_long_run_ledger_is_deterministic`） |
+| 5 | 析出者写进 `coarse_cluster.member_ids` | 违反"coarse `member_ids` 必空"的契约；分辨率冻结 / 回收语义跟着失真 | `cluster-contract.md` §1 契约 + N2-1 第 7 步（`discard` 是幂等防御） |
+| 6 | 把"所有 `marital=1` 析出都成对"推广到 `ClusterStore.materialize` / `_refill` | 那两条是"抽样代表"路径，当前**有意**不遵守 | 本单元的「范围声明」（已知近似，状态 `planned`） |
 
 **N2-6 · `transfer` 质量侧（每粗侧池 + 整桶清算/投递）**（2026-10-17 拍板并实现）
 
-**为什么**：见 §第二期与 [`adr-005`](../decisions/adr-005-transfer-quality-side.md)。一句话——
+**为什么**：见 §第二期。一句话——
 粗侧财富的最小可动单位是 `count × w`，个体的 `wealth` 是精确浮点；差额必须由**每个粗侧各自的池**承接，
 否则要么凭空造/毁财富，要么跨族泄漏。`transfer` 是**无身份**原子：不 `extract`、不 `link`、不占窗口名额。
 
-规格经 **1 轮 teach-back**（独立验证者，判"有缺口但可补"；14 条缺口在实现前全部补完）——
-对账与"实现期回改"见 [`../reviews/2026-10-17-transfer-teachback.md`](../reviews/2026-10-17-transfer-teachback.md)。
+规格经 **1 轮 teach-back**（独立验证者，判"有缺口但可补"；14 条缺口在实现前全部补完）。
 
 **对象**
 
@@ -492,8 +486,7 @@ class ChannelRecord:
   - **C→R**：`origin=("cluster", cid)`、`scope=("window",)` + `Match` 选**接收者**。
 - 粗侧池 = 该簇 `state["engine"].measure.transfer_pool`（**每个 Measure 一个**；全局测度也有，供 `dissolve` 汇入）。
 - `Measure.mass()` = `Σ count × 桶中心`；
-  `Measure.wealth()` = `mass() + transfer_pool + conversion_residual + Σ yearly_inherited`（**观测/审计口径**，
-  见 [`adr-006`](../decisions/adr-006-conversion-residual.md)）。
+  `Measure.wealth()` = `mass() + transfer_pool + conversion_residual + Σ yearly_inherited`（**观测/审计口径**）。
   **可支付总额** = `mass() + transfer_pool`（`yearly_inherited` 是继承专用、`conversion_residual` 是**不可花费**的
   符号账，两者都不得挪用）；
   **可清算量** = 其中 `wealth_bucket > 0` 的桶能向下整桶挪出的质量（bucket 0 不可清算）。
@@ -503,7 +496,7 @@ class ChannelRecord:
 
 1. **分派**：`op="bind"` 走 N2-1；`op="transfer"` 走本单元。未知 `op` ⇒ `dropped:bad_op`。
 2. **解析两侧**（复用 `_resolve_sides`）：目标簇必须 `level==0`；R→C 的发起者必须在窗口；
-   C→R 的接收者按 `Match` 过滤后取 `id` 最小者。任一解析不出 ⇒ `dropped:stale` / `dropped:no_match`。
+   C→R 的接收者按 `Match` 过滤后取 `id` 最小者。任一解析不出 ⇒ `dropped:stale`（transfer 无析出阶段，不会有 `no_match`）。
    - **R→C 不接受 `Match`**：`Match` 非空（`used_dimensions()` 非空）⇒ `dropped:unsupported_match`。
    - **只支持 R↔C**：C↔C 与 resolved 簇 ⇒ `dropped:stale`（见「边界条件」）。
 3. **校验金额**：`A = payload["amount"]`，必须 `type(A) in (int, float)`（**排除 `bool`**）、
@@ -542,20 +535,20 @@ class ChannelRecord:
      并从计划池扣 `count×k×w`。
    - 计划按**目标桶财富降序**应用 `_shift_age_wealth(..., +k)`，按**实付量**扣池；
      余量留池。**为什么降序**：与清算相反——目标是"向上"，先处理高桶才不会把低桶刚收到的质量再搬一次。
-   - 投递是再分配：最穷桶优先是 MVP 口味（ADR-005），不是守恒要求。
+   - 投递是再分配：最穷桶优先是 MVP 口味，不是守恒要求。
    - **相位**：`ResolutionManager.step` 里 `store.step_coarse()`（含继承年清算）**之后**、通道 `run()` **之前**。
      先年度结清、再做本 tick 意图；`mass + pool` 不因投递改变，所以这不是"提高支付能力"，
      而是"避免池跨年累积、让分布先吃到钱"——代价是 C→R 更常走清算。
-7. **生命周期折叠**：`coarsen` 在建好 aggregate、折完计数残留后，把旧 mini 的 `transfer_pool` 与
-   `yearly_inherited` **逐段相加**到 aggregate；`merge` 把 b 折进 a（**resolved+resolved 快路径**也要折，
+7. **生命周期折叠**：`coarsen` 在建好 aggregate、折完计数残留后，把旧 mini 的 `transfer_pool`、
+   `yearly_inherited` 与 `conversion_residual` **逐段/逐项相加**到 aggregate；`merge` 把 b 折进 a（**resolved+resolved 快路径**也要折，
    否则 b 的 mini 残留与池一起蒸发）；`dissolve` 折进全局测度；`split`（MVP 只切 resolved）把被删簇的
    mini 残留与池**折进全局测度**（没有"分给哪个孩子"的策略，不做猜测）。
-   **只折 `counts` 会丢财富**——这是本次修掉的既有漏洞；快照 `measure_to_payload` / `measure_from_payload`
-   必须同时往返两个池；**旧档缺字段按 0 读**（这意味着 `SIM_RESUME=1` 从旧档恢复时 W 有断点，
+   **只折 `counts` 会丢财富**；快照 `measure_to_payload` / `measure_from_payload`
+   必须往返这三项；**旧档缺字段按 0 读**（这意味着 `SIM_RESUME=1` 从旧档恢复时 W 有断点，
    登记为兼容边界，不是守恒失败）。
-8. **对账**：`W = 全局 measure + Σ 每个簇 mini + Σ 池 + Σ yearly_inherited + Σ 窗口 wealth`
-   （每项 `count×桶中心`）；
-   `transfer` / 清算 / 投递 / 折叠都是 W-中性。账本新增 `op` / `wealth_delta` / `pool_after`；
+8. **对账**：`W = 全局 measure + Σ 每个簇 mini + Σ transfer_pool（全局与各 mini） + Σ conversion_residual + Σ yearly_inherited + Σ 窗口 wealth`
+   （每项 `count×桶中心`；与不变量 9 同口径）；
+   `transfer` / 清算 / 投递 / 池与残差折叠都是 W-中性。账本新增 `op` / `wealth_delta` / `pool_after`；
    `run()` 报告新增 `transferred`（成功转移的金额绝对值之和）。丢弃 = 零副作用（分布、池、个体财富都不动）。
 
 **精确例子**
@@ -573,8 +566,8 @@ class ChannelRecord:
   ⇒ 实付 8000，**超取 2000**，池余 2000。**超取上界 = 被清算桶中 `count` 最大的那个 × `w`**
   （此处 3×1000 > 1×1000），不是"最小 count × w"。
 - **清算的级联陷阱（升序才安全）**：沿用上例，若**降序**应用（先 `6→5`，桶 5 变 4 人，再移 5 步）
-  ⇒ 实付 `4×5×1000 + … = 20000`，是计划的 2.5 倍。**触发条件是"计划序 ≠ 财富序且低桶 count 更大"**，
-  不是"任何相邻桶"。
+  ⇒ 实付 `3×1×1000 + 4×5×1000 = 23000`，是计划的 **2.875 倍**。**触发条件**：一个被计划的高桶的位移**落进**了
+  另一个被计划的低桶（本例：桶 6 的 1 步把 3 人送进桶 5），不是"任何相邻桶"。
 - **投递**：池 `2500`；桶 `count=1 @ wealth=1` 与 `count=1 @ wealth=10`
   ⇒ 计划：桶 1 取 `k=2`（`2000`）、池余 `500`；桶 10 的 `floor(500/1000)=0`；
   按降序应用 ⇒ 桶 1 → 3；池 `500`；W 不变。
@@ -591,7 +584,7 @@ class ChannelRecord:
 - 总额够但无桶可下移（只有 bucket 0 / 全部触底）⇒ `dropped:illiquid`；总额不够 ⇒ `dropped:insufficient_funds`。
 - **分数桶可以参与清算**（它代表质量，不是人）；位移不改变计数，因而不违反人头守恒。
   **年度投递只取 `count ≥ 1.0` 的整人桶**——分数残留不在投递里被抬升（否则"最穷优先"会退化成"最稀优先"，一个 `count=0.001` 的桶能吃掉整池并顶到上限）。
-- 投递触顶（`wealth_bucket + k > wealth_bins − 1`）⇒ 该桶少付/不付，**余量留池**（同 N2-3 的触顶纪律）；
+- 投递触顶（`wealth_bucket + k > wealth_bins − 1`）⇒ 该桶少付/不付，**余量留池**（同 core-code 的 N2-3 触顶纪律）；
   上限余量 = `wealth_bins − 1 − wealth_bucket` 步。
 - `unbind` 与 `transfer` 无关：transfer 不产生 `new_id`，`unbind` 查不到它的记录 ⇒ 返回 `False`；
   **别**为 transfer 造逆操作——它是"质量移动"，不是"绑定"。
@@ -604,7 +597,7 @@ class ChannelRecord:
   R→C/C→R 的**逐笔 W 恒等**、清算的**人数最少桶优先**、`illiquid` / `insufficient_funds` 的**零副作用**、
   **超取上界夹具**（`1@5 + 3@6`，A=6000）、**清算升序夹具**（同上，降序会级联）、
   **投递降序夹具**（`3@9 + 1@10`，池 4500，升序会使池变负）、**`k ≤ wealth_bucket` 越界守卫**、
-  分数桶不进年度投递、配额/headroom 豁免、`coarsen`/`merge`/`dissolve`/`split` 的池折叠（含 resolved 簇残留）、
+  分数桶不进年度投递、配额/headroom 豁免、`coarsen`/`merge`/`dissolve`/`split` 的池与残差折叠（含 resolved 簇残留）、
   快照往返（含旧档缺字段）、同序确定性、真实 `ResolutionManager.step` 循环里的逐次守恒。
 - `python -m bench.audit_transfer` → `identity error = 0`（脚本化：R→C → C→R → 清算 → 投递 → dissolve）。
 - **惰性**：`RULES == {}` 时 `pytest -q` 与 `bench.audit_ledger --resolution/--clusters` 数字不退化。
@@ -613,39 +606,35 @@ class ChannelRecord:
   `3@9 + 1@10` 用例变红（池负）；④ `dissolve`/`split` 不折池 ⇒ 生命周期用例变红；
   ⑤ 去掉清算的 `k ≤ wealth_bucket` 下界 ⇒ 越界串桶用例变红。
 
-**陷阱**
+**危险实现清单**
 
-1. **池不能做成全局单例**（ADR-005 方案 B）：会跨族泄漏，破坏"富族恒富"，也无法对账归属。
-2. **C→R 必须先规划、后改动**：计划不足时直接丢弃，**不能**先把分布改了再回滚（回滚顺序写错就会留下半截清算）。
-3. **清算/投递的应用方向相反**：清算按源桶**升序**、投递按目标桶**降序**；写反会级联重复扣/加（相邻桶用例专抓这个）。
-4. **按 `paid` 记账，不按公式重算**：`_shift_age_wealth` 在触底/触顶时不支付，重算会凭空造/毁质量（N2-3 的教训）。
-5. **别把 `yearly_inherited` 当可花费资金**：它是继承专用池；动用它会改变代际语义。
-6. **别让 transfer 走配额/headroom/宽限期**：它不析出、不建边；闸只属于 `bind`。
-7. **别用 `delta_mass` 记财富**：`delta_mass` 是人头口径；transfer 的字段是 `wealth_delta` / `pool_after`。
-8. **别在 `coarsen`/`merge`/`dissolve`/`split` 只折计数**：池会蒸发；`yearly_inherited` 与 `transfer_pool` 都要折。
-   `merge` 的 resolved+resolved 快路径与 `split` 是最容易漏的两处（它们会**删掉**持有 mini 的簇）。
-9. **池必须非负**：C→R 的支付前提是"池 + 可清算量 ≥ A"；不要允许"先欠着"，
-   也**不要**用 `max(0, pool - A)` 钳制（凭空造财富）。
-10. **排序不得依赖 `set`/`dict` 迭代序**：候选桶/目标桶都要显式排序（不变量 5）。
-11. **transfer 记录 `new_id` 必须为 `None`**：`unbind` 靠 `status=="ok" and new_id==…` 定位；
-    若 transfer 填了 `new_id`，会把质量移动误当成可逆绑定。
-12. **账本是有界 `deque`（4096）**：记录被挤出后 `unbind` 会返回 `False`（边成幽灵）——这是既有边界；
-    transfer 会加速挤出，规则侧要节制意图数量（或未来给 `bind` 记录单独索引）。
-13. **`dropped:*` 记录的 `pool_after` 无定义**：只有 `ok` 的 `pool_after`/`wealth_delta` 有意义；
-    观测面不要用丢弃记录读池。
-14. **headroom 预留只对能发 `bind` 的规则成立**：当前 `headroom_reserve` 按"`RULES` 非空"预留
-    `cap_per_tick`；若某规则只发 transfer，会白留名额。规则可声明 `emits_bind=False`（缺省 `True`）来避免。
+| # | 最可能被写成的样子 | 为什么错（语义差在哪） | 由谁挡住（不变量 / 验收） |
+|---|---|---|---|
+| 1 | 池做成全局单例 | 跨族泄漏、破坏"富族恒富"、无法对账归属 | 不变量 9（每粗侧各持一个）+ 验收（长跑逐笔 W 恒等 `test_transfer_ops_are_wealth_neutral_in_long_run`） |
+| 2 | C→R 先改分布、后回滚（不先规划） | 回滚顺序写错 ⇒ 留下半截清算 | 不变量 10（零副作用）+ 验收（`test_c2r_illiquid_when_only_bucket_zero` / `test_c2r_insufficient_funds_is_zero_side_effect`） |
+| 3 | 清算 / 投递的应用方向写反（清算降序 / 投递升序） | 级联重复扣 / 加（相邻桶用例专抓） | 验收（`test_deliver_applies_descending_to_avoid_cascade` + 清算升序夹具 `test_c2r_overdraw_bound_is_largest_liquidated_count`）；mutation ②③ |
+| 4 | 按 `count×k×w` 公式重算记账（不信 `paid`） | 触底 / 触顶分支不支付时凭空造 / 毁质量 | 验收（`test_shift_age_wealth_refuses_to_cross_bucket_zero` 的实付量口径） |
+| 5 | 把 `yearly_inherited` 当可花费资金 | 改变代际语义（继承专用池被动用） | 「对象」节的可支付总额口径（= `mass() + transfer_pool`）+ 验收（`test_c2r_insufficient_funds_is_zero_side_effect`） |
+| 6 | 让 transfer 走配额 / headroom / 宽限期 | 闸只属于 `bind`；身份保护语义被污染 | 不变量 13 + 验收（`test_transfer_bypasses_identity_quota_and_window_headroom`） |
+| 7 | 用 `delta_mass` 记财富（不用 `wealth_delta` / `pool_after`） | 人头口径污染；观测面误读 | 账本字段口径（「对账」节）+ 验收（`test_r2c_debits_exactly_and_credits_pool` 的精确断言） |
+| 8 | `coarsen`/`merge`/`dissolve`/`split` 只折计数（不折池 / 残差） | 池蒸发 / 静默丢账；resolved+resolved 快路径与 `split` 最易漏 | 验收（`test_dissolve_folds_pools_into_global` / `test_merge_folds_pools_of_both_clusters` / `test_merge_resolved_fast_path_keeps_leftover_pools` / `test_split_folds_leftover_pools_into_global`）；mutation ④ |
+| 9 | 允许"先欠着" / 用 `max(0, pool − A)` 钳制 | 凭空造财富 | 不变量 10（池非负）+ 验收（`test_c2r_pays_exactly_from_pool`） |
+| 10 | 排序依赖 `set` / `dict` 迭代序 | 同 `SIM_SEED` 下不可复现 | 不变量 5 + 验收（`test_transfer_sequence_is_deterministic`） |
+| 11 | transfer 记录填了 `new_id` | `unbind` 会把质量移动误当成可逆绑定 | 不变量 8（账本逐条核平）+ 记账规则（transfer 的 `new_id` 恒为 `None`） |
+| 12 | 用 `dropped:*` 记录读 `pool_after` | 丢弃记录的该字段无定义（只有 `ok` 有意义） | 「对账」节的字段语义 + 观测面约定 |
+| 13 | 假定所有规则都发 `bind`（headroom 白留） | 只发 transfer 的规则会白留 `cap_per_tick` 个名额 | `emits_bind=False` 声明（缺省 `True`）+ N2-3 的校准注记 |
+
+> **已知边界（非错法）**：账本是有界 `deque`（4096）——记录被挤出后 `unbind` 返回 `False`（边成幽灵）；transfer 会加速挤出，规则侧要节制意图数量（或未来给 `bind` 记录单独索引）。
 
 **范围声明**：质量侧只做 R↔C 的原子与结算；**C↔C、resolved 簇支付**不在内（交互规则见 N2-7）。
 规则若要发起 transfer，必须显式 `Intent(op="transfer", kind=..., payload={"amount": A})`。
 
 **N2-7 · 第一条规则：跨分辨率婚配（`MarriageRule`，R→C）**（2026-10-17 拍板并实现）
 
-**为什么**：见 [`adr-007`](../decisions/adr-007-cross-resolution-marriage.md)。一句话——
+**为什么**：一句话——
 `FamilyKind` 的身份敏感边是 `parent/child/spouse`，而"窗口单身与族内单身成婚"是这条边**缺失的通量**；
 只有真个体能当发起方（coarse 没有"意愿"）。规则**只声明意图**，守恒/建边/配额/宽限期全部由通道保证。
-规格经 **1 轮 teach-back**（独立验证者；11 条缺口实现前补完），对账见
-[`../reviews/2026-10-17-marriage-teachback.md`](../reviews/2026-10-17-marriage-teachback.md)。
+规格经 **1 轮 teach-back**（独立验证者；11 条缺口实现前补完）。
 
 **步骤级说明**
 
@@ -655,8 +644,7 @@ class ChannelRecord:
    `ChannelContext` 携带 `tick / window / store / rng`。
    **随机流（2026-10-18 修订）**：规则应持有**自有**的确定性流（`MarriageRule(rng=…)`；runner 由
    `SIM_SEED` 派生）；`context.rng`（= `window.rng`）只是无自有流时的回退。**不得用模块级 `random`**。
-   理由：与窗口共流会让"开关规则"改变个体事件的随机流，A/B 与校准不可控
-   （见 [`../reviews/2026-10-18-marriage-calibration.md`](../reviews/2026-10-18-marriage-calibration.md)）。
+   理由：与窗口共流会让"开关规则"改变个体事件的随机流，A/B 与校准不可控。
 2. **目标簇候选**（只算一次，避免"每个单身扫一遍簇"）：
    - 取 `level==0` 且 `state["engine"]` 存在的簇；
    - 编译一次 `pred = compile_match(Match(marital=0, age=(18, 59)), window.space)`；
@@ -678,8 +666,8 @@ class ChannelRecord:
    - 规则结的婚下一 tick 也被窗口 `spouse_event`（要求 `not relationships['spouse']`）跳过。
    - **粗侧对手方**由另两条机制保护：`step_coarse()` 的均值场婚配**先跑**，且 `bind` **先扣后加**把人移出分布
      ⇒ 同一 tick 不会"一个人被嫁两次"。这两条防线不覆盖粗侧，别混用。
-6. **开关**：`SIM_CHANNEL_MARRIAGE`（缺省 `0`）；`=1` 时 runner `register(MarriageRule())`
-   （注册幂等）。**默认不注册 ⇒ `RULES` 空 ⇒ 通道惰性、全部权威数字不变。**
+6. **开关**：`SIM_CHANNEL_MARRIAGE`（缺省 `0`）；`=1` 时 runner `register_marriage_rule(rng=…)`——规则流由 `SIM_SEED` 派生
+   （未设种子则 `None` ⇒ 回退 `context.rng`，见第 1 步）；注册幂等。**默认不注册 ⇒ `RULES` 空 ⇒ 通道惰性、全部权威数字不变。**
 7. **语义声明**：开启 = 新增一条婚配通量（窗口自己的婚配事件照常跑）⇒ **不**要求与纯个体引擎收敛；
    `bench.convergence` / `bench.cluster_fidelity` 一律在默认（`RULES` 空）下跑。
 
@@ -702,29 +690,24 @@ class ChannelRecord:
 **mutation**（证测试有效）：把"已婚跳过"删掉 ⇒ 重复婚配用例变红；把权重改成"含分数桶" ⇒ 分数桶用例变红；
   让规则直接 `link`（绕过通道）⇒ "只发意图"用例变红。
 
-**陷阱**
+**危险实现清单**
 
-1. **规则不得建边、不得改分布**：只有通道能 `link` / `extract`；规则写这两样 = 绕过守恒。
-2. **必须用 `context.rng`**：模块级 `random` 会破坏"同 seed 同发展"（不变量 5）。
-3. **候选序与抽样都要显式排序**：`store.clusters` 是 dict、`window.characters` 是 dict——不得依赖迭代序。
-4. **别把"开启"当成"收敛验证通过"**：开启是新语义（多一条婚配通量）；门槛只在 `RULES` 空下有效。
-5. **别在规则里读 `mini.counts` 之外的可变状态做写操作**：规则是**只读**的（`ChannelContext` 只给引用，
-   职责上不得写）。
-6. **房源权重用 `count ≥ 1.0`**：`extract` 只从整人桶取；把分数残留算进权重会让意图频繁 `dropped:no_match`。
-7. **`kind` 在不同 `op` 下身份不同**：`bind` 下 `kind` = **边名**（这里 `"spouse"`）；`transfer` 下 `kind` 只是标签；
-   `RULES` 的键（`"cross_marriage"`）是**规则名**——三者别混。
-8. **规则婚姻的生命周期**：终止 = 死亡 / `dematerialize`（容量逐出），**不是** `unbind`（`unbind` 的语义是"折算回粗侧"）。
-   **可达性边界（2026-10-18 校准）**：`scope` 只支持 coarse **簇** ⇒ 规则只能同"族内单身"成婚；
-   生产样态下 coarse 族几乎不含 18–59 未婚桶 ⇒ crossings ≈ 0。大多数单身在**全局测度**里，
-   而通道目前**不能寻址全局测度**——要让这条通道改变宏观，得先做那个扩展（独立 ADR）。
-   **2026-10-18 更新**：该扩展已落地（N2-8 / [`adr-008`](../decisions/adr-008-global-measure-addressing.md)，
-   `scope`/`origin` 加 `("measure",)`）；**规则侧是否把大众纳入候选仍留独立决策**——本轮不改规则。
-   析出的配偶**不进 `member_ids`**、也不建 `acquaintance` 网 ⇒ 只有 1 条 `spouse` 边（嵌入度 2，高于浮层单身但低于有网络者），
-   容量吃紧时可能较早退场——MVP 接受，记为边界。
+| # | 最可能被写成的样子 | 为什么错（语义差在哪） | 由谁挡住（不变量 / 验收） |
+|---|---|---|---|
+| 1 | 规则自己 `link` / 改分布（绕过通道） | 绕过守恒 / 配额 / 确定性排序 | 验收（`test_rule_only_emits_intents_no_side_effects`；mutation：让规则直接 `link` ⇒ 变红） |
+| 2 | 用模块级 `random`（而非自有流 / `context.rng`） | 破坏"同 seed 同发展"；开关规则会扰动窗口随机流 | 不变量 5 + 验收（`test_own_rng_does_not_perturb_window_stream`） |
+| 3 | 候选序 / 抽样依赖 `dict` / `set` 迭代序 | 同 seed 下不可复现 | 不变量 5 + 验收（`test_weighted_target_sampling_is_deterministic`） |
+| 4 | 把"开启"当成"收敛验证通过" | 开启 = 新语义（新增婚配通量）；门槛只在 `RULES` 空下有效 | 第 7 步的语义声明 + `bench.channel_marriage` 的 A/B 口径 |
+| 5 | 规则里写可变状态（不止读） | 规则是**只读**的（`ChannelContext` 只给引用） | 验收（`test_rule_only_emits_intents_no_side_effects`：跑一局后边 / 分布与"只跑通道"逐位一致） |
+| 6 | 房源权重含分数桶（把 `count < 1.0` 的残留算进权重） | `extract` 只从整人桶取 ⇒ 意图频繁 `dropped:no_match` | 验收（`test_fractional_bucket_is_not_counted_as_weight`） |
+| 7 | `kind` 三义混用（边名 / 标签 / 规则名） | 账本、边、注册表语义互串 | 决策 2 的 `Intent` 字段契约（`kind` 注释）+ N2-6「对象」（`kind` 只作标签）+ N2-1 第 8 步（`bind` 的 `kind` 用作边名）+ 验收（`test_transfer_is_dispatched_by_op_not_by_kind`） |
+| 8 | 把规则婚姻的终止当成 `unbind` | 终止 = 死亡 / `dematerialize`（容量逐出）；`unbind` 的语义是"折算回粗侧" | N2-4 第 1–3 步（`unbind` 契约）+ `engineering-spec.md` §4（`dematerialize` 退场路径） |
+
+> **可达性与退场（说明，非错法）**：生产样态下 coarse 族几乎不含 18–59 未婚桶 ⇒ 规则婚配的 crossings ≈ 0；让大众可达的**全局测度寻址**扩展已落地（N2-8），**规则侧是否把大众纳入候选仍留独立决策**（本轮不改规则）。析出的配偶不进 `member_ids`、也不建 `acquaintance` 网 ⇒ 容量吃紧时可能较早退场——MVP 接受，记为边界。
 
 **N2-8 · 全局测度寻址（`("measure",)` scope / origin）**（2026-10-18 拍板并实现）
 
-**为什么**：见 [`adr-008`](../decisions/adr-008-global-measure-addressing.md)。一句话——ADR-007 校准实测：
+**为什么**：一句话——婚配规则的校准实测：
 生产样态下大多数单身在**全局测度**里，而通道 `scope` 只支持 `("cluster", cid)` ⇒ crossings ≈ 0。
 本单元让**粗侧多一种形态**：共演单元（簇）与全局测度。两者本质同构（"没有 id 的分布"，只能谓词式寻址），
 但全局测度**不是**共演单元——不进 `level` / 配额 / 注意力 / 回收 / 宽限期。
@@ -739,7 +722,7 @@ class ChannelRecord:
 **步骤级说明**（相对 N2-1 的 δ）
 
 1. **解析（`_resolve_sides`）**：返回值 `(coarse | None, counterpart)`——**元组内 `coarse=None` ⇒ 全局测度**；
-   **整体返回 `None` ⇒ 解析失败**（`dropped:stale`）。这两个 None 别混（陷阱 1）。
+   **整体返回 `None` ⇒ 解析失败**（`dropped:stale`）。这两个 None 别混（「危险实现清单」第 1 条）。
    - **R→M**：`origin=("character", rid)` + `scope=("measure",)` ⇒ initiator 必须在窗口 ⇒ `(None, initiator)`。
    - **M→R**：`origin=("measure",)` + `scope=("window",)` ⇒ 窗口对手按 `Match` 过滤 + `Character.id` 升序取首个
      （与 C→R 完全同构）⇒ `(None, counterpart)`。
@@ -772,7 +755,7 @@ class ChannelRecord:
 `test_measure_scope_extracts_from_global_measure`（R→M 守恒 + 边 + 账本 `coarse_id=None`）、
 `test_measure_scope_paired_extraction`（成对 + 桶仅 1 人 `dropped:no_match`）、
 `test_measure_unbind_folds_back_to_global_measure`、`test_m_to_r_extracts_initiator_from_global_measure`、
-`test_measure_scope_skips_per_cluster_gate`（3 意图全过 + 第 9 人 `quota_tick`）、
+`test_measure_scope_skips_per_cluster_gate_but_not_per_tick`（3 意图全过 + 第 9 人 `quota_tick`）、
 `test_transfer_with_measure_scope_is_dropped_as_stale`、`test_measure_bind_rolls_back_fully_when_link_fails`；
 **长跑**（真实 `ResolutionManager.step` 循环）：探针规则含 measure-scope 意图 ⇒ 逐次操作守恒 + 账本确定性，
 且**断言该路径确实被执行到**（否则断言是空的）。
@@ -780,17 +763,16 @@ class ChannelRecord:
 **mutation**（证测试有效）：① measure 分支误用簇 mini / 去掉扣减 ⇒ 守恒用例变红；
 ② `cap_per_cluster` 闸不豁免 measure ⇒ 配额用例变红；③ 账本 `coarse_id` 误填非 None ⇒ unbind 折回用例变红。
 
-**陷阱**
+**危险实现清单**
 
-1. **两个 None 别混**：`_resolve_sides` 的 `(None, counterpart)` = 全局测度；`None`（整体）= 解析失败。
-   写反 ⇒ R→M 全变 `dropped:stale`，或 stale 意图拿到 `window.measure` 乱扣。
-2. **别做伪簇**：全局测度不进 `store.clusters`、不设 `level`、不登记宽限、不参与注意力/回收——它不是共演单元（ADR-008 方案 B）。
-3. **别顺手开 transfer**：`transfer` + `("measure",)` 是显式范围外（`dropped:stale`）；
-   M→R 支付要**清算全局分布**，属新审计面（独立决策）。
-4. **配额豁免只对 `cap_per_cluster`**：`cap_per_tick` / headroom **不得**豁免——否则 measure 寻址会成为绕过通道吞吐上界的旁路。
-5. **析出者不进任何 `member_ids`**（同 N2-1 第 7 步）——他是"与大众相连的具名个体"，不属于任何簇。
-6. **M→R 的 `Match` 是双域的**（窗口对手选取 + 析出桶，与 C→R 一致）——用"只有大众侧才有的属性"（如极端年龄）写 `Match`
-   会让**窗口侧无匹配** ⇒ `dropped:stale`；规则作者要保证两侧都可满足。
+| # | 最可能被写成的样子 | 为什么错（语义差在哪） | 由谁挡住（不变量 / 验收） |
+|---|---|---|---|
+| 1 | 两个 `None` 混用（元组内 vs 整体） | R→M 全变 `dropped:stale`；或 stale 意图拿到 `window.measure` 乱扣 | 验收（`test_measure_scope_extracts_from_global_measure`；mutation ①：去掉扣减 ⇒ 守恒用例变红） |
+| 2 | 把全局测度做成"伪簇"（进 `store.clusters` / 设 `level` / 登记宽限 / 参与回收） | 它不是共演单元；会污染分辨率调度与注意力 | 第 5 步（不登记 `recently_active`）+ 验收（`test_measure_unbind_folds_back_to_global_measure`） |
+| 3 | 顺手让 `transfer` 支持 `("measure",)` | 显式范围外；M→R 支付要清算全局分布（新审计面） | 验收（`test_transfer_with_measure_scope_is_dropped_as_stale`） |
+| 4 | 把配额豁免扩大到 `cap_per_tick` / headroom | 成为绕过通道吞吐上界的旁路 | 验收（`test_measure_scope_skips_per_cluster_gate_but_not_per_tick`：3 意图全过 + 第 9 人 `quota_tick`） |
+| 5 | 析出者写进任何 `member_ids` | 他是"与大众相连的具名个体"，不属于任何簇 | `cluster-contract.md` §1 + N2-1 第 7 步 |
+| 6 | M→R 的 `Match` 只考虑大众侧（用窗口侧无法满足的属性） | 窗口侧无匹配 ⇒ `dropped:stale` | 决策 4（两侧共用同一谓词）+ N2-8 第 1 步（M→R 窗口对手按 `Match` 过滤 + `id` 升序）+ 验收（`test_m_to_r_extracts_initiator_from_global_measure`） |
 
 **N2-2 · 谓词式寻址与可重建维度守卫**
 
@@ -798,7 +780,7 @@ class ChannelRecord:
    也无法预估配额与确定排序。
 2. `compile(match, space)` 返回 `pred(index) -> bool`。R→C / R→M 时只作用于 coarse 侧的 `occupied`
    （簇 mini 或全局测度，~1.4e3 桶）；C→R / M→R 时作用于窗口角色的折算桶索引集（O(`capacity`)）。
-   **绝不枚举整个状态空间**（默认 2.18e6 桶）。
+   **绝不枚举整个状态空间**（默认 43.56M 桶）。
 3. 若 `match` 引用了 ∉ `RECONSTRUCTIBLE` 的维度 ⇒ **在 `compile` 抛错**（不变量 4），
    不得留到运行期静默失配。
 
@@ -838,7 +820,7 @@ class ChannelRecord:
 `link(N, W, kind)`。**析出对象从 R 变成了 N**——这就是"方向无关"的含义。
 
 ### 边界条件
-- `scope` 簇已不存在 / `origin` 角色已不在窗口 / 窗口侧无匹配 ⇒ 丢弃（`dropped:stale` / `dropped:no_match`）。
+- `scope` 簇已不存在 / `origin` 角色已不在窗口 / 窗口侧无匹配 ⇒ 丢弃（`dropped:stale`；候选桶为空才是 `dropped:no_match`，见 N2-1 第 5–6 步）。
 - 窗口无 headroom ⇒ 丢弃（`dropped:window`）；**不得**为容纳绑定而逐出被保护的簇成员。
 - 空匹配 ⇒ 丢弃（`dropped:no_match`），**不抛错**（C 侧意图天然可能无匹配）。
 - 第 7 / 8 步抛异常 ⇒ **逆序全撤**（见 N2-1 第 7–8 步），不留幽灵、不破坏人头守恒。
@@ -855,29 +837,31 @@ class ChannelRecord:
   Measure O(`occupied` log `occupied`)。均与人口 N、状态空间规模无关。
 - **禁止**按状态空间规模枚举（N2-2 第 2 步）。
 
-### 错误处理
-- 谓词非法（引用不可重建维度）⇒ **拒绝（抛错）**，不是静默失配。
-- transfer 的坏输入（未知 `op` / 金额非正或非有限 / R→C 带 `Match`）⇒ **丢弃 + 记账**，**不抛错**
-  （规则给的是运行期数据；崩溃会打断整个 tick）。
-- 其余失败（无匹配 / 无配额 / 过期 / 析出期异常 / 金额不足 / 无流动性）⇒ 丢弃 + 记账本原因，**不抛错**；
-  **丢弃必须零副作用**（transfer 尤其：不能留下半截清算）。
+### 失败语义
 
-### 陷阱
-1. **`bind` 不是纯函数**——它有副作用（改 coarse 分布 + 窗口容量），因此**不能**放进 `Character.step()` / `PeopleEvents`。
-2. **随机源必须注入且只有一个**：`window.rng`（`ClusterStore.rng` / `TickContext.rng` 是它的同一实例）。
-   **新增代码不得再用模块级 `random`**。
-3. **顺序依赖**：多个 R 竞争同一份 coarse 质量时结果依赖处理序 ⇒ 必须排序（N2-3 第 1 步）。
-4. **不要枚举状态空间**（2.18e6 桶），只扫 `occupied` / `capacity`。
-5. **`marital` 可寻址，但**不是**普通维度**：个体引擎里"已婚"是 `relationships["spouse"]`（不是属性）⇒
-   必须**成对析出**（N2-5）；单独析出一个"已婚桶"的人 = 造出假单身。引用 ∉ `RECONSTRUCTIBLE` 的维度仍须抛错。
-6. **边语义的单一真相源是 `relationships`**（经 `links.neighbors` 求关系度）。曾经有个 `relatives` 字段
-   只在构造时填充、构造后**从不更新**，导致三处依赖失真（广场配对去重失效、收敛指纹度指标恒为 0、
-   ρ 退化为簇成员数）。**该字段已删除**，三处改为真实语义。实测交叉印证：同一次审计里 `rho` 由
-   `118`（= 人数）变为 `2143`（≈ 人数 × (1+平均度)，平均度 ≈ 17，与独立测出的度分布峰值 17–18 一致）。
-7. **广场的"亲属避让"未实现**：原检查读 `relatives`（恒空）⇒ 从未生效；删除后只保留同 id 保护。
-   若要真正避让亲属，属**独立决策**（会改变个体引擎行为与已拟合常数）。
-8. **`transfer` 已按 N2-6 实现，但别把它写成 `bind` 的变体**——它不析出、不建边、不占配额；
-   财富残差只能进**每个粗侧自己的** `transfer_pool`，不能进全局单例（ADR-005 方案 B）。
+| 失败路径 | 对外表现（调用方可见） | 观测（账本 / 测试） |
+|---|---|---|
+| `Match` 引用不可重建维度 | **抛错**（在 `compile`）——契约违例，不是运行期数据 | `test_match_rejects_unaddressable_dimension` |
+| transfer 坏输入（未知 `op` / 金额非正或非有限 / R→C 带 `Match`） | 丢弃（`dropped:bad_op` / `bad_amount` / `unsupported_match`），**不抛错** | `test_bad_amount_is_dropped_without_side_effect`、`test_unknown_op_is_dropped` |
+| 解析失败（簇不在 / 发起者离场 / 窗口侧无匹配） | 丢弃（`dropped:stale`；候选桶为空 ⇒ `dropped:no_match`，N2-1 第 6 步），不抛错 | `test_stale_scope_is_dropped`、`test_no_match_is_dropped_not_raised` |
+| 配额 / 窗口满 | 丢弃（`dropped:quota_cluster` / `quota_tick` / `window`） | `test_quota_per_cluster_limits_extraction`、`test_no_window_headroom_is_dropped` |
+| 析出期异常（`generate_character` / `attach` / `link`） | **逆序全撤 + 丢弃**（`dropped:error`）；不留幽灵、人头守恒 | `test_bind_rolls_back_fully_when_link_fails`、`test_paired_bind_rolls_back_both_when_link_fails` |
+| 金额不足 / 无流动性（transfer） | 丢弃（`insufficient_funds` / `illiquid`），**零副作用** | `test_r2c_insufficient_funds_is_zero_side_effect`、`test_c2r_illiquid_when_only_bucket_zero` |
+| `unbind` 目标已离场 / 查无账本记录 | 返回 `False`（不抛错）；查无记录另记 `dropped:error` | `test_unbind_unknown_id_is_false` |
+
+> **丢弃必须零副作用**（transfer 尤其：不能留下半截清算）——上表每行都有对应测试承诺。
+
+### 危险实现清单（模块级）
+| # | 最可能被写成的样子 | 为什么错（语义差在哪） | 由谁挡住（不变量 / 验收） |
+|---|---|---|---|
+| 1 | 把 `bind` 放进 `Character.step()` / `PeopleEvents` | 它有副作用（改 coarse 分布 + 窗口容量）且必须确定性排序——事件层做不到 | 模块设计（通道独立于事件层）+ 验收（长跑逐次守恒 `test_channel_ops_are_mass_neutral_in_long_run`） |
+| 2 | 新增代码再用模块级 `random` | 破坏"同 seed 同发展" | 不变量 5 + 验收（`test_channel_long_run_ledger_is_deterministic`） |
+| 3 | 不排序（依赖到达序 / 迭代序） | 同 tick 内竞争结果不可复现 | 不变量 5 / 6 + 验收（`test_intents_are_processed_in_documented_order`） |
+| 4 | 枚举整个状态空间（默认 43.56M 桶） | 成本失控 | 性能预算（本条）+ N2-2 第 2 步 + core-code N2-1 全局纪律 1 |
+| 5 | 从 `marital=1` 桶单独析出（绕过成对析出） | 造出假单身 | N2-5 全套验收（`test_unspecified_marital_never_extracts_a_married_bucket` 等） |
+| 6 | 复活"死字段"式关系度（不经 `links.neighbors`） | 构造后从不更新的字段 ⇒ 多处依赖静默失真（历史实测：三处失真） | 术语表（关系人 = `relationships` 并集，唯一真相源）+ 实测交叉印证（`rho` 118 → 2143） |
+| 7 | 以为广场存在"亲属避让" | 原检查读死字段 ⇒ **从未生效**；真正实现会改个体引擎行为与已拟合常数 | N2-7 第 3 步（不做"自家簇 / 亲属避让"是刻意识别差异）+ L1「边界外」 |
+| 8 | 把 `transfer` 写成 `bind` 的变体（析出 / 建边 / 占配额 / 全局单例池） | 不变量 11 / 13；池必须按粗侧归属 | N2-6 全套验收 + 不变量 9（每粗侧各持一个） |
 
 ### 与其他模块的协作
 - `IndividualWindow`：`attach` / `detach` / `dematerialize`；析出的新成员**不写** `member_ids`（见 N2-1 第 7 步）。
@@ -907,6 +891,5 @@ class ChannelRecord:
 - 分辨率 / 共演单元层契约：[`../cluster-contract.md`](../cluster-contract.md)
 - 规范（守恒律 / §9）：[`../engineering-spec.md`](../engineering-spec.md)
 - 术语：[`../glossary.md`](../glossary.md)
-- 相关 ADR：[`adr-003`](../decisions/adr-003-interaction-channel.md)（通道）、[`adr-005`](../decisions/adr-005-transfer-quality-side.md)（质量侧池与清算/投递）
 - 被拒方案 / 负结果：[`../history.md`](../history.md)（Stage 3 碎片化 / Stage 7 账本注水 / Stage 15 确定性）
 - N2 验收方法论：[`../../docs-templates/verifying-n2.md`](../../docs-templates/verifying-n2.md)

@@ -44,7 +44,7 @@
 | 关系人（`neighbors`） | 个体的**关系人集合**（`relationships` 全部关系桶的并集，去重）；"关系度" = `len(neighbors)` | `links.neighbors` | `len(neighbors(c))` | 不是已删除的 `relatives`（构造后从不更新 ⇒ 度恒为 0） | — |
 | 先扣后加律 | 会产生边的跨分辨率交互**必须先把质量从 coarse 侧移出**，否则重复计数 | 通道强制的提交协议 | `bind` 的 reserve→commit→rollback | 不是"守恒"（守恒只管人头，不管重复计数） | — |
 | 谓词式寻址 | 粗侧无 id（**两种形态**：共演单元与全局测度）⇒ 意图只用 `Match` 声明可匹配性；id 只在 `extract` 之后存在 | `Match` 声明 | `Match(gender=0)` | 不是 id 式寻址（粗侧无 id，表达不出来） | — |
-| 全局测度寻址 | 粗侧的**第二种形态**：意图可寻址**全局测度**（`window.measure`），与寻址 coarse 簇并列；只对 `bind`；不受 `cap_per_cluster`（ADR-008 / N2-8） | `scope=("measure",)`（R→M）/ `origin=("measure",)`（M→R） | `Intent(op="bind", kind="spouse", origin=("character",3), scope=("measure",), match=Match(marital=0))` | 不是伪簇（全局测度不进 `store.clusters`、无 `level`、不登记宽限）；`transfer` 遇 measure ⇒ `dropped:stale`（范围外） | measure 寻址 |
+| 全局测度寻址 | 粗侧的**第二种形态**：意图可寻址**全局测度**（`window.measure`），与寻址 coarse 簇并列；只对 `bind`；不受 `cap_per_cluster`（N2-8） | `scope=("measure",)`（R→M）/ `origin=("measure",)`（M→R） | `Intent(op="bind", kind="spouse", origin=("character",3), scope=("measure",), match=Match(marital=0))` | 不是伪簇（全局测度不进 `store.clusters`、无 `level`、不登记宽限）；`transfer` 遇 measure ⇒ `dropped:stale`（范围外） | measure 寻址 |
 | 可重建维度 | `extract` 之后能重建的桶维度；`{age, gender, wealth, marital}` | `RECONSTRUCTIBLE` | | `marital` **可寻址但只能成对析出**（N2-5）——单独析出会造假单身 | — |
 | transfer | **无身份**的质量移动（可交换、不产生边）：R→C 精确借记入池；C→R 精确支付（池不够就整桶清算） | 质量侧原子；`op="transfer"`、`payload["amount"]` | 继承 / 馈赠 / 族内再分配 | 不是 bind；不占配额 / headroom / 宽限期；不改变人头 | — |
 | 通道池（transfer_pool） | 每个**粗侧**各自的量化残差/流动性池（全局测度 + 每个 coarse 簇各一个）；随生命周期折叠 | `Measure.transfer_pool: float ≥ 0` | C→R 支付、年度投递 | 不是全局单例（会跨族泄漏）；不是 `yearly_inherited`（继承专用） | 质量池 |
@@ -55,6 +55,7 @@
 | 通道账本 | 每条通道操作的逐条记录（有界 deque），供观测与对账 | `deque(maxlen=…)` | 逐条核平 | 不是 `yearly_inherited`（那是继承段池） | — |
 | 交互规则（InteractionRule） | 第 9 缝：声明"发起什么意图"；规则**只发意图**，建边/守恒由通道统一执行 | `Protocol` + `RULES` | `RULES = {}`（默认） | 不是通道（通道保证守恒/确定性，规则只管语义） | — |
 | 跨分辨率婚配（MarriageRule） | 第一条规则：窗口单身（`18≤age<60`、未婚、性别中立）每 tick 以 `MARRIAGE_RATE` 发起 `bind`，从 coarse 族析出 1 个单身并 `link(..., "spouse")` | `RULES["cross_marriage"]`；`SIM_CHANNEL_MARRIAGE`（缺省 0） | 开启后窗口与族之间出现真实配偶边 | 不是"经熟人漏斗的择偶"（coarse 无图）；开启 = 新增婚配通量，不属于参照模型的近似 | — |
+| 宽限期（grace） | `bind` 触及的簇在 `grace_ticks` 内被**分辨率冻结**（不换档、不被回收），保护刚建好的关系 | `recently_active[cid] = tick`；`grace_ticks = 180` | 被 `bind` 触及的簇 | 不是"把注意力抬到门槛"（那会反过来物化该簇）；全局测度寻址**不登记**宽限 | — |
 
 ## 维护规则
 

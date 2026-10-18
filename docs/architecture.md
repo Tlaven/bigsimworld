@@ -43,9 +43,8 @@ measure(生产)    ──► 测度引擎(O(占用桶))  ◄────►  物
 
 ## [为什么] — 架构决策
 
-- **为什么"换层"**：在个体引擎上的一切优化（DES / 稀有事件降频 / 空间局部化）都**没突破 O(人口)** → 换层为"分布为主体 + 有限真个体窗口"。完整负结果见 `docs/history.md` 第一章；决策见 [`decisions/adr-001-resolution-layer.md`](decisions/adr-001-resolution-layer.md)。
+- **为什么"换层"**：在个体引擎上的一切优化（DES / 稀有事件降频 / 空间局部化）都**没突破 O(人口)** → 换层为"分布为主体 + 有限真个体窗口"。完整负结果见 `docs/history.md` 第一章。
 - **为什么"机制通用、策略可插拔"**、为什么"默认态是匿名"、被拒方案清单见 L1 `AGENTS.md`「设计哲学」与 `docs/history.md`。
-- 关键决策记录在 [`docs/decisions/`](decisions/README.md)（ADR）。
 
 ## [不变量] — 架构级约束
 

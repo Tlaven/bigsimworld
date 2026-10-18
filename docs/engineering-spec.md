@@ -86,7 +86,7 @@ SIM_MODE=measure ──────────┤
 ## 5. 持久化（snapshot）
 
 `app/models/snapshot.py`：表 `snapshots(simulation_time, measure, window)`。
-- `measure` payload：`{"size", "cells": [[index, count(6位小数)], …], "transfer_pool", "inherited", "conversion_residual"}`（只存非零桶，往返误差 <1e-6/桶；三项质量账见 §9 / ADR-005 / ADR-006；旧档缺字段按 0 读）。
+- `measure` payload：`{"size", "cells": [[index, count(6位小数)], …], "transfer_pool", "inherited", "conversion_residual"}`（只存非零桶，往返误差 <1e-6/桶；三项质量账见 §9；旧档缺字段按 0 读）。
 - `window` payload：每个窗口 Character 的全量 `__dict__`（含 relationships 为 id 列表）。
 - 写入：`simulation/stop`（measure 模式自动）；`SIM_RESUME=1` 时 `run.py` 启动即 `load_latest()` 恢复；无档/空表/无表 → 新建世界。
 - 注意：恢复后窗口负载回到 capacity 上限之内；窗口计数与测度不重复计（存档时两者守恒互斥）。
@@ -102,7 +102,7 @@ SIM_MODE=measure ──────────┤
 | `SIM_POPULATION` | 5000 | 初始人口（measure） |
 | `SIM_RESUME` | 0 | `1` = 启动时从最新快照恢复 |
 | `SIM_SEED` | — | 整数；设了即**确定性模式**——固定随机种子并禁用墙钟负载反馈，同种子必然同发展 |
-| `SIM_CHANNEL_MARRIAGE` | 0 | `1` = 注册跨分辨率婚配规则（ADR-007；**开启 = 新增婚配通量，不再属于参照模型的近似**） |
+| `SIM_CHANNEL_MARRIAGE` | 0 | `1` = 注册跨分辨率婚配规则（**开启 = 新增婚配通量，不再属于参照模型的近似**） |
 
 （另：`REDIS_URL`、`SIM_DB_PATH`、`CORS_ORIGINS` 见 `app/__init__.py` / `app/models/table.py`。）
 
@@ -155,16 +155,16 @@ SIM_MODE=measure ──────────┤
 
 > 门禁：`bench.audit_ledger --resolution`（**生产口径**，coarse 流含 `death/birth`）对每个分辨率算子**逐次**断言上述守恒；`--clusters`（质量保持子集）验整体恒等式。二者互补——后者结构上盖不住分数桶 / 残留泄漏。
 
-**质量侧 `transfer`（2026-10-17，[`adr-005`](decisions/adr-005-transfer-quality-side.md)）**：通道的第二个原子，**无身份**（不析出、不建边），只移动财富。
+**质量侧 `transfer`（2026-10-17）**：通道的第二个原子，**无身份**（不析出、不建边），只移动财富。
 粗侧财富的最小可动单位是 `count × 财富桶宽`，个体是精确浮点 ⇒ 差额由**每个粗侧的 `transfer_pool`** 承接：
 
 - **R→C**：个体精确借记 `A`，目标粗侧池 `+A`；不立即改分布。
 - **C→R**：个体精确收款 `A`；池不足时先做**向下整桶清算**（人数最少桶优先），再支付；超取留池。
 - **投递**：每 360 tick 把池按整桶送回分布（最穷桶优先），余量留池。
-- **生命周期**：`coarsen` / `merge` / `dissolve` 必须折叠池（含 `yearly_inherited`）；快照同时往返两个池。
+- **生命周期**：`coarsen` / `merge` / `dissolve` / `split` 必须折叠三样（`transfer_pool`、`yearly_inherited`、`conversion_residual`）；快照同时往返这三项。
 
-**分辨率折算的财富残差**（[`adr-006`](decisions/adr-006-conversion-residual.md)）：具名个体折回测度只能落在桶中心 `c`，
-"精确 → 桶"方向差 `w − c` ⇒ 每个 `Measure` 持一个**符号**账 `conversion_residual`（折算点记 `w − c`；
+**分辨率折算的财富残差**：具名个体折回测度只能落在桶中心 `c`，
+"精确 → 桶"方向差 `wealth − c` ⇒ 每个 `Measure` 持一个**符号**账 `conversion_residual`（折算点记 `wealth − c`；
 `materialize`/`bind` 是精确点，不记）。全局财富恒等式（**含分辨率折算**）：
 
 ```
@@ -191,12 +191,12 @@ W = Σ_测度 [ count×桶中心 + transfer_pool + conversion_residual + Σ year
 
 **确定性 vs 自适应（`SIM_SEED`）**：默认每 tick 按**实测墙钟负载** `feedback` 调 `budget_leaves`，在本机预算内尽量多留显名者——代价是"规则"依赖机器速度，**同种子不可复现**。设 `SIM_SEED` 即进入**确定性模式**：固定随机种子并跳过负载反馈（`budget_leaves` 恒定 = capacity），换取"同种子 + 同口径（mode/capacity/population）⟹ 同发展"。二者互斥，取舍由运行者定：要复现/回放就设种子，要按机器吃满预算就不设。注意 `SIM_RESUME=1` 以快照为准，不参与种子重演。
 
-**交互规则**（第 9 缝，默认空）：第一条 = **跨分辨率婚配** `MarriageRule`（[`adr-007`](decisions/adr-007-cross-resolution-marriage.md)），
+**交互规则**（第 9 缝，默认空）：第一条 = **跨分辨率婚配** `MarriageRule`，
 `SIM_CHANNEL_MARRIAGE=1` 才注册。规则**只声明意图**，守恒/建边/配额/宽限期由通道保证。
 **开启 = 新增婚配通量**（窗口婚配事件照常跑）⇒ 开启状态下不要求与纯个体引擎收敛；
 `bench.convergence` / `bench.cluster_fidelity` 一律在默认（`RULES` 空）下跑。
 
 **已验**：`bench.audit_ledger --clusters` 恒等误差 **0.0000%**；`bench.cluster_inheritance` 族内 vs 全局人均留存 ~181×（peers=120）。
 
-**已知边界（本层）**：resolved 共演单元的婚配/出生仍族内闭合（跨共演单元婚配只**记录** `interface`，未在 coarse 模型消费，除 `overflow_fraction`）；`life_log` 只保留窗口内当前个体。`transfer` 只支持 R↔C（C↔C 与 resolved 簇支付未做）；交互规则默认空，第一条 = 跨分辨率婚配（ADR-007，需 `SIM_CHANNEL_MARRIAGE=1`；开启 = 新语义，收敛门槛只在默认关闭下跑）。分辨率折算的财富量化差已由
-符号残差账承接（ADR-006）——旧快照（无该字段）恢复后 W 有一次性断点，属兼容边界。
+**已知边界（本层）**：resolved 共演单元的婚配/出生仍族内闭合（跨共演单元婚配只**记录** `interface`，未在 coarse 模型消费，除 `overflow_fraction`）；`life_log` 只保留窗口内当前个体。`transfer` 只支持 R↔C（C↔C 与 resolved 簇支付未做）；交互规则默认空，第一条 = 跨分辨率婚配（需 `SIM_CHANNEL_MARRIAGE=1`；开启 = 新语义，收敛门槛只在默认关闭下跑）。分辨率折算的财富量化差已由
+符号残差账承接——旧快照（无该字段）恢复后 W 有一次性断点，属兼容边界。
