@@ -26,6 +26,7 @@ adr-XXX-[短描述].md
 
 > 本仓库的**早期决策**（换层、段池整数分配、身份不守恒、边界闭合、内生注意力…）逐条记在工程日志 [`docs/history.md`](../history.md)（第一章 / 第二章 / 第三章），此处**不重抄**（E1 指针优先）；**下文只收 ADR 化的关键决策**。
 
+- ADR-014: 窗口个体的 LLM 可插拔——暂不实现（方向性；确定性 / 成本 / 可聚合性三条契约冲突）— accepted
 - ADR-013: C2（`interface` 消费 / C↔C transfer）暂不立项——维持冻结 — accepted
 - ADR-012: `both` 形态（簇 + 大众并存）+ 通道级「一人一意图」守卫 — accepted
 - ADR-011: 分辨率换档默认启用最小驻留（`min_dwell_ticks = 30`；滞回保持 opt-in）— accepted

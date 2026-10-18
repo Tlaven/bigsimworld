@@ -25,7 +25,8 @@ def measure_steps(engine, steps):
         "max": max(durations),
         "rss_delta_mb": (rss_after - rss_before) / 1024 / 1024,
         "rss_mb": rss_after / 1024 / 1024,
-        "population": len(engine.characters),
+        "population": (len(engine.characters) if hasattr(engine, "characters")
+                       else engine.measure.total()),
         "ms": ms,
     }
 

@@ -712,3 +712,10 @@ Stage 20 的校准把"可达性"钉成了瓶颈：生产样态下 crossings = 0�
 - **读数**：三种模式**穿越下/上 = N/0、升档 = 0**；降档全部落在 `[0.45,θ)`（一次性下穿的必然位置）⇒ 注意力**结构性单向**（内生凝视只刷新 resolved 簇，无回升源）。
 - **结论**：滞回**维持 opt-in**（无振荡可抑；θ_down=0.45 仅把一次性降档推迟 ~10 tick，纯成本）；边界 = live runner 的 `feedback` 边际翻转未测（若将来开滞回，那才是要观测的源）。
 - 对账：[`reviews/2026-10-18-attention-trace.md`](reviews/2026-10-18-attention-trace.md)。
+
+### Stage 33 · 1e7 演示 + 婚配跨规模扫描 + LLM 可插拔决策（2026-10-18）
+
+- **1e7 演示（②）**：`bench.run_scaling --engine measure --base-n 2000`（计数放大口径）——N=1e5/1e6/**1e7** 全部 **1.4–1.9 ms/step 平线**（occupied 恒 663、RSS 平 76–77 MB）⇒ "成本与 N 无关"从推论变数字。
+- **婚配跨规模扫描（①）**：N=1200/2400/4800 × rate 0.5×/1.0× × 3 seeds，`scope=both`——通量密度**人均稳定**（~9–12 / 千人口 / 2000 tick）⇒ 速率无需按 N 重标；Δmarried vs null ≤ +0.02 有界；族侧先饱和（1.0× 丢弃 ∝N 超线性）⇒ 若开生产用 **rate ≤ 0.5×**。
+- **LLM 可插拔（③）**：[`decisions/adr-014-llm-pluggability-deferred.md`](decisions/adr-014-llm-pluggability-deferred.md)——**暂不实现**：三条契约冲突（确定性 `SIM_SEED` / 成本模型 / 可聚合性——LLM 无闭式均值场 ⇒ 收敛门槛失去意义）；重启条件写死（产品叙事需求 + 确定性宿主 + 门槛降级记账）。
+- 对账：[`reviews/2026-10-18-marriage-scale-sweep.md`](reviews/2026-10-18-marriage-scale-sweep.md)。
