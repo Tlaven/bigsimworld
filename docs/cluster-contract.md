@@ -147,9 +147,11 @@ register(FamilyKind())   # MVP 唯一实现
 | 年龄分布 / 人口 / 已婚比例 / 人均财富 / 池占比 | **统计近似**（换档改变"分布视点"） | `bench.cluster_fidelity`（配对试验 + 跨 trial）；门槛口径 = 跨规模趋势（生产簇规模 ≤12 的单点读数不可判读） | 真实系统性偏差 ≲0.05（`age_l1` 尚未平台化）；`pop(R−C)` 有界（≈−0.7%@n=1600） |
 | 身份 / 图结构（度、关系） | **不可比**（coarse 无图；重采样新代表 = 身份不守恒） | 无（`degree_l1 = n/a` 属类别错误） | 设计语义，不是缺陷 |
 | 换档频率 / 驻留 / 被卡物化 / 身份重采样次数 | **观测账**（不构成守恒律） | `ResolutionManager.telemetry()` / `resolution_summary()`；`bench.resolution_switch`（描述性） | 生产簇规模下事件计数小（个位/窗），判读需跨簇聚合 |
-| resolved 期间"实测事件 vs 粗模型期望"通量 | **只读遥测**（不进策略） | `ResolutionManager.telemetry()`；`tests/test_cluster.py` | 相关性研究（遥测 → R−C 偏差）未做 |
+| resolved 期间"实测事件 vs 粗模型期望"通量 | **只读遥测**（不进策略） | `ResolutionManager.telemetry()`；`tests/test_cluster.py` | 相关性研究已完成：**作触发不可用**（生产簇规模下是泊松噪声）；观测面保留 |
 
 **换档纪律**：`WaterlinePolicy` 支持滞回（`theta_down`，缺省 = `theta_base` ⇒ 无滞回；**默认关闭、opt-in**——生产注意力轨迹未实测）；`ResolutionManager` 的最小驻留 `min_dwell_ticks` **缺省 30**（防抖闸：只延迟换档，不放行、不否决；构造参数传 0 关闭）。
+
+**误差触发（候选，缺省关）**：`risk_alert=None`；启用时，**上次观测的相位离散度** ≥ 阈值的 coarse 簇获得注意力地板 θ。生产样态内该指示器近似随簇规模取常数（≈0.66–0.78）、簇间差异很小 ⇒ **缺省不启用**（仅对"同相异常"如整批同时出生有判别力）。
 
 **成本注记**：换档成本 = resolved 侧按人数（`ClusterKind.cost`）、coarse 侧常数 1；每次换档的簿记 = 池/残差折叠 O(成员)；身份重采样 = 每个析出成员一次"新代表"生成（成年入窗互认 ≤3 个 acquaintance）。
 

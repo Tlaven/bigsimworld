@@ -186,6 +186,7 @@ def test_cluster_snapshot_roundtrip():
     mgr.set_attention(cluster.id, 0.7)
     mgr._last_switch[cluster.id] = 123     # 换档纪律簿记随快照往返
     mgr._switch_count[cluster.id] = 3
+    mgr._risk[cluster.id] = 0.42           # 误差触发观测值（缺省关）同样往返
 
     save_snapshot(measure_to_payload(engine.measure_engine.measure),
                   engine.simulation_time, engine.snapshot_payload())
@@ -199,6 +200,7 @@ def test_cluster_snapshot_roundtrip():
     assert abs(restored.population() - engine.population()) < 1e-2
     assert restored.resolution._last_switch.get(cluster.id) == 123
     assert restored.resolution._switch_count.get(cluster.id) == 3
+    assert restored.resolution._risk.get(cluster.id) == 0.42
 
 
 def test_formation_is_recurring():
@@ -775,6 +777,33 @@ def test_credits_roundtrip_fold_and_defaults():
     fold_pools(measure, target)
     assert target.marriage_credit == 2.25 and target.death_credit == 1.25
     assert measure.marriage_credit == 0.0 and measure.death_credit == 0.0
+
+
+# ---------------------------------------------------------------- 误差触发（候选，缺省关）
+
+def test_risk_alert_default_off_and_floor_when_enabled():
+    """`risk_alert` 缺省关（不动行为）；启用时，上次观测的相位离散度 ≥ 阈值 ⇒ 注意力地板。"""
+    engine = _engine_with_resolution(capacity=200, window=200)
+    mgr = engine.resolution
+    assert mgr.risk_alert is None
+    mgr.form_interval = 1
+    mgr.min_dwell_ticks = 0                  # 隔离驻留闸
+    a, b = list(engine.window.characters.values())[:2]
+    a.marry_event.happen(b)
+    b.marry_event.happen(a)
+    engine.step()
+    cid = mgr.cluster_of(a.id)
+
+    mgr.store.coarsen(cid)                   # 手工降档
+    mgr._risk[cid] = 0.9                     # 人造"上次观测离散度高"
+    mgr.set_attention(cid, 0.2)
+    engine.step()
+    assert mgr.store.clusters[cid].level == 0      # 缺省关：地板不生效
+
+    mgr.risk_alert = 0.5
+    mgr.set_attention(cid, 0.2)
+    engine.step()
+    assert mgr.store.clusters[cid].level == 1      # 启用：地板把注意力抬到 θ ⇒ 升档
 
 
 

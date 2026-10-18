@@ -17,6 +17,7 @@ aging / income + **整数语义发放**的 death / marriage + birth，见 `docs/
 
 from __future__ import annotations
 
+import math
 import random
 from collections import deque
 from dataclasses import dataclass, field
@@ -589,7 +590,7 @@ class ResolutionManager:
                  form_kind="family", min_size=2, max_members=12, max_clusters=64,
                  initial_attention=0.8, form_interval=30, budget_leaves=None, dissolve_floor=0.1,
                  endogenous_scale=None, notability=None, notable_fraction=None, rng=None,
-                 grace_ticks=180, channel=None, min_dwell_ticks=30):
+                 grace_ticks=180, channel=None, min_dwell_ticks=30, risk_alert=None):
         self.window = window
         self.measure = measure or window.measure
         self.space = window.space
@@ -632,6 +633,10 @@ class ResolutionManager:
         self._flux: dict = {}            # cid → {"ids": set, "spouse": {mid: n}}（上 tick 末基线）
         self._flux_win: dict = {}        # cid → deque[(real_b, real_d, real_m, exp_b, exp_d, exp_m)]
         self._flux_window_ids = None     # 上 tick 末的窗口 id 集（用于识别"本 tick 新出现"）
+        # 误差触发（候选，缺省关）：上次观测的**相位离散度** ≥ risk_alert 的 coarse 簇
+        # 获得注意力地板 θ（"证据支持它值得被看"）。判据研究与读数见对账记录；缺省关。
+        self.risk_alert = None if risk_alert is None else float(risk_alert)
+        self._risk: dict = {}            # cid → 上次观测的相位离散度（resolved 时更新）
 
     # ------------------------------------------------------------ 受保护成员
 
@@ -706,12 +711,15 @@ class ResolutionManager:
                 "attention": round(self.attention.get(cluster.id, 0.0), 3),
                 "switches": self._switch_count.get(cluster.id, 0),
                 "blocked": self._switch_blocked.get(cluster.id, 0),
+                "risk": (round(self._risk[cluster.id], 3)
+                         if cluster.id in self._risk else None),
             })
         return {
             "theta_base": getattr(self.policy, "theta_base", None),
             "theta_down": getattr(self.policy, "theta_down", None),
             "budget_leaves": getattr(self.policy, "budget_leaves", None),
             "min_dwell_ticks": self.min_dwell_ticks,
+            "risk_alert": self.risk_alert,
             "switch_total": self._switch_total,
             "rho": round(self.store.rho(), 3),
             "cluster_count": len(self.store.clusters),
@@ -779,7 +787,8 @@ class ResolutionManager:
         now = self.window.simulation_time
         out = {}
         for cid in (set(self._flux_win) | set(self._switch_count)
-                    | set(self._last_switch) | set(self._switch_blocked)):
+                    | set(self._last_switch) | set(self._switch_blocked)
+                    | set(self._risk)):
             win = self._flux_win.get(cid)
             if win:
                 real = [sum(x[i] for x in win) for i in range(3)]
@@ -795,6 +804,7 @@ class ResolutionManager:
                              "marriages": expected[2]},
                 "switches": self._switch_count.get(cid, 0),
                 "blocked": self._switch_blocked.get(cid, 0),
+                "risk": (round(self._risk[cid], 3) if cid in self._risk else None),
                 "last_switch": when,
                 "dwell": None if when is None else now - when,
             }
@@ -821,6 +831,12 @@ class ResolutionManager:
             members = [window.characters[mid] for mid in cluster.member_ids
                        if mid in window.characters]
             expected = _expected_flux(members)
+            if members:
+                re = sum(math.cos(2 * math.pi * (c.pedometer["step"] % 360) / 360)
+                         for c in members) / len(members)
+                im = sum(math.sin(2 * math.pi * (c.pedometer["step"] % 360) / 360)
+                         for c in members) / len(members)
+                self._risk[cid] = 1.0 - math.hypot(re, im)
             deaths = sum(1 for mid in entry["ids"] if mid not in current_ids)
             marriages = 0
             for mid, spouse_n in entry["spouse"].items():
@@ -861,7 +877,8 @@ class ResolutionManager:
                 "spouse": {mid: len(window.characters[mid].relationships.get("spouse", ()) or ())
                            for mid in ids},
             }
-        for book in (self._last_switch, self._switch_count, self._switch_blocked, self._flux_win):
+        for book in (self._last_switch, self._switch_count, self._switch_blocked,
+                     self._flux_win, self._risk):
             for cid in [cid for cid in book if cid not in self.store.clusters]:
                 del book[cid]
         self._flux_window_ids = set(window.characters)
@@ -903,6 +920,7 @@ class ResolutionManager:
             "switches": {str(k): int(v) for k, v in self._switch_count.items()},
             "blocked": {str(k): int(v) for k, v in self._switch_blocked.items()},
             "switch_total": int(self._switch_total),
+            "risk": {str(k): round(float(v), 6) for k, v in self._risk.items()},
         }
 
     def load_payload(self, payload: dict, space) -> None:
@@ -920,6 +938,7 @@ class ResolutionManager:
         self._switch_blocked = {int(k): int(v)
                                 for k, v in (payload.get("blocked") or {}).items()}
         self._switch_total = int(payload.get("switch_total", 0))
+        self._risk = {int(k): float(v) for k, v in (payload.get("risk") or {}).items()}
         self._flux = {}                  # 遥测在恢复后重新开始（观测数据不参与决策）
         self._flux_win = {}
         self._flux_window_ids = None
@@ -947,6 +966,12 @@ class ResolutionManager:
             if cluster.level == 1 and cluster.member_ids & notable:
                 self.attention[cid] = max(self.attention.get(cid, 0.0), 1.0)  # 显要：注意力地板
         grace = self._grace_ids(ctx.tick)   # 刚绑定的簇：宽限期内**分辨率冻结**（不换档、不回收）
+        if self.risk_alert is not None:
+            # 误差触发（缺省关）：上次观测的相位离散度高 ⇒ 注意力地板（证据支持它值得被看）
+            floor = getattr(self.policy, "theta_base", 0.5)
+            for cid, cluster in self.store.clusters.items():
+                if cluster.level == 0 and self._risk.get(cid, 0.0) >= self.risk_alert:
+                    self.attention[cid] = max(self.attention.get(cid, 0.0), floor)
         targets = self.policy.allocate(list(self.store.clusters.values()), self.attention)
         for cid, cluster in self.store.clusters.items():
             if cluster.level == 1 and cluster.member_ids & notable:
