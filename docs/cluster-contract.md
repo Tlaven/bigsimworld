@@ -65,9 +65,10 @@ class ResolutionPolicy(Protocol):
                  attention: dict[int, float],
                  budget: float) -> dict[int, int]: ...
         # 返回 {cluster_id: target_level}
-        # MVP = 水位线：未 resolved 的簇 attention >= theta_up 升级；
-        # 已 resolved 的簇 attention >= theta_down 保持（可选滞回；theta_down 缺省 = theta_up）
-        # theta_up 由外部（runner）按实测 load 反馈调整
+        # MVP = 水位线：未 resolved 的簇 attention >= theta_base 升级；
+        # 已 resolved 的簇 attention >= theta_down 保持（可选滞回；theta_down 缺省 = theta_base）
+        # theta_base 固定（0.5）；runner 的负载反馈调的是**预算** budget_leaves，不是阈值。
+        # 预算不足时按注意力降序分配、超出的簇降档（MVP 顺序）。
 ```
 
 ### 缝 3 · `RhoMetric`
@@ -144,15 +145,17 @@ register(FamilyKind())   # MVP 唯一实现
 | --- | --- | --- | --- |
 | 计数（人头） | **严格守恒**（分辨率算子只移动，不产生/销毁） | `tests/test_cluster.py`、`tests/test_cluster_fidelity.py`、`bench.audit_ledger --clusters` / `--resolution` | — |
 | 财富（分布质量 + 通道池 + 折算残差 + 继承段池） | **严格守恒**（折算差进残差；池只按实付扣） | `bench.audit_ledger --wealth`、`bench.audit_transfer` | 旧快照缺残差字段 ⇒ 恢复后 W 一次性断点（兼容边界） |
-| 年龄分布 / 人口 / 已婚比例 / 人均财富 / 池占比 | **统计近似**（换档改变"分布视点"） | `bench.cluster_fidelity`（配对试验 + 跨 trial）；门槛口径 = 跨规模趋势（生产簇规模 ≤12 的单点读数不可判读） | 真实系统性偏差 ≲0.05（`age_l1` 尚未平台化）；`pop(R−C)` 有界（≈−0.7%@n=1600） |
+| 年龄分布 / 人口 / 已婚比例 / 人均财富 / 池占比 | **统计近似**（换档改变"分布视点"；"近似"指**跨臂/跨视点比较**口径——单次运行内人均财富由计数/财富的严格性钉死） | `bench.cluster_fidelity`（配对试验 + 跨 trial）；门槛口径 = 跨规模趋势（生产簇规模 ≤12 的单点读数不可判读） | 真实系统性偏差 ≲0.05（`age_l1` 尚未平台化）；`pop(R−C)` 有界（≈−0.7%@n=1600） |
 | 身份 / 图结构（度、关系） | **不可比**（coarse 无图；重采样新代表 = 身份不守恒） | 无（`degree_l1 = n/a` 属类别错误） | 设计语义，不是缺陷 |
-| 换档频率 / 驻留 / 被卡物化 / 身份重采样次数 | **观测账**（不构成守恒律） | `ResolutionManager.telemetry()` / `resolution_summary()`；`bench.resolution_switch`（描述性） | 生产簇规模下事件计数小（个位/窗），判读需跨簇聚合 |
+| 换档频率 / 驻留 / 被卡物化 / 身份重采样次数 | **观测账**（不构成守恒律） | `ResolutionManager.telemetry()`（字段 `switches` / `blocked` / `dwell` / `risk`）/ `resolution_summary()`；`bench.resolution_switch`（描述性） | 生产簇规模下事件计数小（个位/窗），判读需跨簇聚合；`blocked` 期望 ≈ 0，异常时按次计 |
+| 身份质量 ρ | **观测账**（`coarsen` 单调增、`merge` 可减；不构成守恒律） | `resolution_summary()`（SSE `resolution` 字段） | — |
+| 整数语义信用（`marriage_credit` / `death_credit`） | **发放器状态**（**非质量**、不进守恒恒等式；只影响发放时机） | `tests/test_cluster.py`（往返 / 折叠 / 发放） | `coarsen`/`merge` 求和、`dissolve`/`split` 折入全局时作废、快照往返（旧档缺字段按 0） |
 | resolved 期间"实测事件 vs 粗模型期望"通量 | **只读遥测**（不进策略） | `ResolutionManager.telemetry()`；`tests/test_cluster.py` | 相关性研究已完成：**作触发不可用**（生产簇规模下是泊松噪声）；观测面保留 |
 
-**换档纪律**：`WaterlinePolicy` 支持滞回（`theta_down`，缺省 = `theta_base` ⇒ 无滞回；**默认关闭、opt-in**——生产注意力轨迹未实测）；`ResolutionManager` 的最小驻留 `min_dwell_ticks` **缺省 30**（防抖闸：只延迟换档，不放行、不否决；构造参数传 0 关闭）。
+**换档纪律**：`WaterlinePolicy` 支持滞回（`theta_down`，缺省 = `theta_base` ⇒ 无滞回；**默认关闭、opt-in**——生产注意力轨迹未实测）；`ResolutionManager` 的最小驻留 `min_dwell_ticks` **缺省 30**（防抖闸：只延迟换档，不放行、不否决；构造参数传 0 关闭）。**只管 level 切换**（`materialize` / `coarsen`）；`merge` / `split` / `dissolve` 不受驻留/滞回约束。
 
-**误差触发（候选，缺省关）**：`risk_alert=None`；启用时，**上次观测的相位离散度** ≥ 阈值的 coarse 簇获得注意力地板 θ。生产样态内该指示器近似随簇规模取常数（≈0.66–0.78）、簇间差异很小 ⇒ **缺省不启用**（仅对"同相异常"如整批同时出生有判别力）。
+**误差触发（候选，缺省关）**：`risk_alert=None`；启用时，**上次观测的相位离散度**（resolved 期逐 tick 由成员 `pedometer` 相对 `tick % 360` 的圆离散度更新）≥ 阈值的 coarse 簇被抬到**升级阈值** `theta_base` ⇒ 按常规路径**被物化（升级）**——即"证据支持它值得被看"；不阻止降档、不影响已 resolved 的簇。生产样态内该指示器近似随簇规模取常数（≈0.66–0.78）、簇间差异很小 ⇒ **缺省不启用**（仅对"同相异常"如整批同时出生有判别力）。
 
 **成本注记**：换档成本 = resolved 侧按人数（`ClusterKind.cost`）、coarse 侧常数 1；每次换档的簿记 = 池/残差折叠 O(成员)；身份重采样 = 每个析出成员一次"新代表"生成（成年入窗互认 ≤3 个 acquaintance）。
 
-**整数语义（已实现）**：mini（`family`）的 `marriage` / `death` 为**信用发放**版——信用按全局同源期望通量累积，积满即**整人发放**（婚配 2 人成对 / 死亡 1 人移除；确定性选人、无 rng）；整人桶不再被削到 (0,1)，单身/60+ 共演单元保持可物化（`blocked` 期望 ≈ 0，保留为异常观测面）。信用是发放器状态（**非质量**、不进守恒恒等式）：mini 合并求和、快照往返、**回流体区（折入全局）作废**。
+**整数语义（已实现）**：mini（`family`）的 `marriage` / `death` 为**信用发放**版——信用按全局同源期望通量累积（单位 = **人份**）；**满值 = 婚配 2.0 / 死亡 1.0**，满即**整人发放**：婚配优先从最大的单身桶取 2.0（同状态两人成婚），否则取两个不同的整人单身桶各 1.0；死亡从最大的整人 60+ 桶取 1.0。选人确定性（count 降序、平局按桶索引），不消耗 rng；桶内无整人时**挂起**（信用保留、不丢）。整人桶不再被削到 (0,1)，单身/60+ 共演单元保持可物化（`blocked` 期望 ≈ 0，异常时按次计）。信用是发放器状态（**非质量**、不进守恒恒等式）：`coarsen`/`merge` 求和、`dissolve`/`split` 折入全局测度时**作废**、快照往返（旧档缺字段按 0）。

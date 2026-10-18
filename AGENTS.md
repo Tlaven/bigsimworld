@@ -73,6 +73,7 @@ python -m bench.audit_ledger --n 5000 --steps 8000
 python -m bench.audit_ledger --clusters --n 3000 --steps 2000 --capacity 300     # 质量保持子集：整体恒等式
 python -m bench.audit_ledger --resolution --n 3000 --steps 2000 --capacity 300   # 生产口径：逐算子守恒门禁
 python -m bench.cluster_fidelity --members 8 --ticks 8000 --trials 40            # 共演单元保真度 A/B（配对 + 噪声带）
+python -m bench.resolution_switch --ticks 600                                    # 换档动力学（四臂；含 blocked / 驻留 / 通量遥测）
 python -m bench.audit_transfer                                                  # 质量侧 transfer 的财富恒等（池/清算/投递/折叠）
 python -m bench.audit_ledger --wealth --n 1500 --steps 2500 --capacity 250       # 分辨率折算的财富恒等（含池 + 折算残差）
 python -m bench.channel_marriage --ticks 3000                                   # 跨分辨率婚配规则 A/B（关 / 开）+ 守恒
