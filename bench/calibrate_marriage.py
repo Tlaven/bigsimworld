@@ -14,6 +14,9 @@
 注意：这不是"开规则必须收敛"的验收——规则是**扩展**；本工具只给数字，供拍板
 "要不要开、开到什么强度"。
 
+`--scope measure` = **大众婚配测量臂**：候选 = 全局测度（匿名大众）而非 coarse 簇
+（实验脚手架 `bench/probe_rules.py::MassMarriageRule`；采纳与否属独立决策）。
+
 用法：
     python -m bench.calibrate_marriage --population 1500 --capacity 300 --ticks 2000
 """
@@ -25,6 +28,7 @@ from app.core.measure.engine import MeanFieldEngine
 from app.core.measure.rules import MarriageRule
 from app.core.measure.transitions import FULL_FLOWS, MARRIAGE_RATE
 from app.core.measure.window import WindowEngine
+from bench.probe_rules import MassMarriageRule
 from bench.world import build_engine, make_characters
 
 
@@ -126,8 +130,11 @@ def _seed_family_pool(engine, size, space):
 
 
 def run_measure(population, capacity, ticks, seed, rate=None, null_rule=False,
-                family_pool=0, verbose=True):
-    """rate=None ⇒ 不注册婚配规则；``null_rule=True`` ⇒ 注册占名额但不发意图的对照规则。"""
+                family_pool=0, scope="cluster", verbose=True):
+    """rate=None ⇒ 不注册婚配规则；``null_rule=True`` ⇒ 注册占名额但不发意图的对照规则。
+
+    ``scope="measure"`` ⇒ 用大众婚配探针规则（候选 = 全局测度，实验臂）；默认 ``"cluster"``。
+    """
     random.seed(seed)
     mf = MeanFieldEngine(characters=make_characters(population, seed=seed), flows=FULL_FLOWS)
     engine = WindowEngine(mf, capacity=capacity, window=capacity, resolution=True,
@@ -138,7 +145,8 @@ def run_measure(population, capacity, ticks, seed, rate=None, null_rule=False,
         rule = _NullRule()
     elif rate is not None:
         # 规则用**自有**流（不与窗口个体事件争 rng），否则 A/B 被随机流偏移污染（2026-10-18）。
-        rule = MarriageRule(rate=rate, rng=random.Random(f"calib-marriage:{seed}"))
+        rule_cls = MassMarriageRule if scope == "measure" else MarriageRule
+        rule = rule_cls(rate=rate, rng=random.Random(f"calib-marriage:{seed}"))
     if rule is not None:
         RULES[rule.name] = rule
     try:
@@ -147,10 +155,15 @@ def run_measure(population, capacity, ticks, seed, rate=None, null_rule=False,
         stats = measure_stats(engine)
         crossings = sum(1 for r in engine.resolution.channel.ledger
                         if r.status == "ok" and r.kind == "spouse")
+        drops = {}
+        for record in engine.resolution.channel.ledger:
+            if record.status.startswith("dropped"):
+                drops[record.status] = drops.get(record.status, 0) + 1
     finally:
         if rule is not None:
             RULES.pop(rule.name, None)
     stats["crossings"] = crossings
+    stats["drops"] = drops
     if verbose:
         if null_rule:
             label = "null（占名额不发意图）"
@@ -161,7 +174,8 @@ def run_measure(population, capacity, ticks, seed, rate=None, null_rule=False,
         print(f"  measure {label:<22} pop={stats['population']:.0f} "
               f"married_frac(adults)={stats['married_frac_adults']:.4f} "
               f"window_married={stats['window_married']}/{stats['window']} "
-              f"clusters={stats['clusters']} crossings={crossings}")
+              f"clusters={stats['clusters']} crossings={crossings} "
+              f"drops={drops or '{}'}")
     return stats
 
 
@@ -175,6 +189,9 @@ def main():
                         help="相对 MARRIAGE_RATE 的倍数（默认 0.25 0.5 1 2）")
     parser.add_argument("--family-pool", type=int, default=200,
                         help="measure 臂预置的 coarse 族未婚成年人数（合成代理；0=不预置）")
+    parser.add_argument("--scope", choices=["cluster", "measure"], default="cluster",
+                        help="婚配候选侧：cluster=coarse 簇（生产规则）；"
+                             "measure=全局测度（大众婚配测量臂）")
     args = parser.parse_args()
     multipliers = args.rates or [0.25, 0.5, 1.0, 2.0]
 
@@ -182,7 +199,7 @@ def main():
     arms = {m: [] for m in multipliers}
     for seed in args.seeds:
         print(f"seed={seed}  N={args.population} C={args.capacity} ticks={args.ticks} "
-              f"family_pool={args.family_pool}")
+              f"family_pool={args.family_pool} scope={args.scope}")
         ref.append(run_reference(args.population, args.ticks, seed))
         off.append(run_measure(args.population, args.capacity, args.ticks, seed, rate=None,
                                family_pool=args.family_pool))
@@ -191,7 +208,7 @@ def main():
         for m in multipliers:
             arms[m].append(run_measure(args.population, args.capacity, args.ticks, seed,
                                        rate=m * MARRIAGE_RATE,
-                                       family_pool=args.family_pool))
+                                       family_pool=args.family_pool, scope=args.scope))
 
     def mean(rows, key):
         return sum(r[key] for r in rows) / len(rows)

@@ -7,8 +7,11 @@
 输出跨婚配次数、窗口已婚比例、人口、丢弃分布；并在 **on** 臂上逐次核对通道操作的
 人头守恒与财富守恒（`W = Σ_测度 wealth() + Σ 窗口 wealth`，见 ADR-006）。
 
+`--scope measure` = 大众婚配探针（候选 = 全局测度；实验脚手架 `bench/probe_rules.py`）。
+
 用法：
     python -m bench.channel_marriage --ticks 1500 --capacity 200 --population 1200
+    python -m bench.channel_marriage --scope measure --seed-family 0 --ticks 3000
 """
 import argparse
 import random
@@ -18,6 +21,7 @@ from app.core.measure.engine import MeanFieldEngine
 from app.core.measure.rules import MarriageRule
 from app.core.measure.transitions import FULL_FLOWS
 from app.core.measure.window import WindowEngine
+from bench.probe_rules import MassMarriageRule
 from bench.world import make_characters
 
 
@@ -59,11 +63,13 @@ def _wealth(engine):
     return total
 
 
-def _run(ticks, seed, capacity, population, enable, rate=None, seed_family=0, verbose=True):
+def _run(ticks, seed, capacity, population, enable, rate=None, seed_family=0,
+         scope="cluster", verbose=True):
     engine = _build(seed, capacity, population, seed_family=seed_family)
     rule = None
     if enable:
-        rule = MarriageRule(rate=rate)
+        rule_cls = MassMarriageRule if scope == "measure" else MarriageRule
+        rule = rule_cls(rate=rate)
         RULES[rule.name] = rule
     channel = engine.resolution.channel
     worst = {"pop": 0.0, "wealth": 0.0, "calls": 0}
@@ -127,16 +133,18 @@ def main():
     parser.add_argument("--rate", type=float, default=None, help="覆盖 MARRIAGE_RATE")
     parser.add_argument("--seed-family", type=int, default=50,
                         help="预置 coarse 族的未婚成年人数（A/B 两臂相同；0 = 不预置）")
+    parser.add_argument("--scope", choices=["cluster", "measure"], default="cluster",
+                        help="婚配候选侧：cluster=coarse 簇（生产规则）；measure=全局测度（大众探针）")
     args = parser.parse_args()
 
     print(f"ticks={args.ticks} capacity={args.capacity} population={args.population} "
-          f"seed={args.seed} seed_family={args.seed_family}")
+          f"seed={args.seed} seed_family={args.seed_family} scope={args.scope}")
     print("off（RULES 空，生产口径）:")
     off = _run(args.ticks, args.seed, args.capacity, args.population, enable=False,
                seed_family=args.seed_family)
     print("on（SIM_CHANNEL_MARRIAGE=1 等价）:")
     on = _run(args.ticks, args.seed, args.capacity, args.population, enable=True,
-              rate=args.rate, seed_family=args.seed_family)
+              rate=args.rate, seed_family=args.seed_family, scope=args.scope)
 
     print(f"Δcrossings = {on['crossings'] - off['crossings']}   "
           f"Δmarried_frac = {on['married_frac'] - off['married_frac']:+.3f}   "
