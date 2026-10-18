@@ -28,6 +28,7 @@
 | `bench.diagnose_cluster_bias` | 保真度偏差**归因**：相位对照 / 规模扫描 / 消融（消融只作必要条件检查） | `python -m bench.diagnose_cluster_bias --ticks 8000 --trials 20` |
 | `bench.resolution_switch` | **换档动力学**（抖动观测者四臂：noop / 缺省驻留 30 / 滞回 / 驻留 60）：有效换档、**被卡物化（blocked）**、驻留、通量遥测样例（描述性） | `python -m bench.resolution_switch --ticks 600` |
 | `bench.residual_correlation` | **误差触发研究**（配对世界：观察→粗化 vs 孪生全程 resolved）：`flux_z` / `phase_disp` 与粗化伤害的相关 + **预注册可用性判据**（描述性） | `python -m bench.residual_correlation --trials 12` |
+| `bench.attention_trace` | **生产样态注意力轨迹**（production = 内生凝视 + 显要；none = 对照）：分带占用、θ 双向穿越、降档归因（≥θ / [k,θ) / <k）、并发簇 | `python -m bench.attention_trace --ticks 2000 --seeds 1 7` |
 
 结果写入 `bench/results/`；结果文件是**证据**，提交。
 
@@ -79,6 +80,9 @@ python -m bench.resolution_switch --ticks 600
 
 # 误差触发研究（指示器 vs 粗化伤害；预注册可用性判据）
 python -m bench.residual_correlation --trials 12
+
+# 生产样态注意力轨迹（滞回默认拍板的前置；v3 判据看"上行穿越"）
+python -m bench.attention_trace --ticks 2000 --capacity 1000 --population 5000 --seeds 1 7
 ```
 
 ## 当前权威数字（2026-10-12）
