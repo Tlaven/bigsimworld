@@ -663,3 +663,12 @@ Stage 20 的校准把"可达性"钉成了瓶颈：生产样态下 crossings = 0�
 - **测试**：+4（单身迷你仍可物化 / blocked 观测面保留 / 婚配-死亡-信用算子级对拍 / 消融名更新）。
 - **验收**：`resolution_switch` **blocked = 0**（修复前 169/167/78）；`cluster_fidelity` 的 `age_l1`/`pop` 与修复前**一致**、`married_frac` +0.14→+0.26（整人发放撤掉了流体版对小簇的**过婚**——最后剩一个单身也能被分数嫁掉；预期更正，GATE 不含该项）；`audit_ledger --clusters` identity **0.0000%**；pytest 234 passed。
 - 对账见 [`reviews/2026-10-18-resolution-consistency-audit.md`](reviews/2026-10-18-resolution-consistency-audit.md) 的"跟进（同日修复）"。
+
+### Stage 27 · 换档驻留闸缺省启用（ADR-011）（2026-10-18）
+
+承接 Stage 25 的"默认拍板待测"与 Stage 26 的修复：
+
+- **ADR-011**：`min_dwell_ticks` 缺省 **30**（防抖闸：只延迟、不放行、不否决；构造参数传 0 可关闭）；**滞回保持 opt-in**（生产注意力轨迹未实测）。
+- **四臂读数**（`resolution_switch --ticks 600`，抖动压力场景、同观测流）：noop 431 / **缺省(30) 127** / 滞回 236 / 驻留60 58；blocked 全 0。
+- **`married_frac` 收敛检查**（`cluster_fidelity --members 8 --ticks 8000 --trials 20`，同代码）：R−C **−0.11（噪声级）**——t=2000 的 +0.26 属瞬态/量化效应，不随窗口持续（"先记账不追"成立）。
+- pytest 234 passed；权威门槛（收敛 / 保真 gate）不以调度器为参量。

@@ -589,7 +589,7 @@ class ResolutionManager:
                  form_kind="family", min_size=2, max_members=12, max_clusters=64,
                  initial_attention=0.8, form_interval=30, budget_leaves=None, dissolve_floor=0.1,
                  endogenous_scale=None, notability=None, notable_fraction=None, rng=None,
-                 grace_ticks=180, channel=None, min_dwell_ticks=0):
+                 grace_ticks=180, channel=None, min_dwell_ticks=30):
         self.window = window
         self.measure = measure or window.measure
         self.space = window.space
@@ -621,8 +621,9 @@ class ResolutionManager:
         self._formed = False
         self._next_form = 0
         self._refresh_notability()
-        # —— 换档纪律 / 通量遥测（缺省 No-Op；规格见 `docs/cluster-contract.md` §9）——
-        # `min_dwell_ticks=0` ⇒ 不设限（与无该机制逐位一致）；>0 时同一簇两次换档至少隔这么久。
+        # —— 换档纪律 / 通量遥测（规格见 `docs/cluster-contract.md` §9）——
+        # 最小驻留闸**缺省启用**（adr-011）：同一簇两次换档至少隔 `min_dwell_ticks`；
+        # 只延迟、不放行、不否决；构造参数传 0 即关闭（逐 tick 判定）。
         self.min_dwell_ticks = int(min_dwell_ticks)
         self._last_switch: dict = {}
         self._switch_count: dict = {}

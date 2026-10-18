@@ -526,21 +526,26 @@ def test_min_dwell_limits_switch_frequency():
     assert mgr.telemetry()[cid]["switches"] == 2
 
 
-def test_min_dwell_default_is_noop():
-    """缺省 `min_dwell_ticks = 0`：换回不受限（与既有行为逐位一致）。"""
+def test_min_dwell_default_is_thirty():
+    """adr-011：缺省驻留闸 = 30——降档后 30 tick 内不得换回；传 0 可关闭。"""
     engine = _engine_with_resolution(capacity=200, window=200)
     mgr = engine.resolution
     mgr.form_interval = 1
-    assert mgr.min_dwell_ticks == 0
+    assert mgr.min_dwell_ticks == 30
     a, b = list(engine.window.characters.values())[:2]
     a.marry_event.happen(b)
     b.marry_event.happen(a)
     engine.step()
     cid = mgr.cluster_of(a.id)
 
-    mgr.set_attention(cid, 0.2)
+    mgr.set_attention(cid, 0.2)              # 撤注视（> dissolve_floor，防回收）⇒ 降档
     engine.step()
     assert mgr.store.clusters[cid].level == 0
+    mgr.set_attention(cid, 1.0)
+    engine.step()
+    assert mgr.store.clusters[cid].level == 0     # 驻留期内不换回（缺省即生效）
+
+    mgr.min_dwell_ticks = 0                       # 回退开关仍可用
     mgr.set_attention(cid, 1.0)
     engine.step()
     assert mgr.store.clusters[cid].level == 1

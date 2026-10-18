@@ -26,7 +26,7 @@
 | `bench.cluster_fidelity` | **共演单元保真度 A/B**：coarse vs 保持 resolved（配对试验 + 跨 trial 汇总，误差包络） | `python -m bench.cluster_fidelity --members 8 --ticks 8000 --trials 40` |
 | `bench.cluster_fidelity --gate` | **分层门槛**（ADR-004）：跨规模（n≥400）趋势 + `pop` 相对偏差；违反 ⇒ exit 1（CI 慢跑） | `python -m bench.cluster_fidelity --gate` |
 | `bench.diagnose_cluster_bias` | 保真度偏差**归因**：相位对照 / 规模扫描 / 消融（消融只作必要条件检查） | `python -m bench.diagnose_cluster_bias --ticks 8000 --trials 20` |
-| `bench.resolution_switch` | **换档动力学**（抖动观测者三臂：baseline / hysteresis / dwell）：有效换档、**被卡物化（blocked）**、驻留、通量遥测样例（描述性） | `python -m bench.resolution_switch --ticks 600` |
+| `bench.resolution_switch` | **换档动力学**（抖动观测者四臂：noop / 缺省驻留 30 / 滞回 / 驻留 60）：有效换档、**被卡物化（blocked）**、驻留、通量遥测样例（描述性） | `python -m bench.resolution_switch --ticks 600` |
 
 结果写入 `bench/results/`；结果文件是**证据**，提交。
 

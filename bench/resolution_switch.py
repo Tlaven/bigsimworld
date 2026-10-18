@@ -1,15 +1,16 @@
 """换档动力学与通量遥测（描述性；**无门槛**——读数供判读，不作证据级结论）。
 
 场景 = 「抖动观测者」：每 tick 把一个确定性的抖动值刷进每个共演单元的注意力
-（`jitter + amp×(u−0.5)`，`u` 由 `(seed, tick, cid)` 唯一决定 ⇒ 三臂共享"同一个观测量"）。
-三臂对照：
+（`jitter + amp×(u−0.5)`，`u` 由 `(seed, tick, cid)` 唯一决定 ⇒ 各臂共享"同一个观测量"）。
+四臂对照：
 
-- `baseline`：缺省（无滞回、无驻留）——抖动场景下的换档压力上界；
-- `hysteresis`：`theta_down=0.4`（已 resolved 的簇在 [0.4, 0.5) 区间保持）；
-- `dwell`：`min_dwell_ticks=60`（同一簇两次换档至少隔 60 tick）。
+- `noop`：`min_dwell_ticks=0`（关闭驻留闸）——抖动场景下的换档压力上界；
+- `default`：缺省（`min_dwell_ticks=30`，adr-011）；
+- `hysteresis`：`theta_down=0.4` + 关闭驻留（隔离滞回的单独效果）；
+- `dwell60`：`min_dwell_ticks=60`（更紧的闸）。
 
-指标：换档总数（≈ 身份重采样次数）、每簇平均、驻留（min/中位）、通量遥测样例
-（`expected` = 粗模型对该聚合的速率、`real` = 实测人-次）。
+指标：换档总数（≈ 身份重采样次数）、被卡物化（`blocked`）、驻留（min/中位）、
+通量遥测样例（`expected` = 粗模型对该聚合的速率、`real` = 实测人-次）。
 
 用法：
     python -m bench.resolution_switch --ticks 600 --families 4 --jitter 0.45
@@ -46,11 +47,13 @@ def _build(seed, capacity, population, families):
 
 def _run(arm, ticks, jitter, amp, seed, capacity, population, families):
     engine, mgr = _build(seed, capacity, population, families)
+    if arm in ("noop", "hysteresis"):
+        mgr.min_dwell_ticks = 0              # 对照：关闭驻留闸
     if arm == "hysteresis":
         mgr.policy = WaterlinePolicy(theta_base=mgr.policy.theta_base,
                                      budget_leaves=mgr.policy.budget_leaves,
                                      theta_down=0.4)
-    elif arm == "dwell":
+    elif arm == "dwell60":
         mgr.min_dwell_ticks = 60
 
     history = {}
@@ -98,10 +101,10 @@ def main():
     args = parser.parse_args()
 
     print(f"换档动力学（抖动观测者；ticks={args.ticks}，families={args.families}，"
-          f"jitter={args.jitter}±{args.jitter_amp / 2:.2f}，θ=0.5）\n")
+          f"jitter={args.jitter}±{args.jitter_amp / 2:.2f}，θ=0.5；缺省驻留=30，adr-011）\n")
     print(f"  {'arm':<12}{'switches':>10}{'blocked':>9}{'有换档簇':>10}{'驻留min':>9}{'驻留中位':>10}"
           f"{'遥测 real(b/d/m)':>20}{'expected(b/d/m)':>20}")
-    for arm in ("baseline", "hysteresis", "dwell"):
+    for arm in ("noop", "default", "hysteresis", "dwell60"):
         result = _run(arm, args.ticks, args.jitter, args.jitter_amp, args.seed,
                       args.capacity, args.population, args.families)
         gaps = result["gaps"]

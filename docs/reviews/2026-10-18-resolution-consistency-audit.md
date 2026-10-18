@@ -60,6 +60,8 @@
 > - `bench.audit_ledger --clusters`：identity error **0.0000%**。
 > - 全局读数不变（`FULL_FLOWS` 未动；未跑 convergence 的理由见 ADR-010）。
 
+> **跟进（默认拍板，[ADR-011](../decisions/adr-011-dwell-default.md)）**：`min_dwell_ticks` 缺省 **30**（滞回仍 opt-in）。四臂读数（`resolution_switch --ticks 600`）：noop 431 / **缺省(30) 127** / 滞回 236 / 驻留60 58；blocked 全 0。另：`cluster_fidelity --members 8 --ticks 8000 --trials 20` 复测，`married_frac` R−C = **−0.11（噪声级）**——§5 修复时 t=2000 的 +0.26 属瞬态/量化效应、不随窗口持续（"先记账不追"成立）。
+
 - **为什么不本批修**：修复必然改动力学（被卡的簇将重新可物化）⇒ 属独立"设计 + 测量"轮（与"缺省 No-Op"契约冲突）。**§6 给出了先例方向。**
 
 ## 6. C：Scheffer 1995 细读（全文）
