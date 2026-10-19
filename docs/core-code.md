@@ -63,7 +63,7 @@
 
 1. 状态空间 = 4 维分桶 `(age 0..120, gender 0/1, wealth_bucket, marital)`，混合基数编码（`space.encode` / `decode`）。第 3 维传的是**桶索引**，不是财富值；`marital` 桶空间有 **3 档**（只写 0/1，第 3 档预留恒空——见 `engineering-spec.md` §3）。
 2. 财富**线性分桶**，宽度 `w` = 收入步长：桶中心 = `(b+0.5)·w` ⇒ `+w` 恰为 `b+1`（精确整桶位移，无小数漂移）。**改 `w` 即改模型语义**（收入不再是一次整桶位移）。
-3. 计数容器是**稀疏**的：读未写入的桶返回 `0.0` 且**不写入**；写 ≤0 时置 0 并移出 `occupied`（**夹零**——负计数不可表示）。
+3. 计数容器是**稀疏**的：读未写入的桶返回 `0.0` 且**不写入**；写 ≤0 时**删除条目**并移出 `occupied`（**夹零**——负计数不可表示；**零条目不留** ⇒ 底表键集 ≡ `occupied`。反例实测：40 年长跑残壳 2,000 → 64,931 条）。
 4. 一切遍历只走 `occupied`；成本 = O(占用桶数)，与人口 N、与 `space.size` **都**无关。
 5. 序列化只存非零桶（`measure_to_payload`），往返误差 <1e-6/桶。
 
@@ -72,7 +72,7 @@
 - `wealth_bucket(10500.0)` = 10；`wealth_value(10)` = 10500.0 ⇒ `income` 把 b=10 整桶移到 b=11（+1000 精确，无残差）。
 - `space.encode(30, 0, 10, 0)` = `10_800_030`，`decode` 回到 `(30, 0, 10, 0)`（可直接当 fixture）。
 
-**验收**:`python -m pytest tests/test_measure_space.py tests/test_measure_core.py -q` → 全绿（编码双射 / 桶单调 / 稀疏容器语义）；
+**验收**:`python -m pytest tests/test_measure_space.py tests/test_measure_core.py tests/test_measure_transitions.py -q` → 全绿（编码双射 / 桶单调 / 稀疏容器语义 / **零条目不留**：`test_zero_buckets_are_deleted_not_left_as_residue`、`test_counts_backing_store_matches_occupied_in_long_run`）；
 `python -m bench.convergence --window --sizes 10000 100000 1000000 --capacity 1000 --steps 3000` → `ms/step` 与窗口规模**不随 N 变化**（只放大每桶计数，占用桶数不变）。
 
 **危险实现清单**
@@ -82,6 +82,7 @@
 | 1 | 按 `space.size` 分配 / 枚举全空间（全尺寸数组的形态） | 内存与遍历 ∝ 桶数（当前默认 43.56M），不是占用桶数 ⇒ 成本不再与 N 解耦 | 全局纪律 1（禁止按 `space.size` 分配或枚举）+ 验收 ②（`ms/step` 不随 N 变——挡"遍历"形态） |
 | 2 | 对数 / 非线性分桶 | `+w` 不再等于整桶位移，收入 / 继承无法精确落桶 | 第 2 步的桶中心公式（`(b+0.5)·w` ⇒ `+w` 恰为 `b+1`——对数分桶不满足）+ 精确例子（b=10 → b=11 精确） |
 | 3 | "读空桶"有副作用（写入 0 / 建桶） | 污染 `occupied` ⇒ 遍历成本失控；稀疏语义被破坏 | 验收 ①（稀疏容器语义）+ 全局纪律 1 |
+| 4 | 归零写成 `counts[i] = 0.0`（留零残壳，不删除条目） | 底表随桶漂移**无界增长**（实测 40 年 2,000 → 64,931 条）⇒ "成本 = O(占用桶数)" 在**时间轴**上失真、字典操作变慢 | 第 3 步（零条目不留）+ 验收 ①（`test_counts_backing_store_matches_occupied_in_long_run`） |
 
 ### N2-2 · 流算子的顺序契约与「只移动不产生」
 
@@ -114,6 +115,7 @@
 **步骤级说明**（三段：注入 → 清算 → 触顶）
 
 1. **注入**（每 tick，`inject_inherited`）：每条死亡记录把 `amount × 桶中心值 × 10%` 按 **gap 窗口** `u ∈ [a−50, a−18]`（`a` = 死者年龄）**均匀**摊入 `yearly_inherited[u]`（子女段池）；随后清空 `recent_deaths`（防重复入账）。`overflow_fraction` 可把该份额改注入**全局池**（族内继承的溢出缝）。
+   **实现**：差分数组展平窗口（每记录 2 次写 + 一趟前缀和；原逐槽版 = 每记录 × ~33 槽 × 2 次字典操作）——贡献非负 ⇒ **池键集不变**，仅浮点累加序不同（末位）⇒ 2026-10-18 重基线（[`reviews/2026-10-18-core-operator-polish.md`](reviews/2026-10-18-core-operator-polish.md)）。复杂度 O(死亡记录 + 年龄跨度)。
 2. **清算**（每 360 tick，`distribute_pool`）：对每个非空段池，按接收桶的**财富质量占比**（`count × 桶中心值`）算理想份额；每桶只支付 `floor(理想 / (count × w))` 个**整数桶位移**（整桶平移，**不拆桶内计数**），余量**留池**下年再分；接收段无人 ⇒ 整段留池。
 3. **触顶 / 触底**：位移若越过 `wealth_bins` 上限、或下移越过桶 0 ⇒ 该桶**不支付**，份额**留池**
    （不越界、不注水）。`_shift_age_wealth` 的 `steps` **可正可负**（下移用于通道 `transfer` 的清算，

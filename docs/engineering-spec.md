@@ -62,7 +62,7 @@ SIM_MODE=measure ──────────┤
 | death | age≥60 每 tick 划掉 `count×0.05/360`；记录 ``(age, wealth, amount)`` 入 `recent_deaths` | O(占用) |
 | marriage | 每 tick：单身成年 `singles×0.1/360×availability`，availability=`1-(1-p_elig)^2.5`；婚配消耗 2 单身，按桶占比摊 | O(占用) |
 | birth | 已婚 18≤age≤50 的 `×0.005/27`，新生男女各半入 (0岁,财富0) 桶 | O(占用) |
-| inheritance | 见下 | O(占用)/年 |
+| inheritance | 见下（注入用差分数组展平 gap 窗口：O(死亡记录 + 年龄跨度)/年） | O(占用)/年 |
 
 **继承（段池整数分配，Stage 7 设计）**：这是**骨架级 N2**——其纪律（三条禁令）、步骤级规格与可跑验收见 [`core-code.md`](core-code.md) N2-3；本节只放模型语义与数字。
 1. 每个 `recent_deaths` 记录注入 `inherited = amount × wealth_value × 0.1`，按 gap 窗口 `u ∈ [a−50, a−18]`（生育对 18–50 岁父母近似均匀 → 差值密度均匀）流入年度段池 `yearly_inherited[u]`；

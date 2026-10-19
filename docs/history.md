@@ -719,3 +719,13 @@ Stage 20 的校准把"可达性"钉成了瓶颈：生产样态下 crossings = 0�
 - **婚配跨规模扫描（①）**：N=1200/2400/4800 × rate 0.5×/1.0× × 3 seeds，`scope=both`——通量密度**人均稳定**（~9–12 / 千人口 / 2000 tick）⇒ 速率无需按 N 重标；Δmarried vs null ≤ +0.02 有界；族侧先饱和（1.0× 丢弃 ∝N 超线性）⇒ 若开生产用 **rate ≤ 0.5×**。
 - **LLM 可插拔（③）**：[`decisions/adr-014-llm-pluggability-deferred.md`](decisions/adr-014-llm-pluggability-deferred.md)——**暂不实现**：三条契约冲突（确定性 `SIM_SEED` / 成本模型 / 可聚合性——LLM 无闭式均值场 ⇒ 收敛门槛失去意义）；重启条件写死（产品叙事需求 + 确定性宿主 + 门槛降级记账）。
 - 对账：[`reviews/2026-10-18-marriage-scale-sweep.md`](reviews/2026-10-18-marriage-scale-sweep.md)。
+
+### Stage 34 · 核心算子打磨：零条目内存增长（A）+ 继承注入热点（B）（2026-10-18）
+
+- **发现（长跑探查）**：100 年轨迹 ms/tick 2.84→4.83 上漂（同期 occupied 反降）——排除 GC（`gc.disable` 同漂）与降频（恒定基准 147→149ms 平）；热点 = `inject_inherited`（记录数 = 老年桶数 253→1,148，每记录展开 ~33 槽 × 2 次字典操作）；同查发现 `counts` 底表零残壳 40 年 **2,000 → 64,931 条**。
+- **A（零条目删除，逐位安全）**：`add`/`aging`/`income` 归零改为删除条目；改动前后 `convergence --full-compare` 与 `audit_ledger` **逐行 diff 为空**；簇保真口径亦逐字不变（§三态实验）；新测试 2 条。
+- **B（inject 差分数组，重基线）**：O(记录 × ~33) → O(记录 + 年龄跨度)；池键集不变、仅浮点末位差异（标准审账误差 -1.579e-05 → -1.587e-05；收敛显示值不变）；新测试 3 条（参考实现等价 / overflow 拆分与确定性 / 窗口边界）。
+- **验收**：`pytest 244 passed`；四连审账 **0.0000%**；长跑审账（40 年/14400 步/n=3000）**83,622 个算子全中性**；`bench.longrun`（100 年/base 20000）**底表 ≡ occupied 全程、ms/tick 1.96–2.17 平线**（改前 2.84→4.83；晚期 **~2.3×**）。
+- **遗留（本轮前已红，非本轮引入）**：`cluster_fidelity --gate` 在 `cbf343a` 即 FAIL（age_l1 趋势 + pop 400 = 5.10%）；A 逐字不变，B 经簇/窗口混沌放大改变轨迹级数字（守恒/单测全绿）。**跟进**：门禁 triage 轮（二分归因）+ 门槛口径复核（是否改"配对分布置信区间"类判据）。
+- **新工具**：`bench/longrun`（长地平线标定）；守恒纪律 + 第 7 条（零条目必须删除）。
+- 对账：[`reviews/2026-10-18-core-operator-polish.md`](reviews/2026-10-18-core-operator-polish.md)。

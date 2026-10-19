@@ -29,6 +29,7 @@
 | `bench.resolution_switch` | **换档动力学**（抖动观测者四臂：noop / 缺省驻留 30 / 滞回 / 驻留 60）：有效换档、**被卡物化（blocked）**、驻留、通量遥测样例（描述性） | `python -m bench.resolution_switch --ticks 600` |
 | `bench.residual_correlation` | **误差触发研究**（配对世界：观察→粗化 vs 孪生全程 resolved）：`flux_z` / `phase_disp` 与粗化伤害的相关 + **预注册可用性判据**（描述性） | `python -m bench.residual_correlation --trials 12` |
 | `bench.attention_trace` | **生产样态注意力轨迹**（production = 社会凝视 + 显要；none = 对照）：分带占用、θ 双向穿越、降档归因（≥θ / [k,θ) / <k）、并发簇 | `python -m bench.attention_trace --ticks 2000 --seeds 1 7` |
+| `bench.longrun` | **长地平线标定**：占用桶 / 底表条目 / 人口 / 耗时 / 池 余额 轨迹（验收"成本在时间轴上不膨胀"） | `python -m bench.longrun --population 20000 --ticks 36000` |
 
 结果写入 `bench/results/`；结果文件是**证据**，提交。
 
@@ -103,6 +104,11 @@ python -m bench.attention_trace --ticks 2000 --capacity 1000 --population 5000 -
 
 > **1e7 平线**：occupied 恒 663 ⇒ 成本只随**占用桶数**走、与 N 无关（结果 `bench/results/scaling-measure.csv`）。
 
+**长地平线（100 年）**（`bench.longrun --population 20000 --ticks 36000`，2026-10-18 打磨轮后）：occupied 稳定 1341–1653、**底表 ≡ occupied**（零残壳）、ms/tick **1.96–2.17 平线**（打磨前 2.84→4.83 单调上漂；晚期 ~2.3×）。
+
+> **`cluster_fidelity --gate` 当前为红（2026-10-18 实测，**本轮前即红**——`cbf343a` FAIL）**：triage 与口径复核登记于
+> [`docs/reviews/2026-10-18-core-operator-polish.md`](../docs/reviews/2026-10-18-core-operator-polish.md) §4；该门槛在使用前需先过一轮 triage。
+
 **收敛水平（vs 完整个体引擎，N=5000, t=8000, seeds 1/7/42）**：gini 差 ~0.01、KS 中位 **2.23%**（2026-10-18 遍历序加固后复测；加固前 1.90%——该值随历史阶段漂移，以最新复测为准）、p70–p95 逐分位 ±1%；p100 相对偏差 **+2.2%** 属**有界采样噪声**（跨种子 ±0.6% 摆动），不作调优目标（归因方案见 `docs/history.md` Stage 7）。
 
 **共演单元保真度（coarse vs 保持 resolved，配对 A/B，`members=8`/40 trials，t=8000）**：
@@ -137,3 +143,4 @@ python -m bench.attention_trace --ticks 2000 --capacity 1000 --population 5000 -
 4. 任何"概率×周期压缩"（稀有事件降频）必须概率同倍放大，`rare_stride=1` 保持逐位一致；
 5. 改动后必跑：`pytest`（守恒/等价测试）+ `bench.convergence --full-compare` + `bench.audit_ledger`。
 6. **遍历序纪律**：凡迭代 `occupied` 的算子一律 `sorted(...)`（按桶索引升序），批量移动按目标索引插入——结算按序消耗池、浮点累加序影响末位；同一分布换构造顺序必须**逐位一致**（`tests/test_measure_transitions.py`）。
+7. **稀疏容器零条目必须删除**：归零 = 删除条目（底表键集 ≡ `occupied`）——写 `0.0` 留残壳会随桶漂移无界增长（实测 40 年 2,000 → 64,931 条）；由 `test_counts_backing_store_matches_occupied_in_long_run` + `bench.longrun` 守。
