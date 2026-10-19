@@ -791,6 +791,66 @@ def test_integer_marriage_pair_can_share_bucket():
     assert mini.marriage_credit < 0.01                 # 只含本 tick 的微量累积
 
 
+def test_integer_marriage_fractional_weights_are_uniform():
+    """分数计数桶：权重 = int(count)（整人数）——不得让前面的桶抢占 fractional 余量。
+
+    三个 `count=1.2` 的桶（int 权重各 1）：选人直方图应近似均匀。
+    旧实现（浮点权重 + `int(Σ count)` 位置网格）会给第一桶约 2/3、第三桶恒 0。
+    """
+    space = StateSpace()
+    origins = [space.encode(age, 0, 10, 0) for age in (20, 30, 40)]
+    picks = []
+    for tick in range(1, 2401):
+        mini = Measure(space)
+        for index in origins:
+            mini.add(index, 1.2)
+        mini.marriage_credit = 2.0
+        integer_marriage(mini, tick)
+        married = [space.decode(i)[0] for i in mini.occupied if space.decode(i)[3] == 1]
+        assert len(married) == 2
+        picks.extend(married)
+    histogram = {}
+    for age in picks:
+        histogram[age] = histogram.get(age, 0) + 1
+    mean = len(picks) / 3
+    assert min(histogram.values()) > 0.5 * mean      # 第三桶也必须被抽到（旧实现恒 0）
+    assert max(histogram.values()) < 2 * mean
+
+
+def test_integer_death_loop_terminates_and_keeps_credit():
+    """死亡发放循环：credit=3.5 + 3 个整人 60+ 桶 ⇒ 同一 tick 发 3 人、余 <1；整人桶不被分数削。"""
+    space = StateSpace()
+    mini = Measure(space)
+    indices = [space.encode(age, 0, 10, 0) for age in (70, 75, 80)]
+    for index in indices:
+        mini.add(index, 1.0)
+    mini.death_credit = 3.5
+    before = mini.total()
+
+    integer_death(mini, 5)
+
+    assert len(mini.recent_deaths) == 3            # 同一 tick 连发 3 人
+    assert abs(mini.total() - (before - 3.0)) < 1e-12
+    assert mini.death_credit < 1.0                 # 余 0.5 + 本 tick 微量累积
+    for index in indices:
+        assert mini.counts[index] == 0.0
+
+
+def test_integer_death_keeps_credit_without_whole_buckets():
+    """无整人 60+ 桶（只有分数余量）⇒ 不发放、信用保留（可跨 tick 累积）、计数不被削成负数。"""
+    space = StateSpace()
+    mini = Measure(space)
+    index = space.encode(70, 0, 10, 0)
+    mini.add(index, 0.7)                           # 分数桶：不可发放
+    mini.death_credit = 2.0
+
+    integer_death(mini, 5)
+
+    assert mini.recent_deaths == []
+    assert mini.counts[index] == 0.7
+    assert mini.death_credit > 2.0                 # 保留 + 本 tick 累积
+
+
 def test_integer_death_fires_whole_removals():
     """信用发放（adr-010）：死亡按整人移除、`recent_deaths` 记整额；桶保持整数。"""
     space = StateSpace()

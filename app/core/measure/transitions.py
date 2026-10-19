@@ -146,6 +146,10 @@ def distribute_pool(measure):
         for index, count, mass in masses:
             if count <= 0.0 or available <= 0.0:
                 continue
+            if measure.counts[index] != count:
+                # 本轮已被并入（整桶平移 merge）⇒ 跳过、份额留池：
+                # 按快照 count 算 k 会超付"已被合并放大"的桶（池可被扣成负数）。
+                continue
             ideal = available * (mass / total_mass)
             k = int(ideal / (count * space.wealth_width))  # 整数桶位移（floor，不超付）
             if k > 0:
@@ -351,11 +355,14 @@ def _mix32(tick, k):
 
 
 def _weighted_pick(pairs, position):
-    """按 ``(index, weight)`` 序列累计定位第 ``position`` 人（整型位置；权重为浮点）。
+    """按 ``(index, 整人数权重)`` 累计定位第 ``position`` 人（**整数**算术）。
 
+    权重 = 桶内整人数 ``int(count)``；分数余量不计权、不参与抽取 ⇒ 对"整人单身总体"
+    严格均匀（与流体版"按桶占比摊派"的期望一致）。浮点权重 + 整数位置网格会让分数桶
+    系统性偏向前面的桶（如三个 `count=1.2` 桶时位置 0/1 都落在第一桶），故用整数权重。
     调用方保证 ``0 ≤ position < Σ weight``；防御性返回 ``None``（定位失败时调用方留信用）。
     """
-    acc = 0.0
+    acc = 0
     for index, weight in pairs:
         acc += weight
         if acc > position:
@@ -366,11 +373,22 @@ def _weighted_pick(pairs, position):
 def integer_marriage(measure, tick):
     """小计数粗侧的婚配发放（整数语义；`FamilyKind` 专用；全局测度用流体版 `marriage`）。
 
-    信用 += ``to_marry``（**与流体版同一公式 / 可用性闭合**——逐 tick 同源的期望人-次）；
-    积满 2.0 即**整人成对发放**。选人 = **确定性加权均匀抽样**（对全体整人单身按 count
-    加权；位置 = `_mix32(tick, k)` 对总权重取模，沿索引升序累计定位）——期望上与流体版
-    "按桶占比摊派"（≡ 对单身总体均匀抽人）一致，且不消耗随机数。同一桶取两人仅当
-    ``count ≥ 2.0``（与旧规则一致；否则会从分数余量桶取走两整人而销毁质量）。
+    信用 += ``to_marry``（与流体版**同一公式 / 同一常数**：`singles` = `marital=0` 且
+    `18≤age<60` 的 count 和，`adults` = 全部 `18≤age<60` 的 count 和（**含已婚**），
+    `q = 1−(1−p_elig)^MARRIAGE_MEAN_DEG`；`singles > 1.0` 才累积）。信用是**两个独立字段**
+    之一（`marriage_credit` / `death_credit`）。积满 2.0 即**整人成对发放**：
+
+    - **选人（2026-10-19 收窄）** = 确定性加权均匀抽样：候选 = `count ≥ 1.0 ∧ marital=0 ∧
+      18≤age<60` 的桶；权重 = 桶内**整人数** `int(count)`，总权重 = Σ 整人数（整数）；
+      位置 = `_mix32(tick, 2·pair)` / `_mix32(tick, 2·pair+1)`（`pair` = 本 measure 本 tick
+      内已发放批数，从 0 起）对总权重取模，沿**索引升序**按整人数累计定位（命中条件
+      `累计 > position`）。第二人：第一人桶的整人数减 1，仍 ≥1 才可再选；不足 ⇒ 本批不发放。
+    - **落桶**：两人各自从原桶 `−1.0`、同 `(age, gender, wealth)` 的 `marital=1` 桶 `+1.0`
+      （目标桶不存在则创建）。发放循环 `while credit ≥ 2.0`——同一 tick 发到 credit < 2.0
+      或整人不足为止；阻塞时信用保留、**可超过阈值跨 tick 累积**。
+    - **「整人桶不被削到 (0,1)」的准确含义**：整数计数的桶只按整 1.0 减、永不被分数削；
+      分数余量只可能来自 `birth` 注入或旧档（不能发放、信用保留不丢）。同一桶取两人仅当
+      ``count ≥ 2.0``（否则会从分数余量桶取走两整人而销毁质量）。
 
     **修订（2026-10-19，收窄 adr-010）**：旧规则 = `(-count, index)` 排序取人；因
     `space.encode` 以 age 为最高位（索引升序 = 年龄升序），平局主导下等价于"最年轻优先"
@@ -400,21 +418,19 @@ def integer_marriage(measure, tick):
                  and 18 <= space.decode(index)[0] < 60]
         if not whole:
             break
-        total = sum(measure.counts[index] for index in whole)
-        if total < 2.0:
+        weights = [(index, int(measure.counts[index])) for index in whole]
+        total = sum(weight for _index, weight in weights)
+        if total < 2:
             break
-        first = _weighted_pick([(index, measure.counts[index]) for index in whole],
-                               _mix32(tick, 2 * pair) % int(total))
-        second_pairs = []
-        for index in whole:
-            weight = measure.counts[index] - (1.0 if index == first else 0.0)
-            if weight >= 1.0:                    # 该桶还够一整人（同桶双取仅 count ≥ 2.0）
-                second_pairs.append((index, weight))
-        second_total = sum(weight for _index, weight in second_pairs)
+        first = _weighted_pick(weights, _mix32(tick, 2 * pair) % total)
+        remaining = [(index, weight - (1 if index == first else 0))
+                     for index, weight in weights]
+        remaining = [(index, weight) for index, weight in remaining if weight >= 1]
+        second_total = sum(weight for _index, weight in remaining)
         second = None
-        if second_total >= 1.0:
-            second = _weighted_pick(second_pairs,
-                                    _mix32(tick, 2 * pair + 1) % int(second_total))
+        if second_total >= 1:
+            second = _weighted_pick(remaining,
+                                    _mix32(tick, 2 * pair + 1) % second_total)
         if first is None or second is None:      # 保底：定位失败时留信用不发放
             break
         for index in (first, second):
