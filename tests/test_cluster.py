@@ -736,6 +736,61 @@ def test_integer_marriage_fires_whole_pairs():
     assert mini.total() == 2.0
 
 
+def test_integer_marriage_selection_is_age_uniform():
+    """选人 = 确定性加权均匀（收窄 2026-10-19，修订 adr-010 的"平局索引序"）。
+
+    旧规则 `(-count, index)` 排序 + 索引升序（= age 升序）⇒ 均匀单人池上被选年龄会全部
+    压在最低端；新规则应按人数比例分散覆盖。固定 tick 序列 ⇒ 输出确定，可直接断言分布。
+    """
+    space = StateSpace()
+    picks = []
+    for tick in range(1, 2401):
+        mini = Measure(space)
+        for age in range(18, 60):                      # 42 个年龄 × 每桶 1.0
+            mini.add(space.encode(age, 0, 10, 0), 1.0)
+        mini.marriage_credit = 2.0                     # 恰够一桩婚事
+        integer_marriage(mini, tick)
+        married = [space.decode(i)[0] for i in mini.occupied
+                   if space.decode(i)[3] == 1]
+        assert len(married) == 2                       # 每 tick 恰发一对整人
+        picks.extend(married)
+
+    histogram = {}
+    for age in picks:
+        histogram[age] = histogram.get(age, 0) + 1
+    mean = len(picks) / 42
+    assert min(histogram.values()) > 0                 # 全覆盖（旧规则只会覆盖最低若干岁）
+    assert max(histogram.values()) < 2 * mean          # 近似均匀（旧规则 ≈ 40× 集中）
+
+
+def test_integer_marriage_consumes_no_rng():
+    """整数发放不得消耗任何随机数（SIM_SEED 语义；修订后由哈希定位，与 random 零接触）。"""
+    space = StateSpace()
+    mini = Measure(space)
+    mini.add(space.encode(30, 0, 10, 0), 2.0)
+    mini.marriage_credit = 2.0
+    state = random.getstate()
+    integer_marriage(mini, 7)
+    assert random.getstate() == state
+
+
+def test_integer_marriage_pair_can_share_bucket():
+    """同一桶取双人仅当 count ≥ 2.0；发放计数中性、源桶清空、目标桶 +2。"""
+    space = StateSpace()
+    mini = Measure(space)
+    origin = space.encode(30, 0, 10, 0)
+    mini.add(origin, 2.0)
+    mini.marriage_credit = 2.0
+    before = mini.total()
+
+    integer_marriage(mini, 5)
+
+    assert abs(mini.total() - before) < 1e-12
+    assert mini.counts[origin] == 0.0
+    assert mini.counts[space.encode(30, 0, 10, 1)] == 2.0
+    assert mini.marriage_credit < 0.01                 # 只含本 tick 的微量累积
+
+
 def test_integer_death_fires_whole_removals():
     """信用发放（adr-010）：死亡按整人移除、`recent_deaths` 记整额；桶保持整数。"""
     space = StateSpace()

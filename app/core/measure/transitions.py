@@ -336,14 +336,47 @@ def integer_death(measure, tick):
     measure.recent_deaths = fired
 
 
+def _mix32(tick, k):
+    """确定性整数混合（无 rng）：(tick, k) → 32-bit。
+
+    与 `random` 模块零接触 ⇒ `SIM_SEED` 语义不变；纯整数运算 ⇒ 跨平台逐位一致。
+    """
+    x = (tick * 0x9E3779B1 + k * 0x85EBCA6B) & 0xFFFFFFFF
+    x ^= x >> 16
+    x = (x * 0x7FEB352D) & 0xFFFFFFFF
+    x ^= x >> 15
+    x = (x * 0x846CA68B) & 0xFFFFFFFF
+    x ^= x >> 16
+    return x
+
+
+def _weighted_pick(pairs, position):
+    """按 ``(index, weight)`` 序列累计定位第 ``position`` 人（整型位置；权重为浮点）。
+
+    调用方保证 ``0 ≤ position < Σ weight``；防御性返回 ``None``（定位失败时调用方留信用）。
+    """
+    acc = 0.0
+    for index, weight in pairs:
+        acc += weight
+        if acc > position:
+            return index
+    return None
+
+
 def integer_marriage(measure, tick):
     """小计数粗侧的婚配发放（整数语义；`FamilyKind` 专用；全局测度用流体版 `marriage`）。
 
     信用 += ``to_marry``（**与流体版同一公式 / 可用性闭合**——逐 tick 同源的期望人-次）；
-    积满 2.0 即**整人成对发放**：优先从最大的单身桶取 2.0（一桶 = 同状态两人成婚，
-    均值场本就性别中立）；否则取两个 `count ≥ 1.0` 的单身桶各 1.0（count 降序、平局索引序——
-    确定性、不消耗随机数）。每 1.0 送入同 `(age,gender,wealth)` 的 ``marital=1`` 桶。
-    整人桶不被削到 (0,1) ⇒ mini 保持可物化。见 `docs/decisions/adr-010-mini-integer-semantics.md`。
+    积满 2.0 即**整人成对发放**。选人 = **确定性加权均匀抽样**（对全体整人单身按 count
+    加权；位置 = `_mix32(tick, k)` 对总权重取模，沿索引升序累计定位）——期望上与流体版
+    "按桶占比摊派"（≡ 对单身总体均匀抽人）一致，且不消耗随机数。同一桶取两人仅当
+    ``count ≥ 2.0``（与旧规则一致；否则会从分数余量桶取走两整人而销毁质量）。
+
+    **修订（2026-10-19，收窄 adr-010）**：旧规则 = `(-count, index)` 排序取人；因
+    `space.encode` 以 age 为最高位（索引升序 = 年龄升序），平局主导下等价于"最年轻优先"
+    ⇒ 实测量到 coarse 臂系统性先嫁年轻单身（已婚 18–50 的 ≤30 岁份额 0.42 vs 流体 0.24），
+    生育闭合放大 ⇒ 人口超产台阶（n=400 pop 相对 1.8% → 5.4%）。旧表述保留于 adr-010 原文
+    （标注被修订）。
     """
     space = measure.space
     singles = adults = 0.0
@@ -359,25 +392,37 @@ def integer_marriage(measure, tick):
         p_elig = singles / adults
         availability = 1.0 - (1.0 - p_elig) ** MARRIAGE_MEAN_DEG
         credit += min(MARRIAGE_RATE * singles * availability * 2.0, singles)
+    pair = 0
     while credit >= 2.0:
-        whole = sorted((index for index in measure.occupied
-                        if measure.counts[index] >= 1.0
-                        and space.decode(index)[3] == 0
-                        and 18 <= space.decode(index)[0] < 60),
-                       key=lambda i: (-measure.counts[i], i))
+        whole = [index for index in sorted(measure.occupied)
+                 if measure.counts[index] >= 1.0
+                 and space.decode(index)[3] == 0
+                 and 18 <= space.decode(index)[0] < 60]
         if not whole:
             break
-        if measure.counts[whole[0]] >= 2.0:
-            picks = [(whole[0], 2.0)]
-        elif len(whole) >= 2:
-            picks = [(whole[0], 1.0), (whole[1], 1.0)]
-        else:
+        total = sum(measure.counts[index] for index in whole)
+        if total < 2.0:
             break
-        for index, amount in picks:
+        first = _weighted_pick([(index, measure.counts[index]) for index in whole],
+                               _mix32(tick, 2 * pair) % int(total))
+        second_pairs = []
+        for index in whole:
+            weight = measure.counts[index] - (1.0 if index == first else 0.0)
+            if weight >= 1.0:                    # 该桶还够一整人（同桶双取仅 count ≥ 2.0）
+                second_pairs.append((index, weight))
+        second_total = sum(weight for _index, weight in second_pairs)
+        second = None
+        if second_total >= 1.0:
+            second = _weighted_pick(second_pairs,
+                                    _mix32(tick, 2 * pair + 1) % int(second_total))
+        if first is None or second is None:      # 保底：定位失败时留信用不发放
+            break
+        for index in (first, second):
             age, gender, wealth, _marital = space.decode(index)
-            measure.add(index, -amount)
-            measure.add(space.encode(age, gender, wealth, 1), amount)
+            measure.add(index, -1.0)
+            measure.add(space.encode(age, gender, wealth, 1), 1.0)
         credit -= 2.0
+        pair += 1
     measure.marriage_credit = credit
 
 
