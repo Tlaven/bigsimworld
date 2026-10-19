@@ -74,9 +74,20 @@ def inject_inherited(measure, overflow=0.0, global_measure=None):
 
     ``overflow`` 份额（[0,1]）改注入 ``global_measure`` 的池——用于"子女已离开共演单元"
     的溢出（C1c）；``overflow=0`` 且 ``global_measure=None`` 时与原行为一致。
+
+    实现用**差分数组**展平 gap 窗口（每记录 2 次写 + 一趟前缀和；原实现 = 每记录 ×
+    窗口 ~33 槽 × 2 次字典操作）。贡献非负 ⇒ 前缀和不会抵消、池键集与逐槽版本一致；
+    仅浮点累加序不同（末位）——即 2026-10-18 重基线的由来。
     """
     space = measure.space
     deaths = getattr(measure, "recent_deaths", None) or []
+    if not deaths:
+        measure.recent_deaths = []
+        return
+    use_leak = overflow > 0.0 and global_measure is not None
+    span = space.age_buckets + 1  # 尾哨兵：child_high + 1 免边界分支
+    keep_delta = [0.0] * span
+    leak_delta = [0.0] * span if use_leak else None
     for age, wealth, amount in deaths:
         inherited = amount * space.wealth_value(wealth) * INHERITANCE_FRACTION
         child_low = max(0, age - 50)
@@ -85,15 +96,26 @@ def inject_inherited(measure, overflow=0.0, global_measure=None):
         if window <= 0:
             continue
         per_child = inherited / window
-        leak = per_child * overflow if (overflow > 0.0 and global_measure is not None) else 0.0
+        leak = per_child * overflow if use_leak else 0.0
         keep = per_child - leak
-        pool = measure.yearly_inherited
-        for child_age in range(child_low, child_high + 1):
-            if keep > 0.0:
-                pool[child_age] = pool.get(child_age, 0.0) + keep
-            if leak > 0.0:
-                gp = global_measure.yearly_inherited
-                gp[child_age] = gp.get(child_age, 0.0) + leak
+        keep_delta[child_low] += keep
+        keep_delta[child_high + 1] -= keep
+        if use_leak and leak > 0.0:
+            leak_delta[child_low] += leak
+            leak_delta[child_high + 1] -= leak
+    pool = measure.yearly_inherited
+    acc = 0.0
+    for child_age in range(space.age_buckets):
+        acc += keep_delta[child_age]
+        if acc != 0.0:
+            pool[child_age] = pool.get(child_age, 0.0) + acc
+    if use_leak:
+        gp = global_measure.yearly_inherited
+        acc = 0.0
+        for child_age in range(space.age_buckets):
+            acc += leak_delta[child_age]
+            if acc != 0.0:
+                gp[child_age] = gp.get(child_age, 0.0) + acc
     measure.recent_deaths = []  # 死者已完成映射，避免重复入账
 
 

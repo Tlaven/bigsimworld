@@ -1,3 +1,5 @@
+import pytest
+
 from app.core.measure import transitions as T
 from app.core.measure.measure import Measure
 from app.core.measure.space import StateSpace
@@ -144,6 +146,87 @@ def test_counts_backing_store_matches_occupied_in_long_run():
     counts = engine.measure.counts
     assert set(counts._data) == set(engine.measure.occupied)
     assert all(value > 0.0 for value in counts.values())
+
+
+def _reference_inject(measure, deaths, overflow=0.0, global_measure=None):
+    """参考实现：逐记录、逐槽累加（差分数组版的等价性对照；勿改语义）。"""
+    space = measure.space
+    for age, wealth, amount in deaths:
+        inherited = amount * space.wealth_value(wealth) * T.INHERITANCE_FRACTION
+        child_low = max(0, age - 50)
+        child_high = max(0, age - 18)
+        window = child_high - child_low + 1
+        if window <= 0:
+            continue
+        per_child = inherited / window
+        leak = per_child * overflow if (overflow > 0.0 and global_measure is not None) else 0.0
+        keep = per_child - leak
+        for child_age in range(child_low, child_high + 1):
+            if keep > 0.0:
+                measure.yearly_inherited[child_age] = measure.yearly_inherited.get(child_age, 0.0) + keep
+            if leak > 0.0:
+                gp = global_measure.yearly_inherited
+                gp[child_age] = gp.get(child_age, 0.0) + leak
+
+
+def test_inject_matches_reference_loop():
+    """差分数组 vs 逐槽累加：key 集相等、逐 age 相对差 ≤ 1e-12（仅浮点末位差异）。"""
+    space = StateSpace()
+    deaths = [(60, space.wealth_bucket(20000), 1.0),
+              (75, space.wealth_bucket(5000), 0.5),
+              (99, space.wealth_bucket(1_000_000), 2.0),
+              (55, space.wealth_bucket(300), 4.0)]
+
+    new = Measure(space)
+    new.recent_deaths = list(deaths)
+    T.inject_inherited(new)
+
+    ref = Measure(space)
+    _reference_inject(ref, deaths)
+
+    assert set(new.yearly_inherited) == set(ref.yearly_inherited)
+    for age, amount in ref.yearly_inherited.items():
+        assert new.yearly_inherited[age] == pytest.approx(amount, rel=1e-12)
+    assert new.recent_deaths == []
+
+
+def test_inject_overflow_split_and_determinism():
+    """overflow 拆分：家 / 全局两池之和 = 注入总额；同夹具重跑逐位一致；overflow=1 全进全局。"""
+    space = StateSpace()
+    deaths = [(70, space.wealth_bucket(9000), 1.0), (80, space.wealth_bucket(3000), 2.0)]
+    expected = sum(amount * space.wealth_value(wealth) * T.INHERITANCE_FRACTION
+                   for _age, wealth, amount in deaths)
+
+    family, global_pool = Measure(space), Measure(space)
+    family.recent_deaths = list(deaths)
+    T.inject_inherited(family, overflow=0.3, global_measure=global_pool)
+    assert (sum(family.yearly_inherited.values()) + sum(global_pool.yearly_inherited.values())) \
+        == pytest.approx(expected, rel=1e-12)
+    assert global_pool.recent_deaths == []              # 全局池的 recent_deaths 不被触碰
+
+    family2, global_pool2 = Measure(space), Measure(space)
+    family2.recent_deaths = list(deaths)
+    T.inject_inherited(family2, overflow=0.3, global_measure=global_pool2)
+    assert family2.yearly_inherited == family.yearly_inherited
+    assert global_pool2.yearly_inherited == global_pool.yearly_inherited
+
+    family3, global_pool3 = Measure(space), Measure(space)
+    family3.recent_deaths = list(deaths)
+    T.inject_inherited(family3, overflow=1.0, global_measure=global_pool3)
+    assert family3.yearly_inherited == {}
+    assert sum(global_pool3.yearly_inherited.values()) == pytest.approx(expected, rel=1e-12)
+
+
+def test_inject_window_stays_in_age_bounds():
+    """窗口上界（高龄）与尾哨兵：不越界、键全落在 [0, age_buckets)。"""
+    space = StateSpace()
+    deaths = [(space.age_buckets - 1, space.wealth_bucket(5000), 1.0),
+              (18, space.wealth_bucket(5000), 1.0)]
+    m = Measure(space)
+    m.recent_deaths = list(deaths)
+    T.inject_inherited(m)
+    assert m.yearly_inherited
+    assert all(0 <= age < space.age_buckets for age in m.yearly_inherited)
 
 
 def _order_variant(space, order):
