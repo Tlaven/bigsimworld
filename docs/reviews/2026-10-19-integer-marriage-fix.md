@@ -20,10 +20,11 @@
 
 ## 2. 修复（只碰 `integer_marriage`）
 
-- 选人 = **确定性加权均匀抽样**：`位置 = _mix32(tick, 2k / 2k+1) % 整数总权重`，沿**索引升序**按 count 累计定位；期望 ≡ 对单身总体均匀抽人（= 流体版"按桶占比摊派"的等价过程）。
+- 选人 = **确定性加权均匀抽样**：`位置 = _mix32(tick, 2·pair / 2·pair+1) % 整人数总权重（Σ int(count)）`，沿**索引升序**按整人数累计定位（整数算术）；期望 ≡ 对整人单身总体均匀抽人（= 流体版"按桶占比摊派"的等价过程）。
 - 同桶双取仅当 `count ≥ 2.0`（与旧规则一致；防止从分数余量桶取走两整人而销毁质量——实现中曾自查出一版缺陷并修正）。
 - 信用累积公式、整人发放、无 rng（`_mix32` 纯整数、与 `random` 零接触）、只碰 mini——**四条性质全保留**。
-- `integer_death` **未动**（消融证明与台阶无关；其排序效应是"年长优先移除"，不触生育通道——登记为观察项）。
+- **2026-10-19 复核收窄（teach-back 触发）**：权重从 `count` 实数改为桶内**整人数** `int(count)`（整数算术）——浮点权重 + `int(Σ)` 位置网格会让分数桶系统性偏向索引靠前的桶（三个 `count=1.2` 桶时第三桶恒不被抽中），与"均匀"矛盾；改后门禁/消融数字**逐位不变**（该场景候选多为整人桶）。新测试 `test_integer_marriage_fractional_weights_are_uniform` 钉住该性质。
+- `integer_death` **未动**（消融证明与台阶无关；其平局排序同样是索引升序 = 年龄升序 ⇒ **较年轻 60+ 优先移除**——与婚配旧规则同构，但不触生育通道，登记为观察项）。
 - 边界（新测试守）：发放计数中性；同桶双取；不消耗 rng；均匀池上年龄覆盖均匀（max/mean < 2；旧规则 ≈ 40× 集中）。
 
 ## 3. 验收（全部实测）
@@ -31,10 +32,10 @@
 | 项 | 改前 | 改后 | 判据 |
 |---|---|---|---|
 | 消融夹具（n=400, t=4000, 20 trials） | 5.10% | **1.23%** | ≤ 2.5% ✓（`int_marr` 变体 4.95% → **1.09%**；参照 fluid 1.62%——**低于 pre-fix 水平**） |
-| `--gate` t=4000（缺省口径） | FAIL | **PASS**（pop 1.23/1.57/0.06%；age 0.0416/0.0379/0.0418） | PASS ✓；`--seed0 101` 复现 PASS（0.84/0.57/0.40%） |
-| `--gate --ticks 8000`（ADR 文字口径） | FAIL（13.08/7.55/4.79%） | **PASS**（3.52/1.56/1.03%；age 0.0615/0.0528/0.0518） | PASS ✓ |
+| `--gate --ticks 4000`（快速预检口径） | FAIL | **PASS**（pop 1.23/1.57/0.06%；age 0.0416/0.0379/0.0418） | PASS ✓；`--seed0 101` 复现 PASS（0.84/0.57/0.40%） |
+| `--gate`（缺省口径 t=8000，口径确权后） | FAIL（13.08/7.55/4.79%） | **PASS**（3.52/1.56/1.03%；age 0.0615/0.0528/0.0518） | PASS ✓ |
 | `resolution_switch --ticks 600` | blocked 0 | **blocked 0**（四臂：noop/default/hysteresis/dwell60） | ADR-010 正产保留 ✓ |
-| 全局回归护栏 | — | `convergence --full-compare` **逐行 diff 空**；`audit_ledger` 与 A+B 值**逐字相同**（-1.587e-05） | 全局路径零接触 ✓ |
+| 全局回归护栏 | — | `convergence --full-compare` **逐行 diff 空**；`audit_ledger` 与 A+B 值**逐字相同**（-1.587e-05）。（2026-10-19 复核轮后：N2-3 合并超付修正使全局审计值变为 **-1.399e-05**、convergence 一处显示值 0.0350→0.0351——总账不变，见 [`2026-10-19-delta-teachback.md`](2026-10-19-delta-teachback.md)） | 全局路径零接触 ✓ |
 | 单测 | — | **247 passed**（+3 新）；ruff ✓ | 全绿 ✓ |
 
 ## 4. 重基线与登记
@@ -48,8 +49,8 @@
 
 ```bash
 python -m pytest -q
-python -m bench.cluster_fidelity --gate                  # PASS（t=4000）
-python -m bench.cluster_fidelity --gate --ticks 8000     # PASS（加压口径）
+python -m bench.cluster_fidelity --gate                  # PASS（缺省口径 t=8000）
+python -m bench.cluster_fidelity --gate --ticks 4000     # PASS（快速预检口径）
 python -m bench.resolution_switch --ticks 600            # blocked 0
 python -m bench.convergence --full-compare --sizes 2000 5000 10000 --steps 4000   # 全局不变
 ```

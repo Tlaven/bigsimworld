@@ -747,3 +747,13 @@ Stage 20 的校准把"可达性"钉成了瓶颈：生产样态下 crossings = 0�
 - **验收**：消融 pop@400 **5.10% → 1.23%**（int_marr 4.95% → 1.09%，低于流体参照 1.62%）；`--gate` **t=4000 PASS**（1.23/1.57/0.06；seed0=101 复现 PASS）、**t=8000 PASS**（3.52/1.56/1.03，改前 13.08/7.55/4.79）；`blocked=0`（四臂）；全局读数**逐字不变**（convergence diff 空）；`pytest 247 passed`。
 - **登记**：**口径确权（同日完成）**——`--gate` 缺省改为 t=8000（与 ADR-004 文字对齐；非 gate 模式仍 4000），CI 超时 25→45 min，`--ticks 4000` 保留为快速预检；残余 ~1.0–1.2% 属 ADR-004 既知机制。
 - 对账：[`reviews/2026-10-19-integer-marriage-fix.md`](reviews/2026-10-19-integer-marriage-fix.md)。
+
+### Stage 37 · 攒批 teach-back 复核 + 复核驱动的两处收窄（2026-10-19）
+
+- **范围**：`161e4d9..` 的 3 个契约文件 delta；3 个独立验证者（实现级）：整数语义（两轮不通过 → 修）、N2-1（通过）、N2-3（两轮不通过 → 修）。
+- **复核驱动的实现修复**（真缺陷）：
+  - `integer_marriage` 权重改为**整人数** `int(count)`（整数算术）——浮点权重 + `int(Σ)` 位置网格会让分数桶偏向前面的桶（三个 `1.2` 桶时第三桶恒不被抽中，违反"均匀"）；新测试 `test_integer_marriage_fractional_weights_are_uniform`。
+  - `distribute_pool` **合并安全规则**——整桶平移 merge 进"本轮稍后处理"的接收桶后，按快照 count 算 `k` 会**超付**（池可被扣成负数）；改为跳过被改变的桶、份额留池。全局侧显示级变化：convergence N=2000 `wealth_ks` 0.0350→0.0351；audit identity −1.587e-05 → −1.399e-05；**final+pool 总账逐字不变**。
+- **文档**：合同/ADR 补操作级细节（候选集/权重/两人抽取/信用时序/常数/锚点/死亡阈值/落桶迁移）；N2-3 补 overflow/相位/快照与合并/触底验收/阈值口径/`Σ死者`；N2-1 补 `sorted` 纪律与两处归属修正。
+- **验收**：`pytest 248 passed`；`--gate` t=4000 PASS（1.23/1.57/0.06）与 t=8000 PASS（3.51/1.52/1.04）；`blocked=0`；convergence 四门槛全过。
+- 对账：[`reviews/2026-10-19-delta-teachback.md`](reviews/2026-10-19-delta-teachback.md)。
