@@ -106,8 +106,9 @@ python -m bench.attention_trace --ticks 2000 --capacity 1000 --population 5000 -
 
 **长地平线（100 年）**（`bench.longrun --population 20000 --ticks 36000`，2026-10-18 打磨轮后）：occupied 稳定 1341–1653、**底表 ≡ occupied**（零残壳）、ms/tick **1.96–2.17 平线**（打磨前 2.84→4.83 单调上漂；晚期 ~2.3×）。
 
-> **`cluster_fidelity --gate` 当前为红（2026-10-18 实测，**本轮前即红**——`cbf343a` FAIL）**：triage 与口径复核登记于
-> [`docs/reviews/2026-10-18-core-operator-polish.md`](../docs/reviews/2026-10-18-core-operator-polish.md) §4；该门槛在使用前需先过一轮 triage。
+> **`cluster_fidelity --gate` 当前为红（根因已定位：`d739304` mini 整数语义，n=400 pop 相对偏差 ~1.8% → ~5.4%，种子块稳健）**：
+> triage 与决策选项见 [`docs/reviews/2026-10-19-cluster-gate-triage.md`](../docs/reviews/2026-10-19-cluster-gate-triage.md)；
+> 另注：ADR-004 文字口径（t=8000）与实现缺省（t=4000，CI 实际值）不一致——**口径待确权**。
 
 **收敛水平（vs 完整个体引擎，N=5000, t=8000, seeds 1/7/42）**：gini 差 ~0.01、KS 中位 **2.23%**（2026-10-18 遍历序加固后复测；加固前 1.90%——该值随历史阶段漂移，以最新复测为准）、p70–p95 逐分位 ±1%；p100 相对偏差 **+2.2%** 属**有界采样噪声**（跨种子 ±0.6% 摆动），不作调优目标（归因方案见 `docs/history.md` Stage 7）。
 
