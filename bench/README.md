@@ -109,7 +109,7 @@ python -m bench.attention_trace --ticks 2000 --capacity 1000 --population 5000 -
 > **`cluster_fidelity --gate`：已修复（2026-10-19）**——红根 = `d739304` 的 `integer_marriage` 选人偏斜（"最年轻优先"），
 > 收窄为确定性加权均匀后 **t=4000 与 t=8000 双口径 PASS**（n=400 pop 相对：1.23% / 3.52%；改前 5.10% / 13.08%）；
 > 记录见 [`docs/reviews/2026-10-19-integer-marriage-fix.md`](../docs/reviews/2026-10-19-integer-marriage-fix.md)。
-> **口径确权仍待办**：ADR-004 文字"默认 t=8000" vs 实现缺省 t=4000（CI 实际跑 4000）。
+> **口径已确权（2026-10-19）**：`--gate` 缺省 = **t=8000**（ADR-004 文字口径；CI job 超时 45 min）；`--ticks 4000` 为快速预检。
 
 **收敛水平（vs 完整个体引擎，N=5000, t=8000, seeds 1/7/42）**：gini 差 ~0.01、KS 中位 **2.23%**（2026-10-18 遍历序加固后复测；加固前 1.90%——该值随历史阶段漂移，以最新复测为准）、p70–p95 逐分位 ±1%；p100 相对偏差 **+2.2%** 属**有界采样噪声**（跨种子 ±0.6% 摆动），不作调优目标（归因方案见 `docs/history.md` Stage 7）。
 

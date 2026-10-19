@@ -202,6 +202,8 @@ GATE_POP_FRAC_MAX = 0.05   # `pop` 相对偏差上界（n=400 实测 −4.6% 是
 GATE_AGE_TOL = 0.005       # "不随 n 上升"的容差（跨 trial 抽样波动）
 GATE_POP_TOL = 0.005       # "相对偏差不增长"的容差
 GATE_SIZES = (400, 800, 1600)
+GATE_TICKS = 8000          # 门槛口径固定时长（ADR-004；2026-10-19 口径确权——此前的实现缺省 4000 与文字不符）
+FLOW_TICKS = 4000          # 非 gate 模式（A/B 扫描）的缺省时长
 
 
 def evaluate_gate(sweep):
@@ -266,7 +268,8 @@ def run_gate(sizes=GATE_SIZES, ticks=8000, trials=20, seed0=1):
 def main():
     parser = argparse.ArgumentParser(description="Coarse vs resolved cluster fidelity (A/B)")
     parser.add_argument("--members", type=int, default=8, help="家族规模（生产簇 ≤12）")
-    parser.add_argument("--ticks", type=int, default=4000, help="最后一个 checkpoint")
+    parser.add_argument("--ticks", type=int, default=None,
+                        help="最后一个 checkpoint（缺省：--gate 模式 = GATE_TICKS(8000)，普通模式 = 4000）")
     parser.add_argument("--trials", type=int, default=30, help="配对试验数（跨 trial 汇总）")
     parser.add_argument("--seed0", type=int, default=1, help="首个 trial 的种子（随后 +1）")
     parser.add_argument("--checkpoints", type=int, nargs="+", default=None,
@@ -279,12 +282,13 @@ def main():
                         help="门槛扫描的 members（**禁止**放 ≤12 的生产簇规模）")
     parser.add_argument("--gate-trials", type=int, default=20, help="门槛扫描每规模的配对试验数")
     args = parser.parse_args()
+    ticks = args.ticks if args.ticks is not None else (GATE_TICKS if args.gate else FLOW_TICKS)
 
     if args.gate:
-        print(f"分辨率层保真门槛（ADR-004）：跨规模 + 配对 + 多 trial（t={args.ticks}，"
+        print(f"分辨率层保真门槛（ADR-004）：跨规模 + 配对 + 多 trial（t={ticks}，"
               f"trials={args.gate_trials}，sizes={args.gate_sizes}）")
         print("门槛只在可判读口径上定义；**生产簇规模（≤12）上的单点读数不作门槛**\n")
-        ok, reasons, sweep = run_gate(args.gate_sizes, args.ticks, args.gate_trials, args.seed0)
+        ok, reasons, sweep = run_gate(args.gate_sizes, ticks, args.gate_trials, args.seed0)
         print(f"  {'members':>8}{'age_l1':>12}{'sd':>9}{'pop(R−C)':>12}{'相对':>9}")
         for row in sweep:
             print(f"  {row['members']:>8}{row['age_l1']:>12.4f}{row['age_l1_sd']:>9.4f}"
@@ -301,7 +305,7 @@ def main():
         raise SystemExit(1)
 
     checkpoints = sorted(set(args.checkpoints or
-                            [max(1, args.ticks * i // 4) for i in (1, 2, 3, 4)]))
+                            [max(1, ticks * i // 4) for i in (1, 2, 3, 4)]))
 
     print(f"coarse vs resolved 家族保真度（members={args.members}，隔离环境，"
           f"唯一差别 = 分辨率；trials={args.trials}，ticks={checkpoints[-1]}）")

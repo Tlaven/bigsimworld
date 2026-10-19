@@ -26,7 +26,7 @@ jobs:
 
   fidelity-gate:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -35,7 +35,7 @@ jobs:
           cache: pip
       - name: Install deps
         run: pip install -r requirements-dev.txt
-      - name: Cluster fidelity gate (ADR-004 -- cross-scale trend + population bias)
+      - name: Cluster fidelity gate (ADR-004 -- cross-scale trend + population bias, t=8000)
         run: python -m bench.cluster_fidelity --gate
 
   frontend:
